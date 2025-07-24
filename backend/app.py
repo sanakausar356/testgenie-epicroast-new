@@ -28,9 +28,36 @@ testgenie = TestGenie()
 epicroast = EpicRoast()
 jira_integration = JiraIntegration()
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint"""
+    return jsonify({
+        'message': 'TestGenie & Epic Roast API',
+        'version': '1.0.0',
+        'endpoints': {
+            'health': '/health',
+            'api_health': '/api/health',
+            'testgenie': '/api/testgenie/generate',
+            'epicroast': '/api/epicroast/generate',
+            'jira_ticket': '/api/jira/ticket/<ticket_number>'
+        }
+    })
+
+@app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint for Railway"""
+    return jsonify({
+        'status': 'healthy',
+        'services': {
+            'testgenie': testgenie.client is not None,
+            'epicroast': epicroast.client is not None,
+            'jira': jira_integration.is_available()
+        }
+    })
+
+@app.route('/api/health', methods=['GET'])
+def api_health_check():
+    """Health check endpoint for API"""
     return jsonify({
         'status': 'healthy',
         'services': {
