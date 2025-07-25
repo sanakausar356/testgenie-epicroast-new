@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Zap, Download, Copy, Share2, CheckCircle, AlertCircle, Flame, Sparkles } from 'lucide-react'
 import { generateRoast } from '../services/api'
 

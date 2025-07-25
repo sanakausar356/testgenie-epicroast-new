@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Sparkles, Zap, CheckCircle, Wifi, WifiOff } from 'lucide-react'
 import { healthCheck } from '../services/api'
 
