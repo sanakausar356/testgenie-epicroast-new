@@ -47,3 +47,4 @@ Thumbs.db
 *.txt
 !sample_acceptance_criteria.txt
 !README.md 
+.vercel

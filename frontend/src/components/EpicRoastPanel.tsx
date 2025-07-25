@@ -154,8 +154,8 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
   return (
     <div className="card">
       <div className="flex items-center space-x-2 mb-6">
-        <span className="text-3xl">🤖</span>
-        <h2 className="text-xl font-semibold text-gray-900">EpicRoast</h2>
+        <span className="text-3xl">🔥</span>
+        <h2 className="text-xl font-semibold text-gray-900">Epic Roast</h2>
         <span className="text-sm text-gray-500">🔥 Create Hilarious Roasts</span>
       </div>
 

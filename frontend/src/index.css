@@ -22,7 +22,7 @@
   }
   
   .card {
-    @apply bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-orange-200/50 p-6;
+    @apply bg-gradient-to-br from-orange-50 via-yellow-50 to-pink-50 backdrop-blur-sm rounded-xl shadow-lg border border-orange-200/50 p-6;
   }
   
   .input-field {

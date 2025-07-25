@@ -57,12 +57,12 @@ export const Header: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
+              <span className="text-4xl">🔥</span>
               <span className="text-4xl">🧙‍♂️</span>
-              <span className="text-4xl">🤖</span>
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                TestGenie & EpicRoast
+                Epic Roast & Test Genie
               </h1>
               <p className="text-sm text-gray-600">
                 AI-Powered Test Generation & Ticket Roasting

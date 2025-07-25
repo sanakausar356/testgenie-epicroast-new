@@ -26,7 +26,7 @@ function App() {
               }`}
             >
               <span className="text-lg">🔥</span>
-              <span className="font-medium">EpicRoast</span>
+              <span className="font-medium">Epic Roast</span>
             </button>
             <button
               onClick={() => setActiveTab('testgenie')}
@@ -37,7 +37,7 @@ function App() {
               }`}
             >
               <span className="text-lg">🧙‍♂️</span>
-              <span className="font-medium">TestGenie</span>
+              <span className="font-medium">Test Genie</span>
             </button>
           </div>
         </div>

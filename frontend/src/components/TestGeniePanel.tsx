@@ -136,7 +136,7 @@ export const TestGeniePanel: React.FC<TestGeniePanelProps> = ({
     <div className="card">
       <div className="flex items-center space-x-2 mb-6">
         <span className="text-3xl">🧙‍♂️</span>
-        <h2 className="text-xl font-semibold text-gray-900">TestGenie</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Test Genie</h2>
         <span className="text-sm text-gray-500">✨ Generate Test Scenarios</span>
       </div>
 
