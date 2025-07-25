@@ -1,5 +1,5 @@
-# TestGenie & Epic Roast 🎯🔥
-
+# TestGenie & Epic Roast 🎯🔥  
+test
 **TestGenie**: A command-line tool that takes acceptance criteria as input and generates high-level test scenarios and sample test cases using Azure OpenAI.
 
 **Epic Roast**: A CLI-based fun tool that roasts Jira tickets using AI. The roast is humorous but insightful—calling out vagueness, lack of clarity, and buzzwords.
