@@ -52,7 +52,7 @@ export const Header: React.FC = () => {
   }
 
   return (
-    <header className="bg-white/90 backdrop-blur-sm shadow-lg border-b border-orange-200">
+    <header className="bg-white/95 backdrop-blur-md shadow-2xl border-b border-cyan-200/50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -62,7 +62,7 @@ export const Header: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Epic Roast & Test Genie
+                🔥Epic Roast & 🧙‍♂️ Test Genie
               </h1>
               <p className="text-sm text-gray-600">
                 AI-Powered Test Generation & Ticket Roasting

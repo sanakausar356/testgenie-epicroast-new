@@ -22,7 +22,65 @@
   }
   
   .card {
-    @apply bg-gradient-to-br from-orange-50 via-yellow-50 to-pink-50 backdrop-blur-sm rounded-xl shadow-lg border border-orange-200/50 p-6;
+    @apply bg-gradient-to-br from-cyan-50 via-blue-50 to-coral-50 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/30 p-8 relative overflow-hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  .card::before {
+    content: "🏖️";
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    font-size: 4rem;
+    opacity: 0.2;
+    transform: rotate(20deg);
+    pointer-events: none;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .card::after {
+    content: "🌊";
+    position: absolute;
+    bottom: -10px;
+    left: -10px;
+    font-size: 3rem;
+    opacity: 0.3;
+    transform: rotate(-15deg);
+    pointer-events: none;
+    animation: wave 8s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: rotate(20deg) translateY(0px); }
+    50% { transform: rotate(20deg) translateY(-10px); }
+  }
+
+  @keyframes wave {
+    0%, 100% { transform: rotate(-15deg) scale(1); }
+    50% { transform: rotate(-15deg) scale(1.1); }
+  }
+
+  /* Modern glassmorphism buttons */
+  .beach-button {
+    @apply bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg border border-white/20 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:scale-105;
+  }
+
+  /* Beach vibe input fields */
+  .beach-input {
+    @apply bg-white/80 backdrop-blur-sm border-2 border-cyan-200/50 rounded-xl px-4 py-3 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200/50 transition-all duration-300;
+  }
+
+  /* Action items styling */
+  .action-items {
+    @apply mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200/50;
+  }
+
+  .action-items h3 {
+    @apply text-lg font-bold text-orange-800 mb-3 flex items-center;
+  }
+
+  .action-item {
+    @apply flex items-center space-x-3 p-2 rounded-lg bg-white/60 backdrop-blur-sm border border-orange-200/30 mb-2;
   }
   
   .input-field {

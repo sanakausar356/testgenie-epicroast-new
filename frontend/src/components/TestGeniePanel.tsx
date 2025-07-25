@@ -155,7 +155,7 @@ export const TestGeniePanel: React.FC<TestGeniePanelProps> = ({
               setValidationError('')
             }}
             placeholder="e.g., ODCD-33741"
-            className={`input-field ${validationError && !ticketNumber && !acceptanceCriteria.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
+            className={`beach-input w-full ${validationError && !ticketNumber && !acceptanceCriteria.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
           />
           <p className="text-xs text-gray-500 mt-1">
             Enter a Jira ticket number to automatically fetch acceptance criteria
@@ -183,7 +183,7 @@ export const TestGeniePanel: React.FC<TestGeniePanelProps> = ({
             }}
             placeholder="Paste your acceptance criteria here... e.g., 'User should be able to reset password via email link'"
             rows={4}
-            className={`input-field resize-none ${validationError && !ticketNumber && !acceptanceCriteria.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
+            className={`beach-input w-full resize-none ${validationError && !ticketNumber && !acceptanceCriteria.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
           />
           <p className="text-xs text-gray-500 mt-1">
             Describe the feature requirements or paste existing acceptance criteria
@@ -200,7 +200,7 @@ export const TestGeniePanel: React.FC<TestGeniePanelProps> = ({
 
         <button
           onClick={handleGenerate}
-          className="btn-primary w-full flex items-center justify-center space-x-2 py-3"
+          className="beach-button w-full flex items-center justify-center space-x-2"
         >
           <Sparkles className="h-4 w-4" />
           <span>Generate Test Scenarios</span>

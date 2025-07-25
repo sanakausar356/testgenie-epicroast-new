@@ -147,6 +147,35 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
           }
           return null
         })}
+        
+        {/* Action Items Section */}
+        <div className="action-items">
+          <h3 className="text-lg font-bold text-orange-800 mb-3 flex items-center">
+            ⛱️ Action Items Summary
+          </h3>
+          <div className="space-y-2">
+            <div className="action-item">
+              <span className="text-orange-600 font-medium">Scrum Master</span>
+              <span className="text-gray-600">→</span>
+              <span className="text-gray-700">Facilitate retrospective session</span>
+            </div>
+            <div className="action-item">
+              <span className="text-orange-600 font-medium">Developer</span>
+              <span className="text-gray-600">→</span>
+              <span className="text-gray-700">Review and refactor code based on feedback</span>
+            </div>
+            <div className="action-item">
+              <span className="text-orange-600 font-medium">Product Owner</span>
+              <span className="text-gray-600">→</span>
+              <span className="text-gray-700">Clarify acceptance criteria for better quality</span>
+            </div>
+            <div className="action-item">
+              <span className="text-orange-600 font-medium">QA</span>
+              <span className="text-gray-600">→</span>
+              <span className="text-gray-700">Run regression tests to ensure stability</span>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -154,9 +183,9 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
   return (
     <div className="card">
       <div className="flex items-center space-x-2 mb-6">
-        <span className="text-3xl">🔥</span>
-        <h2 className="text-xl font-semibold text-gray-900">Epic Roast</h2>
-        <span className="text-sm text-gray-500">🔥 Create Hilarious Roasts</span>
+        <span className="text-2xl">🔥</span>
+        <h2 className="text-xl font-semibold text-gray-900">🔥Epic Roast🔥</h2>
+        <span className="text-sm text-gray-500">Create Hilarious Roasts</span>
       </div>
 
       {/* Input Section */}
@@ -174,7 +203,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
               setValidationError('')
             }}
             placeholder="e.g., ODCD-33741"
-            className={`input-field ${validationError && !ticketNumber && !ticketContent.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
+            className={`beach-input w-full ${validationError && !ticketNumber && !ticketContent.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
           />
           <p className="text-xs text-gray-500 mt-1">
             Enter a Jira ticket number to automatically fetch ticket content
@@ -202,7 +231,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
             }}
             placeholder="Paste the ticket content to roast... e.g., 'As a user, I want to be able to click a button'"
             rows={4}
-            className={`input-field resize-none ${validationError && !ticketNumber && !ticketContent.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
+            className={`beach-input w-full resize-none ${validationError && !ticketNumber && !ticketContent.trim() ? 'border-red-300 focus:border-red-500' : ''}`}
           />
           <p className="text-xs text-gray-500 mt-1">
             Paste the ticket description, acceptance criteria, or any content to roast
@@ -218,7 +247,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              className="input-field"
+              className="beach-input w-full"
             >
               <option value="default">🎯 Default</option>
               <option value="pirate">🏴‍☠️ Pirate</option>
@@ -234,7 +263,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="input-field"
+              className="beach-input w-full"
             >
               <option value="light">🧂 Light</option>
               <option value="savage">🌶️ Savage</option>
@@ -253,7 +282,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
 
         <button
           onClick={handleGenerate}
-          className="btn-secondary w-full flex items-center justify-center space-x-2 py-3"
+          className="beach-button w-full flex items-center justify-center space-x-2"
         >
           <Zap className="h-4 w-4" />
           <span>Generate Epic Roast</span>
