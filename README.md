@@ -1,4 +1,4 @@
-# TestGenie & Epic Roast 🎯🔥
+# TestGenie & Epic Roast 🎯🔥  
 
 **TestGenie**: A command-line tool that takes acceptance criteria as input and generates high-level test scenarios and sample test cases using Azure OpenAI.
 
