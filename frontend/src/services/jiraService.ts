@@ -66,7 +66,7 @@ export class JiraService {
     }
   }
 
-  static async fetchBoardIssues(boardId: string, statusFilter: string[]): Promise<JiraCard[]> {
+  static async fetchBoardIssues(_boardId: string, statusFilter: string[]): Promise<JiraCard[]> {
     try {
       // JQL query to get issues from specific board with status filter
       const jql = `project in (${Object.values(TEAM_BOARD_MAPPING).map(t => t.projectKey).join(', ')}) AND status in ("${statusFilter.join('", "')}") ORDER BY created DESC`
