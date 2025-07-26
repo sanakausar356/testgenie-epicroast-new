@@ -10,7 +10,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie'>('epicroast')
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-coral-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-orange-100 relative overflow-hidden">
       {/* Modern Beach Background Elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-8 left-8 text-7xl opacity-15 animate-pulse">☀️</div>
@@ -31,7 +31,7 @@ function App() {
               onClick={() => setActiveTab('epicroast')}
               className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
                 activeTab === 'epicroast'
-                  ? 'bg-gradient-to-r from-coral-400 to-orange-500 text-white shadow-xl scale-105'
+                  ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-xl scale-105'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-cyan-50 hover:scale-105'
               }`}
             >
