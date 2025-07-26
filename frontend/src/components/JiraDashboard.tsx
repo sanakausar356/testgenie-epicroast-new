@@ -28,11 +28,10 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
 
   const scrumTeams = [
     { key: 'all', name: 'All Scrum Teams' },
-    { key: 'odyssey', name: 'Odyssey Continuous Delivery' },
-    { key: 'everest', name: 'Everest' },
-    { key: 'everest-pwa', name: 'Everest - PWA Kit Upgrade' },
-    { key: 'batman', name: 'The Batman' },
-    { key: 'silver-surfers', name: 'Silver Surfers Scrum' }
+    { key: 'odcd-everest', name: 'ODCD - Everest' },
+    { key: 'odcd-silver-surfers', name: 'ODCD - Silver Surfers Scrum' },
+    { key: 'the-batman', name: 'The Batman' },
+    { key: 'everest-pwa-kit', name: 'Everest - PWA Kit Upgrade Project' }
   ]
 
   // Status filter options
@@ -66,7 +65,7 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
         
         // Apply status filter to mock data
         if (statusFilter === 'ready-to-groom') {
-          fetchedCards = fetchedCards.filter(card => card.status === 'Ready to Groom')
+          fetchedCards = fetchedCards.filter(card => card.status === 'To Groom')
         } else if (statusFilter === 'ready-for-dev') {
           fetchedCards = fetchedCards.filter(card => card.status === 'Ready for Dev')
         }

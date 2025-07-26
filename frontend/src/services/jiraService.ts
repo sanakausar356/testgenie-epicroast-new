@@ -19,24 +19,23 @@ interface JiraConfig {
 
 // Jira configuration - using existing .env file
 const JIRA_CONFIG: JiraConfig = {
-  baseUrl: (import.meta as any).env?.VITE_JIRA_URL || (import.meta as any).env?.JIRA_URL || 'https://your-company.atlassian.net',
+  baseUrl: (import.meta as any).env?.VITE_JIRA_URL || (import.meta as any).env?.JIRA_URL || 'https://newellbrands.atlassian.net',
   email: (import.meta as any).env?.VITE_JIRA_USERNAME || (import.meta as any).env?.JIRA_USERNAME || '',
   apiToken: (import.meta as any).env?.VITE_JIRA_API_TOKEN || (import.meta as any).env?.JIRA_API_TOKEN || ''
 }
 
-// Team to board mapping
+// Team to board mapping - Real Newell Brands ODCD boards
 const TEAM_BOARD_MAPPING = {
-  'odyssey': { boardId: '123', projectKey: 'ODCD' },
-  'everest': { boardId: '124', projectKey: 'ODCD-EVEREST' },
-  'everest-pwa': { boardId: '125', projectKey: 'EVEREST-PWA' },
-  'batman': { boardId: '126', projectKey: 'BATMAN' },
-  'silver-surfers': { boardId: '127', projectKey: 'ODCD-SILVER' }
+  'odcd-everest': { boardId: '1806', projectKey: 'ODCD' },
+  'odcd-silver-surfers': { boardId: '1558', projectKey: 'ODCD' },
+  'the-batman': { boardId: '400', projectKey: 'ODCD' },
+  'everest-pwa-kit': { boardId: '1772', projectKey: 'ODCD' }
 }
 
-// Status mapping for filtering
+// Status mapping for filtering - Real status names
 const STATUS_FILTERS = {
-  'ready-to-groom': ['Ready to Groom', 'Backlog', 'To Do'],
-  'ready-for-dev': ['Ready for Dev', 'Ready for Development', 'In Development']
+  'ready-to-groom': ['To Groom'],
+  'ready-for-dev': ['Ready for Dev']
 }
 
 export class JiraService {
@@ -152,13 +151,13 @@ export class JiraService {
       {
         key: 'ODCD-33741',
         summary: 'Implement user authentication flow',
-        status: 'Ready to Groom',
+        status: 'To Groom',
         priority: 'High',
         assignee: 'John Doe',
         project: 'ODCD',
         issueType: 'Story',
         created: '2024-01-15',
-        team: 'odyssey'
+        team: 'odcd-everest'
       },
       {
         key: 'ODCD-33742',
@@ -169,40 +168,40 @@ export class JiraService {
         project: 'ODCD',
         issueType: 'Story',
         created: '2024-01-16',
-        team: 'odyssey'
+        team: 'odcd-everest'
       },
       {
-        key: 'EVEREST-1234',
+        key: 'ODCD-33743',
         summary: 'Upgrade PWA Kit to latest version',
-        status: 'Ready to Groom',
+        status: 'To Groom',
         priority: 'High',
         assignee: 'Mike Johnson',
-        project: 'EVEREST-PWA',
+        project: 'ODCD',
         issueType: 'Epic',
         created: '2024-01-14',
-        team: 'everest-pwa'
+        team: 'everest-pwa-kit'
       },
       {
-        key: 'BATMAN-5678',
+        key: 'ODCD-33744',
         summary: 'Implement dark mode feature',
         status: 'Ready for Dev',
         priority: 'Low',
         assignee: 'Sarah Wilson',
-        project: 'BATMAN',
+        project: 'ODCD',
         issueType: 'Story',
         created: '2024-01-17',
-        team: 'batman'
+        team: 'the-batman'
       },
       {
-        key: 'ODCD-33743',
+        key: 'ODCD-33745',
         summary: 'Optimize database queries',
-        status: 'Ready to Groom',
+        status: 'To Groom',
         priority: 'High',
         assignee: 'Alex Brown',
-        project: 'ODCD-SILVER',
+        project: 'ODCD',
         issueType: 'Task',
         created: '2024-01-18',
-        team: 'silver-surfers'
+        team: 'odcd-silver-surfers'
       }
     ]
   }
