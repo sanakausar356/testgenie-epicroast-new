@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Search, Filter, RefreshCw, ExternalLink } from 'lucide-react'
+import { JiraService } from '../services/jiraService'
 
 interface JiraCard {
   key: string
@@ -10,6 +11,7 @@ interface JiraCard {
   project: string
   issueType: string
   created: string
+  team: string
 }
 
 interface JiraDashboardProps {
@@ -21,87 +23,56 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedProject, setSelectedProject] = useState('all')
+  const [selectedTeam, setSelectedTeam] = useState('all')
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
-  const projects = [
-    { key: 'all', name: 'All Projects' },
-    { key: 'ODCD', name: 'ODCD - Odyssey Continuous Delivery' },
-    { key: 'ODCD-EVEREST', name: 'ODCD - Everest' },
-    { key: 'EVEREST-PWA', name: 'Everest - PWA Kit Upgrade Project' },
-    { key: 'BATMAN', name: 'The Batman' },
-    { key: 'ODCD-SILVER', name: 'ODCD - Silver Surfers Scrum' }
+  const scrumTeams = [
+    { key: 'all', name: 'All Scrum Teams' },
+    { key: 'odyssey', name: 'Odyssey Continuous Delivery' },
+    { key: 'everest', name: 'Everest' },
+    { key: 'everest-pwa', name: 'Everest - PWA Kit Upgrade' },
+    { key: 'batman', name: 'The Batman' },
+    { key: 'silver-surfers', name: 'Silver Surfers Scrum' }
   ]
 
-  // Mock data for demonstration - replace with actual Jira API calls
-  const mockCards: JiraCard[] = [
-    {
-      key: 'ODCD-33741',
-      summary: 'Implement user authentication flow',
-      status: 'Ready to Groom',
-      priority: 'High',
-      assignee: 'John Doe',
-      project: 'ODCD',
-      issueType: 'Story',
-      created: '2024-01-15'
-    },
-    {
-      key: 'ODCD-33742',
-      summary: 'Add payment gateway integration',
-      status: 'Ready to Groom',
-      priority: 'Medium',
-      assignee: 'Jane Smith',
-      project: 'ODCD',
-      issueType: 'Story',
-      created: '2024-01-16'
-    },
-    {
-      key: 'EVEREST-1234',
-      summary: 'Upgrade PWA Kit to latest version',
-      status: 'Ready to Groom',
-      priority: 'High',
-      assignee: 'Mike Johnson',
-      project: 'EVEREST-PWA',
-      issueType: 'Epic',
-      created: '2024-01-14'
-    },
-    {
-      key: 'BATMAN-5678',
-      summary: 'Implement dark mode feature',
-      status: 'Ready to Groom',
-      priority: 'Low',
-      assignee: 'Sarah Wilson',
-      project: 'BATMAN',
-      issueType: 'Story',
-      created: '2024-01-17'
-    },
-    {
-      key: 'ODCD-33743',
-      summary: 'Optimize database queries',
-      status: 'Ready to Groom',
-      priority: 'High',
-      assignee: 'Alex Brown',
-      project: 'ODCD-SILVER',
-      issueType: 'Task',
-      created: '2024-01-18'
-    }
-  ]
+  // Status filter options
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ready-to-groom' | 'ready-for-dev'>('all')
 
   const fetchJiraCards = async () => {
     setLoading(true)
     setError('')
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      let fetchedCards: JiraCard[] = []
       
-      // Filter by selected project
-      let filteredCards = mockCards
-      if (selectedProject !== 'all') {
-        filteredCards = mockCards.filter(card => card.project === selectedProject)
+      // Try to fetch real Jira data first
+      try {
+        if (statusFilter === 'ready-to-groom') {
+          fetchedCards = await JiraService.fetchReadyToGroomCards(selectedTeam)
+        } else if (statusFilter === 'ready-for-dev') {
+          fetchedCards = await JiraService.fetchReadyForDevCards(selectedTeam)
+        } else {
+          fetchedCards = await JiraService.fetchAllCards(selectedTeam)
+        }
+      } catch (jiraError) {
+        console.warn('Jira API failed, using mock data:', jiraError)
+        // Fallback to mock data if Jira API fails
+        fetchedCards = JiraService.getMockData()
+        
+        // Apply team filter to mock data
+        if (selectedTeam !== 'all') {
+          fetchedCards = fetchedCards.filter(card => card.team === selectedTeam)
+        }
+        
+        // Apply status filter to mock data
+        if (statusFilter === 'ready-to-groom') {
+          fetchedCards = fetchedCards.filter(card => card.status === 'Ready to Groom')
+        } else if (statusFilter === 'ready-for-dev') {
+          fetchedCards = fetchedCards.filter(card => card.status === 'Ready for Dev')
+        }
       }
       
-      setCards(filteredCards)
+      setCards(fetchedCards)
       setLastRefresh(new Date())
     } catch (err) {
       setError('Failed to fetch Jira cards')
@@ -112,7 +83,7 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
 
   useEffect(() => {
     fetchJiraCards()
-  }, [selectedProject])
+  }, [selectedTeam, statusFilter])
 
   const filteredCards = cards.filter(card =>
     card.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -158,7 +129,7 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Search Cards
@@ -177,18 +148,33 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Project Filter
+            Scrum Team Filter
           </label>
           <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+            value={selectedTeam}
+            onChange={(e) => setSelectedTeam(e.target.value)}
             className="beach-input w-full"
           >
-            {projects.map(project => (
-              <option key={project.key} value={project.key}>
-                {project.name}
+            {scrumTeams.map(team => (
+              <option key={team.key} value={team.key}>
+                {team.name}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Status Filter
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'ready-to-groom' | 'ready-for-dev')}
+            className="beach-input w-full"
+          >
+            <option value="all">All Statuses</option>
+            <option value="ready-to-groom">Ready to Groom</option>
+            <option value="ready-for-dev">Ready for Dev</option>
           </select>
         </div>
       </div>
@@ -277,10 +263,10 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
         <h3 className="font-medium text-gray-900 mb-2">Quick Actions</h3>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setSelectedProject('all')}
+            onClick={() => setSelectedTeam('all')}
             className="text-xs bg-white/60 backdrop-blur-sm px-3 py-1 rounded-lg border border-cyan-200/30 hover:bg-white/80 transition-colors"
           >
-            Show All Projects
+            Show All Teams
           </button>
           <button
             onClick={() => setSearchTerm('')}

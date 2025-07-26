@@ -8,7 +8,7 @@ import { LoadingSpinner } from './components/LoadingSpinner'
 function App() {
   const [sharedTicketNumber, setSharedTicketNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie' | 'jira'>('jira')
+  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie' | 'jira'>('epicroast')
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-orange-100 relative overflow-hidden">
@@ -28,17 +28,6 @@ function App() {
         {/* Tab Navigation - Mobile First */}
         <div className="mb-8">
           <div className="flex bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/50 p-1 max-w-2xl mx-auto">
-            <button
-              onClick={() => setActiveTab('jira')}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
-                activeTab === 'jira'
-                  ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-xl scale-105'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-cyan-50 hover:scale-105'
-              }`}
-            >
-              <span className="text-lg">📊</span>
-              <span className="font-medium">Jira Dashboard</span>
-            </button>
             <button
               onClick={() => setActiveTab('epicroast')}
               className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
@@ -60,6 +49,17 @@ function App() {
             >
               <span className="text-lg">🧙‍♂️</span>
               <span className="font-medium">Test Genie</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('jira')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
+                activeTab === 'jira'
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-xl scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-cyan-50 hover:scale-105'
+              }`}
+            >
+              <span className="text-lg">📊</span>
+              <span className="font-medium">Jira Dashboard</span>
             </button>
           </div>
         </div>
