@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { TestGeniePanel } from './components/TestGeniePanel'
 import { EpicRoastPanel } from './components/EpicRoastPanel'
+import { JiraDashboard } from './components/JiraDashboard'
 import { Header } from './components/Header'
 import { LoadingSpinner } from './components/LoadingSpinner'
 
 function App() {
   const [sharedTicketNumber, setSharedTicketNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie'>('epicroast')
+  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie' | 'jira'>('jira')
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-orange-100 relative overflow-hidden">
@@ -26,7 +27,18 @@ function App() {
       <main className="container mx-auto px-4 py-8">
         {/* Tab Navigation - Mobile First */}
         <div className="mb-8">
-          <div className="flex bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/50 p-1 max-w-md mx-auto">
+          <div className="flex bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/50 p-1 max-w-2xl mx-auto">
+            <button
+              onClick={() => setActiveTab('jira')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
+                activeTab === 'jira'
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-xl scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-cyan-50 hover:scale-105'
+              }`}
+            >
+              <span className="text-lg">📊</span>
+              <span className="font-medium">Jira Dashboard</span>
+            </button>
             <button
               onClick={() => setActiveTab('epicroast')}
               className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
@@ -52,22 +64,56 @@ function App() {
           </div>
         </div>
 
-        {/* Desktop Layout - Swapped positions */}
-        <div className="hidden lg:grid lg:grid-cols-2 gap-8">
-          <EpicRoastPanel 
-            sharedTicketNumber={sharedTicketNumber}
-            setSharedTicketNumber={setSharedTicketNumber}
-            setIsLoading={setIsLoading}
-          />
-          <TestGeniePanel 
-            sharedTicketNumber={sharedTicketNumber}
-            setSharedTicketNumber={setSharedTicketNumber}
-            setIsLoading={setIsLoading}
-          />
+        {/* Desktop Layout - Full width for Jira Dashboard, 2-column for others */}
+        <div className="hidden lg:block">
+          {activeTab === 'jira' && (
+            <JiraDashboard 
+              onSelectTicket={(ticketKey) => {
+                setSharedTicketNumber(ticketKey)
+                setActiveTab('epicroast') // Switch to Epic Roast when ticket is selected
+              }}
+            />
+          )}
+          {activeTab === 'epicroast' && (
+            <div className="grid lg:grid-cols-2 gap-8">
+              <EpicRoastPanel 
+                sharedTicketNumber={sharedTicketNumber}
+                setSharedTicketNumber={setSharedTicketNumber}
+                setIsLoading={setIsLoading}
+              />
+              <TestGeniePanel 
+                sharedTicketNumber={sharedTicketNumber}
+                setSharedTicketNumber={setSharedTicketNumber}
+                setIsLoading={setIsLoading}
+              />
+            </div>
+          )}
+          {activeTab === 'testgenie' && (
+            <div className="grid lg:grid-cols-2 gap-8">
+              <EpicRoastPanel 
+                sharedTicketNumber={sharedTicketNumber}
+                setSharedTicketNumber={setSharedTicketNumber}
+                setIsLoading={setIsLoading}
+              />
+              <TestGeniePanel 
+                sharedTicketNumber={sharedTicketNumber}
+                setSharedTicketNumber={setSharedTicketNumber}
+                setIsLoading={setIsLoading}
+              />
+            </div>
+          )}
         </div>
 
         {/* Mobile Layout - Tabbed */}
         <div className="lg:hidden">
+          {activeTab === 'jira' && (
+            <JiraDashboard 
+              onSelectTicket={(ticketKey) => {
+                setSharedTicketNumber(ticketKey)
+                setActiveTab('epicroast') // Switch to Epic Roast when ticket is selected
+              }}
+            />
+          )}
           {activeTab === 'epicroast' && (
             <EpicRoastPanel 
               sharedTicketNumber={sharedTicketNumber}
