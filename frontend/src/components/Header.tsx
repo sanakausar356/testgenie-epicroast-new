@@ -59,12 +59,12 @@ export const Header: React.FC = () => {
           <div className="flex items-center space-x-2">
           </div>
             <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
-            Epic Roast & Test Genie
+                                  <h1 className="text-2xl font-bold text-gray-900">
+            🔥Epic Roast 🧙‍♂️ Test Genie
           </h1>
-              <p className="text-sm text-gray-600">
-                AI-Powered Test Generation & Ticket Roasting
-              </p>
+          <p className="text-sm text-gray-600">
+            AI-Powered Story Ticket Roasting & Test Generation
+          </p>
             </div>
           </div>
           
