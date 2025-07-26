@@ -145,6 +145,11 @@ export class JiraService {
     }
   }
 
+  // Check if Jira credentials are configured
+  static isConfigured(): boolean {
+    return !!(JIRA_CONFIG.email && JIRA_CONFIG.apiToken && JIRA_CONFIG.baseUrl)
+  }
+
   // Fallback to mock data if Jira API is not configured
   static getMockData(): JiraCard[] {
     return [

@@ -44,31 +44,42 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
     try {
       let fetchedCards: JiraCard[] = []
       
-      // Try to fetch real Jira data first
-      try {
-        if (statusFilter === 'ready-to-groom') {
-          fetchedCards = await JiraService.fetchReadyToGroomCards(selectedTeam)
-        } else if (statusFilter === 'ready-for-dev') {
-          fetchedCards = await JiraService.fetchReadyForDevCards(selectedTeam)
-        } else {
-          fetchedCards = await JiraService.fetchAllCards(selectedTeam)
-        }
-      } catch (jiraError) {
-        console.warn('Jira API failed, using mock data:', jiraError)
-        // Fallback to mock data if Jira API fails
+      // Check if Jira is configured first
+      if (!JiraService.isConfigured()) {
+        console.warn('Jira credentials not configured - using mock data')
+        setError('Jira credentials not configured. Please add JIRA_USERNAME, JIRA_API_TOKEN, and JIRA_URL to your .env file.')
         fetchedCards = JiraService.getMockData()
-        
-        // Apply team filter to mock data
-        if (selectedTeam !== 'all') {
-          fetchedCards = fetchedCards.filter(card => card.team === selectedTeam)
+      } else {
+        // Try to fetch real Jira data
+        try {
+          console.log('Attempting to fetch real Jira data...')
+          if (statusFilter === 'ready-to-groom') {
+            fetchedCards = await JiraService.fetchReadyToGroomCards(selectedTeam)
+          } else if (statusFilter === 'ready-for-dev') {
+            fetchedCards = await JiraService.fetchReadyForDevCards(selectedTeam)
+          } else {
+            fetchedCards = await JiraService.fetchAllCards(selectedTeam)
+          }
+          console.log('Successfully fetched real Jira data:', fetchedCards.length, 'cards')
+          setError('') // Clear any previous errors
+        } catch (jiraError) {
+          console.warn('Jira API failed, using mock data:', jiraError)
+          setError('Jira API connection failed - showing mock data. Please check your Jira credentials and network connection.')
+          // Fallback to mock data if Jira API fails
+          fetchedCards = JiraService.getMockData()
         }
-        
-        // Apply status filter to mock data
-        if (statusFilter === 'ready-to-groom') {
-          fetchedCards = fetchedCards.filter(card => card.status === 'To Groom')
-        } else if (statusFilter === 'ready-for-dev') {
-          fetchedCards = fetchedCards.filter(card => card.status === 'Ready for Dev')
-        }
+      }
+      
+      // Apply team filter to mock data
+      if (selectedTeam !== 'all') {
+        fetchedCards = fetchedCards.filter(card => card.team === selectedTeam)
+      }
+      
+      // Apply status filter to mock data
+      if (statusFilter === 'ready-to-groom') {
+        fetchedCards = fetchedCards.filter(card => card.status === 'To Groom')
+      } else if (statusFilter === 'ready-for-dev') {
+        fetchedCards = fetchedCards.filter(card => card.status === 'Ready for Dev')
       }
       
       setCards(fetchedCards)
@@ -243,7 +254,7 @@ export const JiraDashboard: React.FC<JiraDashboardProps> = ({ onSelectTicket }) 
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      window.open(`https://jira.company.com/browse/${card.key}`, '_blank')
+                      window.open(`https://newellbrands.atlassian.net/browse/${card.key}`, '_blank')
                     }}
                     className="text-cyan-600 hover:text-cyan-700 text-xs flex items-center space-x-1"
                   >
