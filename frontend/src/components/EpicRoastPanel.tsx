@@ -118,11 +118,31 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
   }
 
   const formatResults = (rawResults: string) => {
-    // Format roast results with better styling
+    // Format roast results with better styling and HTML support
     const lines = rawResults.split('\n')
     return (
       <div className="space-y-3">
         {lines.map((line, index) => {
+          // Handle HTML bold tags
+          if (line.includes('<b>') && line.includes('</b>')) {
+            const parts = line.split(/(<b>.*?<\/b>)/g)
+            return (
+              <p key={index} className="text-gray-700 leading-relaxed">
+                {parts.map((part, partIndex) => {
+                  if (part.startsWith('<b>') && part.endsWith('</b>')) {
+                    return (
+                      <strong key={partIndex} className="font-bold text-secondary-700">
+                        {part.replace(/<\/?b>/g, '')}
+                      </strong>
+                    )
+                  }
+                  return part
+                })}
+              </p>
+            )
+          }
+          
+          // Handle markdown bold (legacy support)
           if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
             return (
               <h4 key={index} className="text-lg font-bold text-secondary-700 mb-2">
@@ -130,6 +150,8 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
               </h4>
             )
           }
+          
+          // Handle bullet points
           if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
             return (
               <div key={index} className="flex items-start space-x-2 pl-4">
@@ -138,6 +160,8 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
               </div>
             )
           }
+          
+          // Handle regular text
           if (line.trim()) {
             return (
               <p key={index} className="text-gray-700 leading-relaxed">
@@ -145,6 +169,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
               </p>
             )
           }
+          
           return null
         })}
         
