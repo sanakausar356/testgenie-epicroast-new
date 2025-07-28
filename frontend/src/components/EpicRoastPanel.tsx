@@ -123,16 +123,29 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
     return (
       <div className="space-y-3">
         {lines.map((line, index) => {
-          // Handle HTML bold tags
+          // Handle HTML bold tags with simple replacement
           if (line.includes('<b>') && line.includes('</b>')) {
-            const parts = line.split(/(<b>.*?<\/b>)/g)
+            // Replace HTML bold tags with markdown-style bold for easier processing
+            const processedLine = line.replace(/<b>/g, '**').replace(/<\/b>/g, '**')
+            
+            // Check if the entire line is bold (like a heading)
+            if (processedLine.trim().startsWith('**') && processedLine.trim().endsWith('**')) {
+              return (
+                <h4 key={index} className="text-lg font-bold text-secondary-700 mb-2">
+                  {processedLine.replace(/\*\*/g, '')}
+                </h4>
+              )
+            }
+            
+            // Handle mixed content with bold parts
+            const parts = processedLine.split(/(\*\*.*?\*\*)/g)
             return (
               <p key={index} className="text-gray-700 leading-relaxed">
                 {parts.map((part, partIndex) => {
-                  if (part.startsWith('<b>') && part.endsWith('</b>')) {
+                  if (part.startsWith('**') && part.endsWith('**')) {
                     return (
                       <strong key={partIndex} className="font-bold text-secondary-700">
-                        {part.replace(/<\/?b>/g, '')}
+                        {part.replace(/\*\*/g, '')}
                       </strong>
                     )
                   }
