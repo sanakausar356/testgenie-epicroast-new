@@ -17,11 +17,11 @@ interface JiraConfig {
   apiToken: string
 }
 
-// Jira configuration - using existing .env file
+// Jira configuration - using Vercel environment variables
 const JIRA_CONFIG: JiraConfig = {
-  baseUrl: (import.meta as any).env?.VITE_JIRA_URL || (import.meta as any).env?.JIRA_URL || 'https://newellbrands.atlassian.net',
-  email: (import.meta as any).env?.VITE_JIRA_USERNAME || (import.meta as any).env?.JIRA_USERNAME || '',
-  apiToken: (import.meta as any).env?.VITE_JIRA_API_TOKEN || (import.meta as any).env?.JIRA_API_TOKEN || ''
+  baseUrl: (import.meta as any).env?.VITE_JIRA_URL || 'https://newellbrands.atlassian.net',
+  email: (import.meta as any).env?.VITE_JIRA_USERNAME || '',
+  apiToken: (import.meta as any).env?.VITE_JIRA_API_TOKEN || ''
 }
 
 // Log configuration for debugging
