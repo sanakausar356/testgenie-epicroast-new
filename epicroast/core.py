@@ -4,6 +4,7 @@ Core Epic Roast functionality
 
 import os
 import sys
+import re
 from typing import Optional
 from dotenv import load_dotenv
 from rich.console import Console
@@ -123,24 +124,24 @@ class EpicRoast:
         """Get the roast prompt based on theme and level"""
         themes = {
             "default": {
-                "light": "You are a friendly code reviewer who gently points out issues in Jira tickets with constructive humor. Use clear headings and emojis to make your roast easy to read.",
-                "savage": "You are a brutally honest senior developer who roasts Jira tickets with sharp wit and technical accuracy. Use bold headings and emojis to make your roast impactful and readable.",
-                "extra_crispy": "You are a legendary tech lead who absolutely destroys poorly written Jira tickets with savage humor and zero mercy. Use dramatic headings and emojis to make your roast legendary."
+                "light": "You are a friendly code reviewer who gently points out issues in Jira tickets with constructive humor. Use markdown headings (# for main, ## for sub) and emojis to make your roast easy to read.",
+                "savage": "You are a brutally honest senior developer who roasts Jira tickets with sharp wit and technical accuracy. Use markdown headings (# for main, ## for sub) and emojis to make your roast impactful and readable.",
+                "extra_crispy": "You are a legendary tech lead who absolutely destroys poorly written Jira tickets with savage humor and zero mercy. Use markdown headings (# for main, ## for sub) and emojis to make your roast legendary."
             },
             "pirate": {
-                "light": "You are a friendly pirate captain reviewing Jira tickets. Use pirate slang and nautical terms, but keep it gentle. Include pirate-themed emojis and clear headings.",
-                "savage": "You are a fearsome pirate captain who roasts Jira tickets with salty language and pirate humor. Use pirate emojis and bold headings to make your roast memorable.",
-                "extra_crispy": "You are the most feared pirate captain in the seven seas, absolutely destroying Jira tickets with legendary pirate roasts. Use dramatic pirate emojis and epic headings."
+                "light": "You are a friendly pirate captain reviewing Jira tickets. Use pirate slang and nautical terms, but keep it gentle. Include pirate-themed emojis and markdown headings (# for main, ## for sub).",
+                "savage": "You are a fearsome pirate captain who roasts Jira tickets with salty language and pirate humor. Use pirate emojis and markdown headings (# for main, ## for sub) to make your roast memorable.",
+                "extra_crispy": "You are the most feared pirate captain in the seven seas, absolutely destroying Jira tickets with legendary pirate roasts. Use dramatic pirate emojis and markdown headings (# for main, ## for sub)."
             },
             "shakespeare": {
-                "light": "You are a gentle Shakespearean actor who critiques Jira tickets with elegant Elizabethan language and mild humor. Use theatrical headings and classic emojis.",
-                "savage": "You are a dramatic Shakespearean actor who roasts Jira tickets with theatrical flair and witty insults. Use dramatic headings and theatrical emojis for maximum impact.",
-                "extra_crispy": "You are the greatest Shakespearean actor who absolutely demolishes Jira tickets with the most dramatic and savage Elizabethan roasts. Use epic theatrical headings and dramatic emojis."
+                "light": "You are a gentle Shakespearean actor who critiques Jira tickets with elegant Elizabethan language and mild humor. Use markdown headings (# for main, ## for sub) and classic emojis.",
+                "savage": "You are a dramatic Shakespearean actor who roasts Jira tickets with theatrical flair and witty insults. Use markdown headings (# for main, ## for sub) and theatrical emojis for maximum impact.",
+                "extra_crispy": "You are the greatest Shakespearean actor who absolutely demolishes Jira tickets with the most dramatic and savage Elizabethan roasts. Use markdown headings (# for main, ## for sub) and dramatic emojis."
             },
             "genz": {
-                "light": "You are a Gen Z developer who gently roasts Jira tickets using modern slang and emojis. Use lots of emojis and trendy headings to make it relatable.",
-                "savage": "You are a savage Gen Z developer who absolutely roasts Jira tickets with the most current slang and brutal honesty. Use viral emojis and bold headings for maximum impact.",
-                "extra_crispy": "You are the most savage Gen Z developer who absolutely destroys Jira tickets with the most brutal Gen Z roasts and viral slang. Use the most trending emojis and epic headings."
+                "light": "You are a Gen Z developer who gently roasts Jira tickets using modern slang and emojis. Use lots of emojis and markdown headings (# for main, ## for sub) to make it relatable.",
+                "savage": "You are a savage Gen Z developer who absolutely roasts Jira tickets with the most current slang and brutal honesty. Use viral emojis and markdown headings (# for main, ## for sub) for maximum impact.",
+                "extra_crispy": "You are the most savage Gen Z developer who absolutely destroys Jira tickets with the most brutal Gen Z roasts and viral slang. Use the most trending emojis and markdown headings (# for main, ## for sub)."
             }
         }
         
@@ -156,6 +157,14 @@ class EpicRoast:
 **Jira Ticket Content:**
 {ticket_content}
 
+**CRITICAL FORMATTING RULES:**
+- Use ONLY markdown formatting, NEVER HTML tags
+- Use **text** for bold emphasis (NOT <b>text</b>)
+- Use *text* for italic emphasis (NOT <i>text</i>)
+- Use # for main headings, ## for subheadings
+- Use - for bullet points
+- NEVER use HTML tags like <b>, </b>, <i>, </i>, etc.
+
 **Instructions:**
 1. Analyze the Jira ticket for common issues like vagueness, buzzwords, lack of clarity, missing details, etc.
 2. Create a humorous but insightful roast that calls out these issues
@@ -164,8 +173,8 @@ class EpicRoast:
 5. Make it feel personal and direct
 6. Use the appropriate tone for the selected theme and level
 7. Use emojis to make the roast visually appealing and easy to read
-8. Use proper markdown formatting for headings, emphasis, and structure
-9. Use # for main headings, ## for subheadings, **bold** for emphasis, and - for bullet points
+8. Use ONLY markdown formatting - **bold** for emphasis, *italic* for emphasis, # for headings
+9. NEVER use HTML tags in your response
 
 **Output Format:**
 # 🔥 EPIC ROAST 🔥
@@ -186,6 +195,8 @@ class EpicRoast:
 [One-liner summary of the roast with dramatic emoji]
 
 Make this roast legendary! 🚀
+
+**REMEMBER: Use markdown formatting only, no HTML tags!**
 """
         
         try:
@@ -198,7 +209,17 @@ Make this roast legendary! 🚀
                 max_completion_tokens=1500
             )
             
-            return response.choices[0].message.content
+            roast_content = response.choices[0].message.content
+            
+            # Clean up any HTML tags that might have been generated
+            # Convert HTML bold/strong tags to markdown bold
+            roast_content = re.sub(r'<b>(.*?)</b>', r'**\1**', roast_content)
+            roast_content = re.sub(r'<strong>(.*?)</strong>', r'**\1**', roast_content)
+            # Convert HTML italic/em tags to markdown italic
+            roast_content = re.sub(r'<i>(.*?)</i>', r'*\1*', roast_content)
+            roast_content = re.sub(r'<em>(.*?)</em>', r'*\1*', roast_content)
+            
+            return roast_content
             
         except Exception as e:
             console.print(f"[red]Error generating roast: {e}[/red]")
