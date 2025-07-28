@@ -128,31 +128,26 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
             // Replace HTML bold tags with markdown-style bold for easier processing
             const processedLine = line.replace(/<b>/g, '**').replace(/<\/b>/g, '**')
             
-            // Check if the entire line is bold (like a heading)
-            if (processedLine.trim().startsWith('**') && processedLine.trim().endsWith('**')) {
+            // Check if the entire line is bold (like a heading) - handle mixed content
+            const boldMatch = processedLine.match(/\*\*(.*?)\*\*/g)
+            if (boldMatch && boldMatch.length > 0) {
+              // Handle mixed content with bold parts
+              const parts = processedLine.split(/(\*\*.*?\*\*)/g)
               return (
-                <h4 key={index} className="text-lg font-bold text-secondary-700 mb-2">
-                  {processedLine.replace(/\*\*/g, '')}
-                </h4>
+                <p key={index} className="text-gray-700 leading-relaxed">
+                  {parts.map((part, partIndex) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                      return (
+                        <strong key={partIndex} className="font-bold text-secondary-700">
+                          {part.replace(/\*\*/g, '')}
+                        </strong>
+                      )
+                    }
+                    return part
+                  })}
+                </p>
               )
             }
-            
-            // Handle mixed content with bold parts
-            const parts = processedLine.split(/(\*\*.*?\*\*)/g)
-            return (
-              <p key={index} className="text-gray-700 leading-relaxed">
-                {parts.map((part, partIndex) => {
-                  if (part.startsWith('**') && part.endsWith('**')) {
-                    return (
-                      <strong key={partIndex} className="font-bold text-secondary-700">
-                        {part.replace(/\*\*/g, '')}
-                      </strong>
-                    )
-                  }
-                  return part
-                })}
-              </p>
-            )
           }
           
           // Handle markdown bold (legacy support)

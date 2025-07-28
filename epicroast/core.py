@@ -123,24 +123,24 @@ class EpicRoast:
         """Get the roast prompt based on theme and level"""
         themes = {
             "default": {
-                "light": "You are a friendly code reviewer who gently points out issues in Jira tickets with constructive humor.",
-                "savage": "You are a brutally honest senior developer who roasts Jira tickets with sharp wit and technical accuracy.",
-                "extra_crispy": "You are a legendary tech lead who absolutely destroys poorly written Jira tickets with savage humor and zero mercy."
+                "light": "You are a friendly code reviewer who gently points out issues in Jira tickets with constructive humor. Use clear headings and emojis to make your roast easy to read.",
+                "savage": "You are a brutally honest senior developer who roasts Jira tickets with sharp wit and technical accuracy. Use bold headings and emojis to make your roast impactful and readable.",
+                "extra_crispy": "You are a legendary tech lead who absolutely destroys poorly written Jira tickets with savage humor and zero mercy. Use dramatic headings and emojis to make your roast legendary."
             },
             "pirate": {
-                "light": "You are a friendly pirate captain reviewing Jira tickets. Use pirate slang and nautical terms, but keep it gentle.",
-                "savage": "You are a fearsome pirate captain who roasts Jira tickets with salty language and pirate humor.",
-                "extra_crispy": "You are the most feared pirate captain in the seven seas, absolutely destroying Jira tickets with legendary pirate roasts."
+                "light": "You are a friendly pirate captain reviewing Jira tickets. Use pirate slang and nautical terms, but keep it gentle. Include pirate-themed emojis and clear headings.",
+                "savage": "You are a fearsome pirate captain who roasts Jira tickets with salty language and pirate humor. Use pirate emojis and bold headings to make your roast memorable.",
+                "extra_crispy": "You are the most feared pirate captain in the seven seas, absolutely destroying Jira tickets with legendary pirate roasts. Use dramatic pirate emojis and epic headings."
             },
             "shakespeare": {
-                "light": "You are a gentle Shakespearean actor who critiques Jira tickets with elegant Elizabethan language and mild humor.",
-                "savage": "You are a dramatic Shakespearean actor who roasts Jira tickets with theatrical flair and witty insults.",
-                "extra_crispy": "You are the greatest Shakespearean actor who absolutely demolishes Jira tickets with the most dramatic and savage Elizabethan roasts."
+                "light": "You are a gentle Shakespearean actor who critiques Jira tickets with elegant Elizabethan language and mild humor. Use theatrical headings and classic emojis.",
+                "savage": "You are a dramatic Shakespearean actor who roasts Jira tickets with theatrical flair and witty insults. Use dramatic headings and theatrical emojis for maximum impact.",
+                "extra_crispy": "You are the greatest Shakespearean actor who absolutely demolishes Jira tickets with the most dramatic and savage Elizabethan roasts. Use epic theatrical headings and dramatic emojis."
             },
             "genz": {
-                "light": "You are a Gen Z developer who gently roasts Jira tickets using modern slang and emojis.",
-                "savage": "You are a savage Gen Z developer who absolutely roasts Jira tickets with the most current slang and brutal honesty.",
-                "extra_crispy": "You are the most savage Gen Z developer who absolutely destroys Jira tickets with the most brutal Gen Z roasts and viral slang."
+                "light": "You are a Gen Z developer who gently roasts Jira tickets using modern slang and emojis. Use lots of emojis and trendy headings to make it relatable.",
+                "savage": "You are a savage Gen Z developer who absolutely roasts Jira tickets with the most current slang and brutal honesty. Use viral emojis and bold headings for maximum impact.",
+                "extra_crispy": "You are the most savage Gen Z developer who absolutely destroys Jira tickets with the most brutal Gen Z roasts and viral slang. Use the most trending emojis and epic headings."
             }
         }
         
@@ -163,23 +163,28 @@ class EpicRoast:
 4. Include specific examples from the ticket
 5. Make it feel personal and direct
 6. Use the appropriate tone for the selected theme and level
+7. Use HTML bold tags (<b>text</b>) for headings and important text to make them stand out
+8. Use emojis to make the roast visually appealing and easy to read
 
 **Output Format:**
-🔥 **EPIC ROAST** 🔥
+🔥 <b>EPIC ROAST</b> 🔥
 
-[Your roast here - be creative, funny, and insightful]
+[Your roast here - be creative, funny, and insightful. Use emojis and <b>bold text</b> to make it engaging!]
 
-**Key Issues Found:**
-- [Issue 1]
-- [Issue 2]
-- [Issue 3]
+📋 <b>Key Issues Found:</b>
+- [Issue 1 with relevant emoji]
+- [Issue 2 with relevant emoji]
+- [Issue 3 with relevant emoji]
 
-**Suggestions for Improvement:**
-- [Suggestion 1]
-- [Suggestion 2]
-- [Suggestion 3]
+💡 <b>Suggestions for Improvement:</b>
+- [Suggestion 1 with relevant emoji]
+- [Suggestion 2 with relevant emoji]
+- [Suggestion 3 with relevant emoji]
 
-Make this roast legendary! 🎯
+🎯 <b>Final Verdict:</b>
+[One-liner summary of the roast with dramatic emoji]
+
+Make this roast legendary! 🚀
 """
         
         try:
@@ -201,7 +206,7 @@ Make this roast legendary! 🎯
     def get_fallback_roast(self) -> str:
         """Return a fallback roast if API fails"""
         return """
-🔥 **EPIC ROAST** 🔥
+🔥 <b>EPIC ROAST</b> 🔥
 
 *The roast generator is taking a coffee break! ☕*
 
@@ -210,20 +215,23 @@ But seriously, if you're seeing this message, either:
 2. The API is having a moment
 3. Your ticket is so bad it broke the AI
 
-**Quick Manual Roast:**
+📋 <b>Quick Manual Roast:</b>
 - If your ticket doesn't have clear acceptance criteria → That's a paddlin'
 - If it's full of buzzwords → That's a paddlin'
 - If it's vague AF → That's a paddlin'
 - If it's missing context → That's a paddlin'
 
-**Suggestions:**
+💡 <b>Suggestions:</b>
 - Be specific
 - Include examples
 - Define success criteria
 - Add context
 - Stop using buzzwords
 
-Now go write a better ticket! 🎯
+🎯 <b>Final Verdict:</b>
+Your ticket needs work, but at least you're trying! 
+
+Now go write a better ticket! 🚀
 """
     
     def save_roast(self, content: str, output_file: str):

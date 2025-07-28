@@ -23,10 +23,24 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Initialize core services
-testgenie = TestGenie()
-epicroast = EpicRoast()
-jira_integration = JiraIntegration()
+# Initialize core services with error handling
+try:
+    testgenie = TestGenie()
+except Exception as e:
+    print(f"Warning: TestGenie initialization failed: {e}")
+    testgenie = None
+
+try:
+    epicroast = EpicRoast()
+except Exception as e:
+    print(f"Warning: EpicRoast initialization failed: {e}")
+    epicroast = None
+
+try:
+    jira_integration = JiraIntegration()
+except Exception as e:
+    print(f"Warning: Jira integration initialization failed: {e}")
+    jira_integration = None
 
 @app.route('/', methods=['GET'])
 def root():
@@ -49,9 +63,9 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'services': {
-            'testgenie': testgenie.client is not None,
-            'epicroast': epicroast.client is not None,
-            'jira': jira_integration.is_available()
+            'testgenie': testgenie.client is not None if testgenie else False,
+            'epicroast': epicroast.client is not None if epicroast else False,
+            'jira': jira_integration.is_available() if jira_integration else False
         }
     })
 
@@ -61,15 +75,21 @@ def api_health_check():
     return jsonify({
         'status': 'healthy',
         'services': {
-            'testgenie': testgenie.client is not None,
-            'epicroast': epicroast.client is not None,
-            'jira': jira_integration.is_available()
+            'testgenie': testgenie.client is not None if testgenie else False,
+            'epicroast': epicroast.client is not None if epicroast else False,
+            'jira': jira_integration.is_available() if jira_integration else False
         }
     })
 
 @app.route('/api/jira/ticket/<ticket_number>', methods=['GET'])
 def get_jira_ticket(ticket_number):
     """Get Jira ticket information"""
+    if not jira_integration:
+        return jsonify({
+            'success': False,
+            'error': 'Jira integration not available'
+        }), 503
+    
     try:
         ticket_info = jira_integration.get_ticket_info(ticket_number)
         if ticket_info:
@@ -91,6 +111,12 @@ def get_jira_ticket(ticket_number):
 @app.route('/api/testgenie/generate', methods=['POST'])
 def generate_test_scenarios():
     """Generate test scenarios from acceptance criteria"""
+    if not testgenie:
+        return jsonify({
+            'success': False,
+            'error': 'TestGenie service not available'
+        }), 503
+    
     try:
         data = request.get_json()
         acceptance_criteria = data.get('acceptance_criteria', '')
@@ -104,6 +130,12 @@ def generate_test_scenarios():
         
         # Get acceptance criteria from Jira if ticket number provided
         if ticket_number and not acceptance_criteria:
+            if not jira_integration or not jira_integration.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'Jira integration not available'
+                }), 503
+            
             ticket_info = jira_integration.get_ticket_info(ticket_number)
             if ticket_info:
                 acceptance_criteria = jira_integration.format_ticket_for_analysis(ticket_info)
@@ -133,6 +165,12 @@ def generate_test_scenarios():
 @app.route('/api/epicroast/generate', methods=['POST'])
 def generate_roast():
     """Generate roast from ticket content"""
+    if not epicroast:
+        return jsonify({
+            'success': False,
+            'error': 'EpicRoast service not available'
+        }), 503
+    
     try:
         data = request.get_json()
         ticket_content = data.get('ticket_content', '')
@@ -148,6 +186,12 @@ def generate_roast():
         
         # Get ticket content from Jira if ticket number provided
         if ticket_number and not ticket_content:
+            if not jira_integration or not jira_integration.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'Jira integration not available'
+                }), 503
+            
             ticket_info = jira_integration.get_ticket_info(ticket_number)
             if ticket_info:
                 ticket_content = jira_integration.format_ticket_for_analysis(ticket_info)
@@ -219,6 +263,12 @@ def share_to_teams():
 @app.route('/api/jira/dashboard/cards', methods=['GET'])
 def get_jira_dashboard_cards():
     """Get Jira dashboard cards - proxy endpoint to avoid CORS"""
+    if not jira_integration:
+        return jsonify({
+            'success': False,
+            'error': 'Jira integration not available'
+        }), 503
+    
     try:
         # Get query parameters
         team_filter = request.args.get('team', 'all')
