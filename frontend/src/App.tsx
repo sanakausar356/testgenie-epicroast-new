@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { TestGeniePanel } from './components/TestGeniePanel'
 import { EpicRoastPanel } from './components/EpicRoastPanel'
-import { JiraDashboard } from './components/JiraDashboard'
 import { Header } from './components/Header'
 import { LoadingSpinner } from './components/LoadingSpinner'
 
 function App() {
   const [sharedTicketNumber, setSharedTicketNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie' | 'jira'>('epicroast')
+  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie'>('epicroast')
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
@@ -72,30 +71,11 @@ function App() {
               <span className="text-lg">🧙‍♂️</span>
               <span className="font-medium">Test Genie</span>
             </button>
-            <button
-              onClick={() => setActiveTab('jira')}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
-                activeTab === 'jira'
-                  ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-xl scale-105'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-cyan-50 hover:scale-105'
-              }`}
-            >
-              <span className="text-lg">📊</span>
-              <span className="font-medium">Jira Dashboard</span>
-            </button>
           </div>
         </div>
 
-        {/* Desktop Layout - Full width for Jira Dashboard, 2-column for others */}
+        {/* Desktop Layout - 2-column for both tabs */}
         <div className="hidden lg:block">
-          {activeTab === 'jira' && (
-            <JiraDashboard 
-              onSelectTicket={(ticketKey) => {
-                setSharedTicketNumber(ticketKey)
-                setActiveTab('epicroast') // Switch to Epic Roast when ticket is selected
-              }}
-            />
-          )}
           {activeTab === 'epicroast' && (
             <div className="grid lg:grid-cols-2 gap-8">
               <EpicRoastPanel 
@@ -128,14 +108,6 @@ function App() {
 
         {/* Mobile Layout - Tabbed */}
         <div className="lg:hidden">
-          {activeTab === 'jira' && (
-            <JiraDashboard 
-              onSelectTicket={(ticketKey) => {
-                setSharedTicketNumber(ticketKey)
-                setActiveTab('epicroast') // Switch to Epic Roast when ticket is selected
-              }}
-            />
-          )}
           {activeTab === 'epicroast' && (
             <EpicRoastPanel 
               sharedTicketNumber={sharedTicketNumber}

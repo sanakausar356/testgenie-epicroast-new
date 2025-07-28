@@ -304,4 +304,224 @@ Comment {i} by {comment['author']}:
             
         except Exception as e:
             console.print(f"[red]Error searching tickets: {e}[/red]")
-            return [] 
+            return []
+
+    def get_dashboard_cards(self, team_filter: str = 'all', status_filter: str = 'all') -> list:
+        """Get Jira dashboard cards for the web interface"""
+        if not self.is_available():
+            console.print("[red]Jira integration is not available[/red]")
+            return self._get_mock_dashboard_cards()
+        
+        try:
+            # Define team to board mapping with labels
+            team_board_mapping = {
+                'odcd-everest': { 'boardId': '1806', 'projectKey': 'ODCD', 'labels': ['everest', 'odcd-everest', 'GTM', 'MarTech'] },
+                'odcd-silver-surfers': { 'boardId': '1558', 'projectKey': 'ODCD', 'labels': ['silver-surfers', 'odcd-silver-surfers', 'SFMC', 'AMS-SFMC'] },
+                'the-batman': { 'boardId': '400', 'projectKey': 'ODCD', 'labels': ['batman', 'the-batman', 'ODCD-Batman', 'BatmanRadar', 'batman-portal'] },
+                'everest-pwa-kit': { 'boardId': '1772', 'projectKey': 'ODCD', 'labels': ['pwa-kit', 'everest-pwa-kit', 'PWA'] }
+            }
+            
+            # Define status filters
+            status_filters = {
+                'ready-to-groom': ['To Groom'],
+                'ready-for-dev': ['Ready For Dev']
+            }
+            
+            # Build JQL query
+            project_keys = list(set([config['projectKey'] for config in team_board_mapping.values()]))  # Remove duplicates
+            jql_parts = [f"project in ({', '.join(project_keys)})"]
+            
+            # Add status filter
+            if status_filter in status_filters:
+                status_list = status_filters[status_filter]
+                jql_parts.append(f'status in ("{", ".join(status_list)}")')
+            
+            jql = " AND ".join(jql_parts) + " ORDER BY created DESC"
+            
+            console.print(f"[blue]Using JQL: {jql}[/blue]")
+            
+            endpoint = f"/rest/api/3/search"
+            params = {
+                'jql': jql,
+                'maxResults': 50,
+                'fields': 'summary,status,priority,assignee,issuetype,created,description,project,labels'
+            }
+            
+            headers = {
+                'Authorization': self.auth_header,
+                'Accept': 'application/json'
+            }
+            
+            response = requests.get(f"{self.base_url}{endpoint}", 
+                                   headers=headers, 
+                                   params=params)
+            response.raise_for_status()
+            
+            console.print(f"[blue]Response status: {response.status_code}[/blue]")
+            console.print(f"[blue]Response content: {response.text[:200]}...[/blue]")
+            
+            try:
+                data = response.json()
+                console.print(f"[blue]Parsed JSON data: {data is not None}[/blue]")
+                if data:
+                    console.print(f"[blue]Data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}[/blue]")
+            except Exception as json_error:
+                console.print(f"[red]JSON parsing error: {json_error}[/red]")
+                console.print(f"[red]Response text: {response.text}[/red]")
+                data = None
+            cards = []
+            
+            console.print(f"[blue]Processing {len(data.get('issues', []))} issues[/blue]")
+            
+            for issue in data.get('issues', []):
+                console.print(f"[blue]Processing issue: {issue.get('key', 'Unknown')}[/blue]")
+                fields = issue.get('fields', {})
+                console.print(f"[blue]Fields: {fields is not None}[/blue]")
+                
+                project_obj = fields.get('project', {})
+                console.print(f"[blue]Project object: {project_obj is not None}[/blue]")
+                project_key = project_obj.get('key', 'ODCD') if project_obj else 'ODCD'
+                
+                # Determine team from labels and summary
+                team = 'unknown'
+                ticket_labels = fields.get('labels', [])
+                ticket_summary = fields.get('summary', '').lower()
+                console.print(f"[blue]Ticket labels: {ticket_labels}[/blue]")
+                console.print(f"[blue]Ticket summary: {ticket_summary}[/blue]")
+                
+                # First try to match by labels
+                for team_name, config in team_board_mapping.items():
+                    team_labels = config.get('labels', [])
+                    if any(label in ticket_labels for label in team_labels):
+                        team = team_name
+                        console.print(f"[blue]Matched team by labels: {team_name}[/blue]")
+                        break
+                
+                # If no label match, try to match by summary keywords
+                if team == 'unknown':
+                    if any(keyword in ticket_summary for keyword in ['gtm', 'martech', 'tagging', 'analytics', 'data layer']):
+                        team = 'odcd-everest'
+                        console.print(f"[blue]Matched team by summary (Everest): {team}[/blue]")
+                    elif any(keyword in ticket_summary for keyword in ['sfmc', 'ams-sfmc', 'dev_sfmc', 'loyalty']):
+                        team = 'odcd-silver-surfers'
+                        console.print(f"[blue]Matched team by summary (Silver Surfers): {team}[/blue]")
+                    elif any(keyword in ticket_summary for keyword in ['batman', 'batmanradar', 'batman-portal']):
+                        team = 'the-batman'
+                        console.print(f"[blue]Matched team by summary (Batman): {team}[/blue]")
+                    elif any(keyword in ticket_summary for keyword in ['pwa', 'pwa kit']):
+                        team = 'everest-pwa-kit'
+                        console.print(f"[blue]Matched team by summary (PWA Kit): {team}[/blue]")
+                
+                # Apply team filter
+                if team_filter != 'all' and team != team_filter:
+                    continue
+                
+                # Safely get nested fields
+                status_obj = fields.get('status', {})
+                priority_obj = fields.get('priority', {})
+                assignee_obj = fields.get('assignee', {})
+                issue_type_obj = fields.get('issuetype', {})
+                
+                console.print(f"[blue]Status object: {status_obj is not None}[/blue]")
+                console.print(f"[blue]Priority object: {priority_obj is not None}[/blue]")
+                console.print(f"[blue]Assignee object: {assignee_obj is not None}[/blue]")
+                console.print(f"[blue]Issue type object: {issue_type_obj is not None}[/blue]")
+                
+                card = {
+                    'key': issue.get('key', ''),
+                    'summary': fields.get('summary', ''),
+                    'status': status_obj.get('name', 'Unknown') if status_obj else 'Unknown',
+                    'priority': priority_obj.get('name', 'Medium') if priority_obj else 'Medium',
+                    'assignee': assignee_obj.get('displayName', 'Unassigned') if assignee_obj else 'Unassigned',
+                    'project': project_key,
+                    'issueType': issue_type_obj.get('name', 'Story') if issue_type_obj else 'Story',
+                    'created': fields.get('created', ''),
+                    'description': fields.get('description', ''),
+                    'team': team
+                }
+                cards.append(card)
+            
+            console.print(f"[green]Successfully fetched {len(cards)} cards[/green]")
+            return cards
+            
+        except Exception as e:
+            console.print(f"[red]Error fetching dashboard cards: {e}[/red]")
+            return self._get_mock_dashboard_cards()
+
+    def get_available_teams(self) -> list:
+        """Get available Jira teams"""
+        return [
+            { 'key': 'all', 'name': 'All Scrum Teams' },
+            { 'key': 'odcd-everest', 'name': 'ODCD - Everest' },
+            { 'key': 'odcd-silver-surfers', 'name': 'ODCD - Silver Surfers Scrum' },
+            { 'key': 'the-batman', 'name': 'The Batman' },
+            { 'key': 'everest-pwa-kit', 'name': 'Everest - PWA Kit Upgrade Project' }
+        ]
+
+    def get_available_statuses(self) -> list:
+        """Get available Jira statuses"""
+        return [
+            { 'key': 'all', 'name': 'All Statuses' },
+            { 'key': 'ready-to-groom', 'name': 'Ready to Groom' },
+            { 'key': 'ready-for-dev', 'name': 'Ready for Dev' }
+        ]
+
+    def _get_mock_dashboard_cards(self) -> list:
+        """Get mock dashboard cards for fallback"""
+        return [
+            {
+                'key': 'ODCD-33741',
+                'summary': 'Implement user authentication flow',
+                'status': 'To Groom',
+                'priority': 'High',
+                'assignee': 'John Doe',
+                'project': 'ODCD',
+                'issueType': 'Story',
+                'created': '2024-01-15',
+                'team': 'odcd-everest'
+            },
+            {
+                'key': 'ODCD-33742',
+                'summary': 'Add payment gateway integration',
+                'status': 'Ready For Dev',
+                'priority': 'Medium',
+                'assignee': 'Jane Smith',
+                'project': 'ODCD',
+                'issueType': 'Story',
+                'created': '2024-01-16',
+                'team': 'odcd-everest'
+            },
+            {
+                'key': 'ODCD-33743',
+                'summary': 'Upgrade PWA Kit to latest version',
+                'status': 'To Groom',
+                'priority': 'High',
+                'assignee': 'Mike Johnson',
+                'project': 'ODCD',
+                'issueType': 'Epic',
+                'created': '2024-01-14',
+                'team': 'everest-pwa-kit'
+            },
+            {
+                'key': 'ODCD-33744',
+                'summary': 'Implement dark mode feature',
+                'status': 'Ready For Dev',
+                'priority': 'Low',
+                'assignee': 'Sarah Wilson',
+                'project': 'ODCD',
+                'issueType': 'Story',
+                'created': '2024-01-17',
+                'team': 'the-batman'
+            },
+            {
+                'key': 'ODCD-33745',
+                'summary': 'Optimize database queries',
+                'status': 'To Groom',
+                'priority': 'High',
+                'assignee': 'Alex Brown',
+                'project': 'ODCD',
+                'issueType': 'Task',
+                'created': '2024-01-18',
+                'team': 'odcd-silver-surfers'
+            }
+        ] 

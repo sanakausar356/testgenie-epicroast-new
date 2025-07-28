@@ -216,6 +216,60 @@ def share_to_teams():
             'error': str(e)
         }), 500
 
+@app.route('/api/jira/dashboard/cards', methods=['GET'])
+def get_jira_dashboard_cards():
+    """Get Jira dashboard cards - proxy endpoint to avoid CORS"""
+    try:
+        # Get query parameters
+        team_filter = request.args.get('team', 'all')
+        status_filter = request.args.get('status', 'all')
+        
+        # Use the existing Jira integration to fetch cards
+        cards = jira_integration.get_dashboard_cards(team_filter=team_filter, status_filter=status_filter)
+        
+        return jsonify({
+            'success': True,
+            'data': cards
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/jira/dashboard/teams', methods=['GET'])
+def get_jira_teams():
+    """Get available Jira teams"""
+    try:
+        teams = jira_integration.get_available_teams()
+        return jsonify({
+            'success': True,
+            'data': teams
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/jira/dashboard/statuses', methods=['GET'])
+def get_jira_statuses():
+    """Get available Jira statuses"""
+    try:
+        statuses = jira_integration.get_available_statuses()
+        return jsonify({
+            'success': True,
+            'data': statuses
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port) 
