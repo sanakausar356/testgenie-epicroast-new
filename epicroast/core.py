@@ -164,6 +164,8 @@ class EpicRoast:
 5. Make it feel personal and direct
 6. Use the appropriate tone for the selected theme and level
 7. Use emojis to make the roast visually appealing and easy to read
+8. DO NOT use any HTML tags like <b> or </b> - use plain text only
+9. DO NOT use markdown formatting like **bold** - use plain text only
 
 **Output Format:**
 🔥 EPIC ROAST 🔥
@@ -196,7 +198,14 @@ Make this roast legendary! 🚀
                 max_completion_tokens=1500
             )
             
-            return response.choices[0].message.content
+            # Clean up any HTML tags that might still be generated
+            content = response.choices[0].message.content
+            content = content.replace('<b>', '').replace('</b>', '')
+            content = content.replace('<strong>', '').replace('</strong>', '')
+            content = content.replace('<em>', '').replace('</em>', '')
+            content = content.replace('<i>', '').replace('</i>', '')
+            
+            return content
             
         except Exception as e:
             console.print(f"[red]Error generating roast: {e}[/red]")
