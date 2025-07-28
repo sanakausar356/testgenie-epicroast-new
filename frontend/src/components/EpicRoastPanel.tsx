@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { Zap, Download, Copy, Share2, CheckCircle, AlertCircle, Flame, Sparkles } from 'lucide-react'
 import { generateRoast } from '../services/api'
 
@@ -118,35 +119,53 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
   }
 
   const formatResults = (rawResults: string) => {
-    // Format roast results with better styling
-    const lines = rawResults.split('\n')
     return (
-      <div className="space-y-3">
-        {lines.map((line, index) => {
-          // Handle bullet points
-          if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-            return (
-              <div key={index} className="flex items-start space-x-2 pl-4">
-                <span className="text-secondary-500 mt-1">•</span>
-                <span className="text-gray-700">{line.replace(/^[-*]\s*/, '')}</span>
-              </div>
-            )
-          }
-          
-          // Handle regular text
-          if (line.trim()) {
-            return (
-              <p key={index} className="text-gray-700 leading-relaxed">
-                {line}
+      <div className="prose prose-lg max-w-none">
+        <ReactMarkdown
+          components={{
+            h1: ({ children }) => (
+              <h1 className="text-2xl font-bold text-secondary-700 mb-4 flex items-center">
+                {children}
+              </h1>
+            ),
+            h2: ({ children }) => (
+              <h2 className="text-xl font-semibold text-secondary-600 mb-3 flex items-center">
+                {children}
+              </h2>
+            ),
+            p: ({ children }) => (
+              <p className="text-gray-700 leading-relaxed mb-3">
+                {children}
               </p>
+            ),
+            ul: ({ children }) => (
+              <ul className="space-y-2 mb-4">
+                {children}
+              </ul>
+            ),
+            li: ({ children }) => (
+              <li className="flex items-start space-x-2">
+                <span className="text-secondary-500 mt-1">•</span>
+                <span className="text-gray-700">{children}</span>
+              </li>
+            ),
+            strong: ({ children }) => (
+              <strong className="font-bold text-secondary-700">
+                {children}
+              </strong>
+            ),
+            em: ({ children }) => (
+              <em className="italic text-gray-600">
+                {children}
+              </em>
             )
-          }
-          
-          return null
-        })}
+          }}
+        >
+          {rawResults}
+        </ReactMarkdown>
         
         {/* Action Items Section */}
-        <div className="action-items">
+        <div className="action-items mt-6">
           <h3 className="text-lg font-bold text-orange-800 mb-3 flex items-center">
             ⛱️ Action Items Summary
           </h3>

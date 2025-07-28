@@ -164,25 +164,25 @@ class EpicRoast:
 5. Make it feel personal and direct
 6. Use the appropriate tone for the selected theme and level
 7. Use emojis to make the roast visually appealing and easy to read
-8. DO NOT use any HTML tags like <b> or </b> - use plain text only
-9. DO NOT use markdown formatting like **bold** - use plain text only
+8. Use proper markdown formatting for headings, emphasis, and structure
+9. Use # for main headings, ## for subheadings, **bold** for emphasis, and - for bullet points
 
 **Output Format:**
-🔥 EPIC ROAST 🔥
+# 🔥 EPIC ROAST 🔥
 
-[Your roast here - be creative, funny, and insightful. Use emojis to make it engaging!]
+[Your roast here - be creative, funny, and insightful. Use emojis and **bold text** to make it engaging!]
 
-📋 Key Issues Found:
-- [Issue 1 with relevant emoji]
-- [Issue 2 with relevant emoji]
-- [Issue 3 with relevant emoji]
+## 📋 Key Issues Found:
+- **Issue 1** with relevant emoji
+- **Issue 2** with relevant emoji  
+- **Issue 3** with relevant emoji
 
-💡 Suggestions for Improvement:
-- [Suggestion 1 with relevant emoji]
-- [Suggestion 2 with relevant emoji]
-- [Suggestion 3 with relevant emoji]
+## 💡 Suggestions for Improvement:
+- **Suggestion 1** with relevant emoji
+- **Suggestion 2** with relevant emoji
+- **Suggestion 3** with relevant emoji
 
-🎯 Final Verdict:
+## 🎯 Final Verdict:
 [One-liner summary of the roast with dramatic emoji]
 
 Make this roast legendary! 🚀
@@ -198,14 +198,7 @@ Make this roast legendary! 🚀
                 max_completion_tokens=1500
             )
             
-            # Clean up any HTML tags that might still be generated
-            content = response.choices[0].message.content
-            content = content.replace('<b>', '').replace('</b>', '')
-            content = content.replace('<strong>', '').replace('</strong>', '')
-            content = content.replace('<em>', '').replace('</em>', '')
-            content = content.replace('<i>', '').replace('</i>', '')
-            
-            return content
+            return response.choices[0].message.content
             
         except Exception as e:
             console.print(f"[red]Error generating roast: {e}[/red]")
@@ -214,7 +207,7 @@ Make this roast legendary! 🚀
     def get_fallback_roast(self) -> str:
         """Return a fallback roast if API fails"""
         return """
-🔥 EPIC ROAST 🔥
+# 🔥 EPIC ROAST 🔥
 
 *The roast generator is taking a coffee break! ☕*
 
@@ -223,20 +216,20 @@ But seriously, if you're seeing this message, either:
 2. The API is having a moment
 3. Your ticket is so bad it broke the AI
 
-📋 Quick Manual Roast:
-- If your ticket doesn't have clear acceptance criteria → That's a paddlin'
-- If it's full of buzzwords → That's a paddlin'
-- If it's vague AF → That's a paddlin'
-- If it's missing context → That's a paddlin'
+## 📋 Quick Manual Roast:
+- **If your ticket doesn't have clear acceptance criteria** → That's a paddlin'
+- **If it's full of buzzwords** → That's a paddlin'
+- **If it's vague AF** → That's a paddlin'
+- **If it's missing context** → That's a paddlin'
 
-💡 Suggestions:
-- Be specific
-- Include examples
-- Define success criteria
-- Add context
-- Stop using buzzwords
+## 💡 Suggestions:
+- **Be specific**
+- **Include examples**
+- **Define success criteria**
+- **Add context**
+- **Stop using buzzwords**
 
-🎯 Final Verdict:
+## 🎯 Final Verdict:
 Your ticket needs work, but at least you're trying! 
 
 Now go write a better ticket! 🚀
