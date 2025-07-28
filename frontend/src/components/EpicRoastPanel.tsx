@@ -118,47 +118,11 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
   }
 
   const formatResults = (rawResults: string) => {
-    // Format roast results with better styling and HTML support
+    // Format roast results with better styling
     const lines = rawResults.split('\n')
     return (
       <div className="space-y-3">
         {lines.map((line, index) => {
-          // Handle HTML bold tags with simple replacement
-          if (line.includes('<b>') && line.includes('</b>')) {
-            // Replace HTML bold tags with markdown-style bold for easier processing
-            const processedLine = line.replace(/<b>/g, '**').replace(/<\/b>/g, '**')
-            
-            // Check if the entire line is bold (like a heading) - handle mixed content
-            const boldMatch = processedLine.match(/\*\*(.*?)\*\*/g)
-            if (boldMatch && boldMatch.length > 0) {
-              // Handle mixed content with bold parts
-              const parts = processedLine.split(/(\*\*.*?\*\*)/g)
-              return (
-                <p key={index} className="text-gray-700 leading-relaxed">
-                  {parts.map((part, partIndex) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                      return (
-                        <strong key={partIndex} className="font-bold text-secondary-700">
-                          {part.replace(/\*\*/g, '')}
-                        </strong>
-                      )
-                    }
-                    return part
-                  })}
-                </p>
-              )
-            }
-          }
-          
-          // Handle markdown bold (legacy support)
-          if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-            return (
-              <h4 key={index} className="text-lg font-bold text-secondary-700 mb-2">
-                {line.replace(/\*\*/g, '')}
-              </h4>
-            )
-          }
-          
           // Handle bullet points
           if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
             return (
@@ -169,8 +133,8 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
             )
           }
           
-          // Handle regular text (only if no HTML tags were processed)
-          if (line.trim() && !line.includes('<b>') && !line.includes('</b>')) {
+          // Handle regular text
+          if (line.trim()) {
             return (
               <p key={index} className="text-gray-700 leading-relaxed">
                 {line}

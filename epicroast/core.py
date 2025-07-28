@@ -163,25 +163,24 @@ class EpicRoast:
 4. Include specific examples from the ticket
 5. Make it feel personal and direct
 6. Use the appropriate tone for the selected theme and level
-7. Use HTML bold tags (<b>text</b>) for headings and important text to make them stand out
-8. Use emojis to make the roast visually appealing and easy to read
+7. Use emojis to make the roast visually appealing and easy to read
 
 **Output Format:**
-🔥 <b>EPIC ROAST</b> 🔥
+🔥 EPIC ROAST 🔥
 
-[Your roast here - be creative, funny, and insightful. Use emojis and <b>bold text</b> to make it engaging!]
+[Your roast here - be creative, funny, and insightful. Use emojis to make it engaging!]
 
-📋 <b>Key Issues Found:</b>
+📋 Key Issues Found:
 - [Issue 1 with relevant emoji]
 - [Issue 2 with relevant emoji]
 - [Issue 3 with relevant emoji]
 
-💡 <b>Suggestions for Improvement:</b>
+💡 Suggestions for Improvement:
 - [Suggestion 1 with relevant emoji]
 - [Suggestion 2 with relevant emoji]
 - [Suggestion 3 with relevant emoji]
 
-🎯 <b>Final Verdict:</b>
+🎯 Final Verdict:
 [One-liner summary of the roast with dramatic emoji]
 
 Make this roast legendary! 🚀
@@ -206,7 +205,7 @@ Make this roast legendary! 🚀
     def get_fallback_roast(self) -> str:
         """Return a fallback roast if API fails"""
         return """
-🔥 <b>EPIC ROAST</b> 🔥
+🔥 EPIC ROAST 🔥
 
 *The roast generator is taking a coffee break! ☕*
 
@@ -215,20 +214,20 @@ But seriously, if you're seeing this message, either:
 2. The API is having a moment
 3. Your ticket is so bad it broke the AI
 
-📋 <b>Quick Manual Roast:</b>
+📋 Quick Manual Roast:
 - If your ticket doesn't have clear acceptance criteria → That's a paddlin'
 - If it's full of buzzwords → That's a paddlin'
 - If it's vague AF → That's a paddlin'
 - If it's missing context → That's a paddlin'
 
-💡 <b>Suggestions:</b>
+💡 Suggestions:
 - Be specific
 - Include examples
 - Define success criteria
 - Add context
 - Stop using buzzwords
 
-🎯 <b>Final Verdict:</b>
+🎯 Final Verdict:
 Your ticket needs work, but at least you're trying! 
 
 Now go write a better ticket! 🚀
