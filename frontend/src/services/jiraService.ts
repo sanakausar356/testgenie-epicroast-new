@@ -24,6 +24,13 @@ const JIRA_CONFIG: JiraConfig = {
   apiToken: (import.meta as any).env?.VITE_JIRA_API_TOKEN || (import.meta as any).env?.JIRA_API_TOKEN || ''
 }
 
+// Log configuration for debugging
+console.log('JiraService Configuration:', {
+  baseUrl: JIRA_CONFIG.baseUrl,
+  email: JIRA_CONFIG.email ? '***configured***' : '***not configured***',
+  apiToken: JIRA_CONFIG.apiToken ? '***configured***' : '***not configured***'
+})
+
 // Team to board mapping - Real Newell Brands ODCD boards
 const TEAM_BOARD_MAPPING = {
   'odcd-everest': { boardId: '1806', projectKey: 'ODCD' },

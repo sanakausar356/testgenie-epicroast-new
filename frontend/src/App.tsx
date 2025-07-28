@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TestGeniePanel } from './components/TestGeniePanel'
 import { EpicRoastPanel } from './components/EpicRoastPanel'
 import { JiraDashboard } from './components/JiraDashboard'
@@ -9,6 +9,28 @@ function App() {
   const [sharedTicketNumber, setSharedTicketNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie' | 'jira'>('epicroast')
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    console.log('App component mounted successfully')
+  }, [])
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-orange-100 flex items-center justify-center">
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/50 p-8 max-w-md">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Application Error</h1>
+          <p className="text-gray-700 mb-4">Something went wrong. Please refresh the page.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-orange-100 relative overflow-hidden">
