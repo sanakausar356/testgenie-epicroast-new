@@ -218,6 +218,8 @@ Make this roast legendary! 🚀
             # Convert HTML italic/em tags to markdown italic
             roast_content = re.sub(r'<i>(.*?)</i>', r'*\1*', roast_content)
             roast_content = re.sub(r'<em>(.*?)</em>', r'*\1*', roast_content)
+            # Additional cleanup for any remaining HTML tags
+            roast_content = re.sub(r'<[^>]*>', '', roast_content)
             
             return roast_content
             
