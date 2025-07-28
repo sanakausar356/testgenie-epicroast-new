@@ -169,8 +169,8 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
             )
           }
           
-          // Handle regular text
-          if (line.trim()) {
+          // Handle regular text (only if no HTML tags were processed)
+          if (line.trim() && !line.includes('<b>') && !line.includes('</b>')) {
             return (
               <p key={index} className="text-gray-700 leading-relaxed">
                 {line}
