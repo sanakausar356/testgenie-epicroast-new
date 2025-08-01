@@ -177,7 +177,8 @@ class GroomRoom:
                 console.print("- AZURE_OPENAI_ENDPOINT")
                 console.print("- AZURE_OPENAI_API_KEY")
                 console.print("- AZURE_OPENAI_DEPLOYMENT_NAME")
-                sys.exit(1)
+                self.client = None
+                return
             
             self.client = openai.AzureOpenAI(
                 azure_endpoint=endpoint,
@@ -187,7 +188,7 @@ class GroomRoom:
             
         except Exception as e:
             console.print(f"[red]Error setting up Azure OpenAI: {e}[/red]")
-            sys.exit(1)
+            self.client = None
     
     def get_ticket_content(self, input_file: Optional[str] = None, ticket_number: Optional[str] = None) -> str:
         """Get Jira ticket content from user input, file, or Jira ticket number"""
@@ -223,10 +224,10 @@ class GroomRoom:
                 return content
             except FileNotFoundError:
                 console.print(f"[red]Error: File {input_file} not found[/red]")
-                sys.exit(1)
+                return ""
             except Exception as e:
                 console.print(f"[red]Error reading file: {e}[/red]")
-                sys.exit(1)
+                return ""
         
         # Interactive input
         console.print(Panel.fit(
@@ -250,7 +251,7 @@ class GroomRoom:
         
         if not lines:
             console.print("[red]No ticket content provided[/red]")
-            sys.exit(1)
+            return ""
         
         return '\n'.join(lines)
     
@@ -878,6 +879,10 @@ class GroomRoom:
 """
         
         try:
+            if not self.client:
+                console.print("[red]Azure OpenAI client not available[/red]")
+                return self.get_fallback_groom_analysis()
+                
             response = self.client.chat.completions.create(
                 model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
                 messages=[
