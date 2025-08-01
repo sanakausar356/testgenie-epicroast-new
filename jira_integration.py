@@ -153,10 +153,30 @@ class JiraIntegration:
             issue_type_obj = fields.get('issuetype')
             project_obj = fields.get('project')
             
+            # Safely extract description
+            raw_description = fields.get('description')
+            if raw_description is None:
+                description = ''
+            elif isinstance(raw_description, dict):
+                # Handle Atlassian Document Format
+                if 'content' in raw_description:
+                    # Extract text from ADF content
+                    content_parts = []
+                    for content_item in raw_description.get('content', []):
+                        if content_item.get('type') == 'paragraph':
+                            for text_item in content_item.get('content', []):
+                                if text_item.get('type') == 'text':
+                                    content_parts.append(text_item.get('text', ''))
+                    description = ' '.join(content_parts) if content_parts else ''
+                else:
+                    description = str(raw_description)
+            else:
+                description = str(raw_description)
+            
             ticket_info = {
                 'key': issue_data.get('key', ''),
                 'summary': fields.get('summary', ''),
-                'description': fields.get('description', ''),
+                'description': description,
                 'status': status_obj.get('name', 'Unknown') if status_obj else 'Unknown',
                 'priority': priority_obj.get('name', 'None') if priority_obj else 'None',
                 'assignee': assignee_obj.get('displayName', 'Unassigned') if assignee_obj else 'Unassigned',
@@ -195,6 +215,24 @@ class JiraIntegration:
         if not ticket_info:
             return "No ticket information available"
         
+        # Safely handle description field
+        description = ticket_info.get('description', '')
+        if description is None:
+            description = 'No description provided'
+        elif isinstance(description, dict):
+            # Handle Atlassian Document Format
+            if 'content' in description:
+                # Extract text from ADF content
+                content_parts = []
+                for content_item in description.get('content', []):
+                    if content_item.get('type') == 'paragraph':
+                        for text_item in content_item.get('content', []):
+                            if text_item.get('type') == 'text':
+                                content_parts.append(text_item.get('text', ''))
+                description = ' '.join(content_parts) if content_parts else 'No description provided'
+            else:
+                description = str(description)
+        
         formatted = f"""
 # Jira Ticket: {ticket_info['key']}
 
@@ -202,7 +240,7 @@ class JiraIntegration:
 {ticket_info['summary']}
 
 ## Description
-{ticket_info['description']}
+{description}
 
 ## Details
 - **Status**: {ticket_info['status']}
@@ -236,6 +274,24 @@ class JiraIntegration:
         if not ticket_info:
             return "No ticket information available"
         
+        # Safely handle description field
+        description = ticket_info.get('description', '')
+        if description is None:
+            description = 'No description provided'
+        elif isinstance(description, dict):
+            # Handle Atlassian Document Format
+            if 'content' in description:
+                # Extract text from ADF content
+                content_parts = []
+                for content_item in description.get('content', []):
+                    if content_item.get('type') == 'paragraph':
+                        for text_item in content_item.get('content', []):
+                            if text_item.get('type') == 'text':
+                                content_parts.append(text_item.get('text', ''))
+                description = ' '.join(content_parts) if content_parts else 'No description provided'
+            else:
+                description = str(description)
+        
         formatted = f"""
 Jira Ticket: {ticket_info['key']}
 Summary: {ticket_info['summary']}
@@ -247,7 +303,7 @@ Assignee: {ticket_info['assignee']}
 Reporter: {ticket_info['reporter']}
 
 Description:
-{ticket_info['description']}
+{description}
 
 Labels: {', '.join(ticket_info['labels']) if ticket_info['labels'] else 'None'}
 Components: {', '.join(ticket_info['components']) if ticket_info['components'] else 'None'}
