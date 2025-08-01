@@ -20,6 +20,12 @@ interface EpicRoastRequest {
   level?: string
 }
 
+interface GroomRoomRequest {
+  ticket_number?: string
+  ticket_content?: string
+  level?: string
+}
+
 export const generateTestScenarios = async (request: TestGenieRequest): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${API_BASE_URL}/testgenie/generate`, {
@@ -42,6 +48,25 @@ export const generateTestScenarios = async (request: TestGenieRequest): Promise<
 export const generateRoast = async (request: EpicRoastRequest): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${API_BASE_URL}/epicroast/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+    
+    return await response.json()
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Network error occurred'
+    }
+  }
+}
+
+export const generateGroom = async (request: GroomRoomRequest): Promise<ApiResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groomroom/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

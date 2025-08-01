@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { TestGeniePanel } from './components/TestGeniePanel'
 import { EpicRoastPanel } from './components/EpicRoastPanel'
+import { GroomRoomPanel } from './components/GroomRoomPanel'
 import { Header } from './components/Header'
 import { LoadingSpinner } from './components/LoadingSpinner'
 
 function App() {
   const [sharedTicketNumber, setSharedTicketNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie'>('epicroast')
+  const [activeTab, setActiveTab] = useState<'epicroast' | 'testgenie' | 'groomroom'>('epicroast')
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
@@ -48,7 +49,7 @@ function App() {
       <main className="container mx-auto px-4 py-8">
         {/* Tab Navigation - Mobile First */}
         <div className="mb-8">
-          <div className="flex bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/50 p-1 max-w-2xl mx-auto">
+          <div className="flex bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-cyan-200/50 p-1 max-w-3xl mx-auto">
             <button
               onClick={() => setActiveTab('epicroast')}
               className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
@@ -59,6 +60,17 @@ function App() {
             >
               <span className="text-lg">🔥</span>
               <span className="font-medium">Epic Roast</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('groomroom')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl transition-all duration-300 ${
+                activeTab === 'groomroom'
+                  ? 'bg-gradient-to-r from-green-400 to-blue-500 text-white shadow-xl scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-cyan-50 hover:scale-105'
+              }`}
+            >
+              <span className="text-lg">🧹</span>
+              <span className="font-medium">Groom Room</span>
             </button>
             <button
               onClick={() => setActiveTab('testgenie')}
@@ -90,6 +102,20 @@ function App() {
               />
             </div>
           )}
+          {activeTab === 'groomroom' && (
+            <div className="grid lg:grid-cols-2 gap-8">
+              <GroomRoomPanel 
+                sharedTicketNumber={sharedTicketNumber}
+                setSharedTicketNumber={setSharedTicketNumber}
+                setIsLoading={setIsLoading}
+              />
+              <TestGeniePanel 
+                sharedTicketNumber={sharedTicketNumber}
+                setSharedTicketNumber={setSharedTicketNumber}
+                setIsLoading={setIsLoading}
+              />
+            </div>
+          )}
           {activeTab === 'testgenie' && (
             <div className="grid lg:grid-cols-2 gap-8">
               <EpicRoastPanel 
@@ -110,6 +136,13 @@ function App() {
         <div className="lg:hidden">
           {activeTab === 'epicroast' && (
             <EpicRoastPanel 
+              sharedTicketNumber={sharedTicketNumber}
+              setSharedTicketNumber={setSharedTicketNumber}
+              setIsLoading={setIsLoading}
+            />
+          )}
+          {activeTab === 'groomroom' && (
+            <GroomRoomPanel 
               sharedTicketNumber={sharedTicketNumber}
               setSharedTicketNumber={setSharedTicketNumber}
               setIsLoading={setIsLoading}
