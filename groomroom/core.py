@@ -171,6 +171,10 @@ class GroomRoom:
             api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview')
             deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
             
+            console.print(f"[blue]Azure OpenAI Setup - Endpoint: {'Set' if endpoint else 'Not Set'}[/blue]")
+            console.print(f"[blue]Azure OpenAI Setup - API Key: {'Set' if api_key else 'Not Set'}[/blue]")
+            console.print(f"[blue]Azure OpenAI Setup - Deployment: {'Set' if deployment_name else 'Not Set'}[/blue]")
+            
             if not all([endpoint, api_key, deployment_name]):
                 console.print("[red]Error: Missing Azure OpenAI configuration in .env file[/red]")
                 console.print("Please ensure you have the following variables set:")
@@ -186,8 +190,11 @@ class GroomRoom:
                 api_version=api_version
             )
             
+            console.print("[green]✅ Azure OpenAI client initialized successfully[/green]")
+            
         except Exception as e:
             console.print(f"[red]Error setting up Azure OpenAI: {e}[/red]")
+            console.print(f"[red]Error type: {type(e).__name__}[/red]")
             self.client = None
     
     def get_ticket_content(self, input_file: Optional[str] = None, ticket_number: Optional[str] = None) -> str:
@@ -882,9 +889,17 @@ class GroomRoom:
             if not self.client:
                 console.print("[red]Azure OpenAI client not available[/red]")
                 return self.get_fallback_groom_analysis()
+            
+            # Debug: Check environment variables
+            deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
+            if not deployment_name:
+                console.print("[red]AZURE_OPENAI_DEPLOYMENT_NAME not set[/red]")
+                return self.get_fallback_groom_analysis()
+                
+            console.print(f"[blue]Using deployment: {deployment_name}[/blue]")
                 
             response = self.client.chat.completions.create(
-                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                model=deployment_name,
                 messages=[
                     {"role": "system", "content": level_prompt},
                     {"role": "user", "content": prompt}
@@ -906,6 +921,7 @@ class GroomRoom:
             
         except Exception as e:
             console.print(f"[red]Error generating groom analysis: {e}[/red]")
+            console.print(f"[red]Error type: {type(e).__name__}[/red]")
             return self.get_fallback_groom_analysis()
     
     def _create_framework_summary(self, framework_analysis: Dict) -> str:
