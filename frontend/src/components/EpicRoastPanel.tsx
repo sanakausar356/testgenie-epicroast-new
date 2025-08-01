@@ -101,6 +101,7 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
 
   const getLevelIcon = (level: string) => {
     switch (level) {
+      case 'very_light': return '📊'
       case 'light': return '🧂'
       case 'savage': return '🌶️'
       case 'extra_crispy': return '🔥'
@@ -281,9 +282,10 @@ export const EpicRoastPanel: React.FC<EpicRoastPanelProps> = ({
               onChange={(e) => setLevel(e.target.value)}
               className="beach-input w-full"
             >
-              <option value="light">🧂 Light</option>
-              <option value="savage">🌶️ Savage</option>
-              <option value="extra_crispy">🔥 Extra Crispy</option>
+                          <option value="very_light">📊 Very Light</option>
+            <option value="light">🧂 Light</option>
+            <option value="savage">🌶️ Savage</option>
+            <option value="extra_crispy">🔥 Extra Crispy</option>
             </select>
           </div>
         </div>

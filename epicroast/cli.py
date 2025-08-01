@@ -20,7 +20,7 @@ console = Console()
               default='default',
               help='Roast theme/style')
 @click.option('--level', '-l',
-              type=click.Choice(['light', 'savage', 'extra_crispy']),
+              type=click.Choice(['very_light', 'light', 'savage', 'extra_crispy']),
               default='savage',
               help='Roast intensity level')
 @click.option('--rerun', '-r', is_flag=True, help='Generate a new roast for the same ticket')
@@ -42,6 +42,7 @@ def main(input_file: Optional[str], ticket_number: Optional[str], output_file: O
     }
     
     level_emojis = {
+        'very_light': '📊',
         'light': '😊',
         'savage': '🔥',
         'extra_crispy': '💀'

@@ -124,21 +124,25 @@ class EpicRoast:
         """Get the roast prompt based on theme and level"""
         themes = {
             "default": {
+                "very_light": "You are an analytical assistant. For the 'Very Light' roast level, do NOT crack jokes or use any roast language. Instead, scan the ticket and highlight every missing or unclear piece of information in concise bullet points. At the end, suggest 3-5 actionable gaps to fill. Use markdown headings (# for main, ## for sub) and professional tone.",
                 "light": "You are a friendly code reviewer who gently points out issues in Jira tickets with constructive humor. Use markdown headings (# for main, ## for sub) and emojis to make your roast easy to read.",
                 "savage": "You are a brutally honest senior developer who roasts Jira tickets with sharp wit and technical accuracy. Use markdown headings (# for main, ## for sub) and emojis to make your roast impactful and readable.",
                 "extra_crispy": "You are a legendary tech lead who absolutely destroys poorly written Jira tickets with savage humor and zero mercy. Use markdown headings (# for main, ## for sub) and emojis to make your roast legendary."
             },
             "pirate": {
+                "very_light": "You are a professional navigator analyzing Jira tickets. For the 'Very Light' level, provide analytical gap analysis with zero humor or pirate language. Scan the ticket and highlight missing information in concise bullet points. Suggest 3-5 actionable improvements. Use markdown headings (# for main, ## for sub) and professional tone.",
                 "light": "You are a friendly pirate captain reviewing Jira tickets. Use pirate slang and nautical terms, but keep it gentle. Include pirate-themed emojis and markdown headings (# for main, ## for sub).",
                 "savage": "You are a fearsome pirate captain who roasts Jira tickets with salty language and pirate humor. Use pirate emojis and markdown headings (# for main, ## for sub) to make your roast memorable.",
                 "extra_crispy": "You are the most feared pirate captain in the seven seas, absolutely destroying Jira tickets with legendary pirate roasts. Use dramatic pirate emojis and markdown headings (# for main, ## for sub)."
             },
             "shakespeare": {
+                "very_light": "You are a scholarly analyst examining Jira tickets. For the 'Very Light' level, provide analytical gap analysis with zero humor or theatrical language. Scan the ticket and highlight missing information in concise bullet points. Suggest 3-5 actionable improvements. Use markdown headings (# for main, ## for sub) and professional tone.",
                 "light": "You are a gentle Shakespearean actor who critiques Jira tickets with elegant Elizabethan language and mild humor. Use markdown headings (# for main, ## for sub) and classic emojis.",
                 "savage": "You are a dramatic Shakespearean actor who roasts Jira tickets with theatrical flair and witty insults. Use markdown headings (# for main, ## for sub) and theatrical emojis for maximum impact.",
                 "extra_crispy": "You are the greatest Shakespearean actor who absolutely demolishes Jira tickets with the most dramatic and savage Elizabethan roasts. Use markdown headings (# for main, ## for sub) and dramatic emojis."
             },
             "genz": {
+                "very_light": "You are a professional analyst reviewing Jira tickets. For the 'Very Light' level, provide analytical gap analysis with zero humor or Gen Z slang. Scan the ticket and highlight missing information in concise bullet points. Suggest 3-5 actionable improvements. Use markdown headings (# for main, ## for sub) and professional tone.",
                 "light": "You are a Gen Z developer who gently roasts Jira tickets using modern slang and emojis. Use lots of emojis and markdown headings (# for main, ## for sub) to make it relatable.",
                 "savage": "You are a savage Gen Z developer who absolutely roasts Jira tickets with the most current slang and brutal honesty. Use viral emojis and markdown headings (# for main, ## for sub) for maximum impact.",
                 "extra_crispy": "You are the most savage Gen Z developer who absolutely destroys Jira tickets with the most brutal Gen Z roasts and viral slang. Use the most trending emojis and markdown headings (# for main, ## for sub)."
@@ -176,7 +180,27 @@ class EpicRoast:
 8. Use ONLY markdown formatting - **bold** for emphasis, *italic* for emphasis, # for headings
 9. NEVER use HTML tags in your response
 
-**Output Format:**
+**Output Format for Very Light Level:**
+# 📊 GAP ANALYSIS
+
+[Professional analysis highlighting missing information and gaps in the ticket]
+
+## 🔍 Gaps Found:
+- **Missing acceptance criteria** for [specific scenario]
+- **Undefined edge cases** such as [example]
+- **No performance expectations** mentioned
+- **Missing data requirements** for [specific field]
+
+## 💡 Actionable Next Steps:
+1. **Add acceptance criteria** for [specific scenario]
+2. **Define edge cases** for [specific condition]
+3. **Specify performance metrics** and expectations
+4. **Document data requirements** for [specific field]
+
+## 🎯 Summary:
+[Professional summary of key areas needing attention]
+
+**Output Format for Other Levels:**
 # 🔥 EPIC ROAST 🔥
 
 [Your roast here - be creative, funny, and insightful. Use emojis and **bold text** to make it engaging!]
@@ -221,11 +245,95 @@ Make this roast legendary! 🚀
             # Additional cleanup for any remaining HTML tags
             roast_content = re.sub(r'<[^>]*>', '', roast_content)
             
+            # Validate Very Light level content
+            if level == "very_light":
+                roast_content = self._validate_very_light_content(roast_content, ticket_content)
+            
             return roast_content
             
         except Exception as e:
             console.print(f"[red]Error generating roast: {e}[/red]")
             return self.get_fallback_roast()
+    
+    def _validate_very_light_content(self, content: str, ticket_content: str) -> str:
+        """Validate and potentially re-prompt for Very Light level content"""
+        # Define humor-related keywords that should not appear in Very Light
+        humor_keywords = [
+            'haha', 'lol', 'roast', 'burn', 'savage', 'destroy', 'legendary',
+            'epic', 'fire', 'spicy', 'hot', 'crispy', 'roasted', 'burned',
+            'destroyed', 'annihilated', 'obliterated', 'rekt', 'owned'
+        ]
+        
+        # Check for humor keywords
+        content_lower = content.lower()
+        found_humor = [word for word in humor_keywords if word in content_lower]
+        
+        if found_humor:
+            console.print(f"[yellow]Warning: Found humor keywords in Very Light content: {found_humor}[/yellow]")
+            console.print("[yellow]Re-prompting for professional analysis...[/yellow]")
+            
+            # Re-prompt with stricter instructions
+            re_prompt = f"""
+You are an analytical assistant. This is for the 'Very Light' roast level - NO humor, NO jokes, NO roast language.
+
+**Jira Ticket Content:**
+{ticket_content}
+
+**CRITICAL: Very Light Level Requirements:**
+- Provide ONLY professional gap analysis
+- Use bullet points to highlight missing information
+- Suggest 3-5 actionable improvements
+- NO humor, jokes, or roast language
+- Professional tone only
+
+**Output Format:**
+# 📊 GAP ANALYSIS
+
+[Professional analysis of missing information]
+
+## 🔍 Gaps Found:
+- **Missing acceptance criteria** for [specific scenario]
+- **Undefined edge cases** such as [example]
+- **No performance expectations** mentioned
+
+## 💡 Actionable Next Steps:
+1. **Add acceptance criteria** for [specific scenario]
+2. **Define edge cases** for [specific condition]
+3. **Specify performance metrics**
+
+## 🎯 Summary:
+[Professional summary of key areas needing attention]
+
+**REMEMBER: This is Very Light level - NO humor, only professional analysis!**
+"""
+            
+            try:
+                response = self.client.chat.completions.create(
+                    model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                    messages=[
+                        {"role": "system", "content": "You are an analytical assistant. Provide professional gap analysis with zero humor."},
+                        {"role": "user", "content": re_prompt}
+                    ],
+                    max_completion_tokens=1500,
+                    temperature=0.2  # Lower temperature for more consistent output
+                )
+                
+                new_content = response.choices[0].message.content
+                
+                # Clean up HTML tags in the new content
+                new_content = re.sub(r'<b>(.*?)</b>', r'**\1**', new_content)
+                new_content = re.sub(r'<strong>(.*?)</strong>', r'**\1**', new_content)
+                new_content = re.sub(r'<i>(.*?)</i>', r'*\1*', new_content)
+                new_content = re.sub(r'<em>(.*?)</em>', r'*\1*', new_content)
+                new_content = re.sub(r'<[^>]*>', '', new_content)
+                
+                return new_content
+                
+            except Exception as e:
+                console.print(f"[red]Error in re-prompting: {e}[/red]")
+                return content  # Return original content if re-prompting fails
+        
+        return content
     
     def get_fallback_roast(self) -> str:
         """Return a fallback roast if API fails"""
