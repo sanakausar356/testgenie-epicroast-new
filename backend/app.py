@@ -103,9 +103,26 @@ def get_jira_ticket(ticket_number):
     try:
         ticket_info = jira_integration.get_ticket_info(ticket_number)
         if ticket_info:
+            # Return formatted ticket data instead of raw data
+            formatted_ticket = {
+                'key': ticket_info.get('key', ''),
+                'summary': ticket_info.get('summary', ''),
+                'description': ticket_info.get('description', 'No description provided'),
+                'status': ticket_info.get('status', 'Unknown'),
+                'priority': ticket_info.get('priority', 'None'),
+                'assignee': ticket_info.get('assignee', 'Unassigned'),
+                'reporter': ticket_info.get('reporter', 'Unknown'),
+                'created': ticket_info.get('created', ''),
+                'updated': ticket_info.get('updated', ''),
+                'issue_type': ticket_info.get('issue_type', 'Unknown'),
+                'project': ticket_info.get('project', 'Unknown'),
+                'labels': ticket_info.get('labels', []),
+                'components': ticket_info.get('components', []),
+                'comments': ticket_info.get('comments', [])
+            }
             return jsonify({
                 'success': True,
-                'data': ticket_info
+                'data': formatted_ticket
             })
         else:
             return jsonify({
