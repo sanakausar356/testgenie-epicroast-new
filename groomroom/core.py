@@ -99,14 +99,15 @@ class GroomRoom:
                 ]
             },
             'testing_steps': {
-                'name': 'Testing Steps',
-                'description': 'Defining test scenarios that QA will utilize to build their test cases from',
+                'name': 'Test Scenarios',
+                'description': 'Defining high-level test scenarios that QA will utilize to build their test cases from',
                 'responsibility': 'QA Leading - Team is responsible for adding this information',
                 'test_scenarios': [
-                    'Positive Test Cases',
-                    'Error Test Cases', 
-                    'Negative Test Cases'
-                ]
+                    'Positive (Happy Path)',
+                    'Negative (Error/Edge Handling)', 
+                    'RBT (Risk-Based Testing)'
+                ],
+                'cross_browser_device': 'Cross-browser/device testing required? Y/N'
             },
             'additional_fields': {
                 'name': 'Additional Card Details',
@@ -114,7 +115,9 @@ class GroomRoom:
                     'Brand(s)',
                     'Component(s)',
                     'Agile Team',
-                    'Story Points'
+                    'Story Points',
+                    'Figma Reference Status',
+                    'Cross-browser/Device Testing Scope'
                 ]
             }
         }
@@ -328,8 +331,8 @@ class GroomRoom:
 **CRITICAL: Definition of Ready (DOR) Requirements:**
 - **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
-- **Testing Steps**: Must include Positive, Error, and Negative test scenarios
-- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points
+- **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
+- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
@@ -354,8 +357,8 @@ class GroomRoom:
 **CRITICAL: Definition of Ready (DOR) Requirements:**
 - **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
-- **Testing Steps**: Must include Positive, Error, and Negative test scenarios
-- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points
+- **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
+- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
@@ -380,8 +383,8 @@ class GroomRoom:
 **CRITICAL: Definition of Ready (DOR) Requirements:**
 - **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
-- **Testing Steps**: Must include Positive, Error, and Negative test scenarios
-- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points
+- **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
+- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
@@ -406,8 +409,8 @@ class GroomRoom:
 **CRITICAL: Definition of Ready (DOR) Requirements:**
 - **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
-- **Testing Steps**: Must include Positive, Error, and Negative test scenarios
-- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points
+- **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
+- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
@@ -432,8 +435,8 @@ class GroomRoom:
 **CRITICAL: Definition of Ready (DOR) Requirements:**
 - **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
-- **Testing Steps**: Must include Positive, Error, and Negative test scenarios
-- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points
+- **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
+- **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
@@ -699,30 +702,80 @@ class GroomRoom:
                             analysis['suggestions'].append('Include links to relevant documentation or screenshots')
             
             elif requirement_key == 'testing_steps':
-                # Check for test scenarios
+                # Check for test scenarios - CRITICAL: Do NOT treat scenarios in AC as valid test scenarios
                 test_scenarios = requirement_info['test_scenarios']
-                for scenario in test_scenarios:
-                    scenario_lower = scenario.lower()
-                    if 'positive' in scenario_lower:
-                        positive_indicators = ['success', 'valid', 'correct', 'expected']
-                        if any(indicator in content_lower for indicator in positive_indicators):
-                            analysis['coverage_score'] += 1
-                        else:
-                            analysis['missing_elements'].append('Positive Test Cases')
+                
+                # First, check if test scenarios are embedded in Acceptance Criteria (this is a grooming issue)
+                ac_indicators = ['acceptance criteria', 'ac:', 'acceptance:', 'criteria:']
+                test_scenario_indicators = ['test scenario', 'test case', 'positive test', 'negative test', 'rbt', 'risk-based']
+                
+                # Check if test scenarios are embedded in AC
+                ac_section_found = any(indicator in content_lower for indicator in ac_indicators)
+                test_scenarios_in_ac = False
+                if ac_section_found:
+                    # Look for test scenario indicators within AC section
+                    lines = content.split('\n')
+                    in_ac_section = False
+                    for line in lines:
+                        line_lower = line.lower()
+                        if any(ac_indicator in line_lower for ac_indicator in ac_indicators):
+                            in_ac_section = True
+                        elif in_ac_section and any(test_indicator in line_lower for test_indicator in test_scenario_indicators):
+                            test_scenarios_in_ac = True
+                            break
+                        elif in_ac_section and line.strip() == '':
+                            in_ac_section = False
+                
+                if test_scenarios_in_ac:
+                    analysis['missing_elements'].append('Test scenarios embedded in AC')
+                    analysis['suggestions'].append('Move test scenarios from Acceptance Criteria to dedicated "Test Scenarios" field for clarity and separation of concerns')
+                    # Don't add to coverage score as this is a grooming issue
+                else:
+                    # Check for dedicated test scenarios field
+                    dedicated_test_scenarios_found = False
                     
-                    elif 'error' in scenario_lower:
-                        error_indicators = ['error', 'exception', 'invalid', 'failed']
-                        if any(indicator in content_lower for indicator in error_indicators):
-                            analysis['coverage_score'] += 1
-                        else:
-                            analysis['missing_elements'].append('Error Test Cases')
+                    # Look for dedicated test scenarios section
+                    test_scenarios_section_indicators = ['test scenarios:', 'test scenarios field:', 'scenarios:', 'testing:']
+                    for indicator in test_scenarios_section_indicators:
+                        if indicator in content_lower:
+                            dedicated_test_scenarios_found = True
+                            break
                     
-                    elif 'negative' in scenario_lower:
-                        negative_indicators = ['unauthorized', 'forbidden', 'denied', 'prevent']
-                        if any(indicator in content_lower for indicator in negative_indicators):
-                            analysis['coverage_score'] += 1
-                        else:
-                            analysis['missing_elements'].append('Negative Test Cases')
+                    if dedicated_test_scenarios_found:
+                        # Check for each required test scenario type
+                        for scenario in test_scenarios:
+                            scenario_lower = scenario.lower()
+                            if 'positive' in scenario_lower or 'happy path' in scenario_lower:
+                                positive_indicators = ['positive', 'happy path', 'success', 'valid', 'correct', 'expected']
+                                if any(indicator in content_lower for indicator in positive_indicators):
+                                    analysis['coverage_score'] += 1
+                                else:
+                                    analysis['missing_elements'].append('Positive (Happy Path)')
+                            
+                            elif 'negative' in scenario_lower or 'error' in scenario_lower:
+                                negative_indicators = ['negative', 'error', 'edge', 'exception', 'invalid', 'failed', 'unauthorized', 'forbidden', 'denied']
+                                if any(indicator in content_lower for indicator in negative_indicators):
+                                    analysis['coverage_score'] += 1
+                                else:
+                                    analysis['missing_elements'].append('Negative (Error/Edge Handling)')
+                            
+                            elif 'rbt' in scenario_lower or 'risk-based' in scenario_lower:
+                                rbt_indicators = ['rbt', 'risk-based', 'risk based', 'risk assessment', 'risk analysis']
+                                if any(indicator in content_lower for indicator in rbt_indicators):
+                                    analysis['coverage_score'] += 1
+                                else:
+                                    analysis['missing_elements'].append('RBT (Risk-Based Testing)')
+                    else:
+                        analysis['missing_elements'].append('Dedicated Test Scenarios field')
+                        analysis['suggestions'].append('Add high-level test scenarios including: Positive (Happy Path), Negative (Error/Edge Handling), RBT (Risk-Based Testing)')
+                
+                # Check for cross-browser/device testing requirement
+                cross_browser_indicators = ['cross-browser', 'cross browser', 'device testing', 'mobile', 'responsive', 'browser compatibility']
+                if any(indicator in content_lower for indicator in cross_browser_indicators):
+                    analysis['coverage_score'] += 1
+                else:
+                    analysis['missing_elements'].append('Cross-browser/device testing scope')
+                    analysis['suggestions'].append('Confirm mobile responsiveness and cross-browser/device testing scope is defined')
             
             elif requirement_key == 'additional_fields':
                 # Check for additional required fields
@@ -756,9 +809,33 @@ class GroomRoom:
                             analysis['coverage_score'] += 1
                         else:
                             analysis['missing_elements'].append('Story Points')
+                    
+                    elif 'figma reference status' in field_lower:
+                        figma_indicators = ['figma', 'design', 'mockup', 'wireframe']
+                        if any(indicator in content_lower for indicator in figma_indicators):
+                            # Check if Figma is properly attached vs just referenced in text
+                            figma_attachment_indicators = ['attached', 'embedded', 'linked', 'attachment']
+                            figma_just_referenced = any(indicator in content_lower for indicator in figma_indicators) and not any(attachment_indicator in content_lower for attachment_indicator in figma_attachment_indicators)
+                            
+                            if figma_just_referenced:
+                                analysis['coverage_score'] += 0.5  # Partial credit for reference
+                                analysis['missing_elements'].append('Figma properly attached')
+                                analysis['suggestions'].append('Figma reference exists in text, but not attached formally. Ensure frame is embedded or hyperlinked directly for visibility.')
+                            else:
+                                analysis['coverage_score'] += 1
+                        else:
+                            analysis['missing_elements'].append('Figma Reference Status')
+                    
+                    elif 'cross-browser/device testing scope' in field_lower:
+                        cross_browser_indicators = ['cross-browser', 'cross browser', 'device testing', 'mobile', 'responsive', 'browser compatibility']
+                        if any(indicator in content_lower for indicator in cross_browser_indicators):
+                            analysis['coverage_score'] += 1
+                        else:
+                            analysis['missing_elements'].append('Cross-browser/Device Testing Scope')
+                            analysis['suggestions'].append('Confirm mobile responsiveness and cross-browser/device testing scope is defined')
             
             # Calculate percentage coverage
-            total_possible = 4  # Base score for each requirement type
+            total_possible = 6  # Updated for additional fields (Brand, Component, Team, Story Points, Figma, Cross-browser)
             analysis['coverage_percentage'] = (analysis['coverage_score'] / total_possible) * 100 if total_possible > 0 else 0
             
             dor_analysis[requirement_key] = analysis
@@ -938,7 +1015,9 @@ class GroomRoom:
                 'found': False,
                 'indicators': [],
                 'missing': True,
-                'recommendation': 'Ensure Product Owner has reviewed and approved the current scope/design.'
+                'recommendation': 'Ensure Product Owner has reviewed and approved the current scope/design.',
+                'visibility_issue': False,
+                'visibility_recommendation': 'PO approval not visible—add a comment or label confirming sign-off to avoid ambiguity.'
             },
             'design_validation': {
                 'found': False,
@@ -959,10 +1038,22 @@ class GroomRoom:
         
         # Check for PO approval indicators
         po_indicators = ['product owner', 'po', 'product manager', 'pm approval']
-        if any(indicator in content_lower for indicator in po_indicators):
+        po_approval_mentioned = any(indicator in content_lower for indicator in po_indicators)
+        
+        if po_approval_mentioned:
             analysis['po_approval']['found'] = True
             analysis['po_approval']['missing'] = False
             analysis['po_approval']['indicators'].append('PO approval mentioned')
+            
+            # Check if PO approval is visible (has comment/label indicators)
+            po_visibility_indicators = ['comment', 'label', 'approved', 'sign-off', 'signoff', 'confirmed']
+            po_visible = any(indicator in content_lower for indicator in po_visibility_indicators)
+            
+            if not po_visible:
+                analysis['po_approval']['visibility_issue'] = True
+                analysis['po_approval']['indicators'].append('PO approval mentioned but not visibly confirmed')
+        else:
+            analysis['po_approval']['visibility_issue'] = True
         
         # Check for design validation indicators
         design_indicators = ['figma', 'design', 'mockup', 'wireframe', 'prototype', 'design review']
@@ -1040,6 +1131,73 @@ class GroomRoom:
         
         return analysis
     
+    def calculate_groom_readiness_score(self, all_analyses: Dict) -> Dict[str, any]:
+        """Calculate groom readiness score as a percentage"""
+        score_data = {
+            'overall_score': 0,
+            'total_possible': 0,
+            'completed_items': 0,
+            'missing_items': 0,
+            'score_breakdown': {},
+            'critical_gaps': []
+        }
+        
+        # Analyze DOR requirements
+        dor_analysis = all_analyses.get('dor_analysis', {})
+        dor_score = 0
+        dor_total = 0
+        
+        for requirement_key, analysis in dor_analysis.items():
+            coverage = analysis['coverage_percentage']
+            dor_total += 100  # Each requirement is worth 100 points
+            dor_score += coverage
+            
+            if coverage < 50:
+                score_data['critical_gaps'].append(f"DOR: {analysis['name']} - {coverage:.1f}% coverage")
+        
+        score_data['score_breakdown']['dor'] = {
+            'score': dor_score,
+            'total': dor_total,
+            'percentage': (dor_score / dor_total * 100) if dor_total > 0 else 0
+        }
+        
+        # Analyze dependencies
+        dep_analysis = all_analyses.get('dependencies_analysis', {})
+        dep_score = 100 if not dep_analysis.get('dependencies_found') else 50
+        score_data['score_breakdown']['dependencies'] = {
+            'score': dep_score,
+            'total': 100,
+            'percentage': dep_score
+        }
+        
+        # Analyze stakeholder validation
+        stakeholder_analysis = all_analyses.get('stakeholder_analysis', {})
+        stakeholder_score = 0
+        stakeholder_total = len(stakeholder_analysis) * 100
+        
+        for section_key, section_data in stakeholder_analysis.items():
+            if not section_data.get('missing', True):
+                stakeholder_score += 100
+            elif section_key == 'po_approval' and section_data.get('visibility_issue', False):
+                stakeholder_score += 50  # Partial credit for PO approval with visibility issue
+        
+        score_data['score_breakdown']['stakeholder'] = {
+            'score': stakeholder_score,
+            'total': stakeholder_total,
+            'percentage': (stakeholder_score / stakeholder_total * 100) if stakeholder_total > 0 else 0
+        }
+        
+        # Calculate overall score
+        total_score = dor_score + dep_score + stakeholder_score
+        total_possible = dor_total + 100 + stakeholder_total  # 100 for dependencies
+        
+        score_data['overall_score'] = total_score
+        score_data['total_possible'] = total_possible
+        score_data['completed_items'] = total_score
+        score_data['missing_items'] = total_possible - total_score
+        
+        return score_data
+    
     def create_visual_checklist(self, all_analyses: Dict) -> Dict[str, Dict]:
         """Create a visual checklist summary for quick scanning"""
         checklist = {
@@ -1050,7 +1208,8 @@ class GroomRoom:
                 'completed_items': 0,
                 'missing_items': 0,
                 'critical_gaps': []
-            }
+            },
+            'groom_score': self.calculate_groom_readiness_score(all_analyses)
         }
         
         # Analyze DOR requirements
@@ -1509,6 +1668,12 @@ class GroomRoom:
             
             if missing and recommendation:
                 summary.append(f"  💡 {recommendation}")
+            
+            # Add visibility issue for PO approval
+            if section_key == 'po_approval' and section_data.get('visibility_issue', False):
+                visibility_rec = section_data.get('visibility_recommendation', '')
+                if visibility_rec:
+                    summary.append(f"  👁️ {visibility_rec}")
         
         return '\n'.join(summary)
     
@@ -1589,10 +1754,16 @@ class GroomRoom:
         checklist_summary = visual_checklist['summary']
         summary.append(f"**Summary**: {checklist_summary['completed_items']}/{checklist_summary['total_items']} items complete")
         
-        if checklist_summary['critical_gaps']:
-            summary.append("**Critical Gaps:**")
-            for gap in checklist_summary['critical_gaps']:
-                summary.append(f"  🔴 {gap}")
+        # Add groom score
+        groom_score_data = visual_checklist.get('groom_score', {})
+        if groom_score_data:
+            overall_percentage = (groom_score_data['overall_score'] / groom_score_data['total_possible'] * 100) if groom_score_data['total_possible'] > 0 else 0
+            summary.append(f"**Groom Readiness Score**: {overall_percentage:.0f}%")
+            
+            if groom_score_data['critical_gaps']:
+                summary.append("**Critical Gaps:**")
+                for gap in groom_score_data['critical_gaps']:
+                    summary.append(f"  🔴 {gap}")
         
         return '\n'.join(summary)
     
@@ -1605,9 +1776,12 @@ class GroomRoom:
 
 ## 🔍 Key Issues to Address:
 - **Check User Story Template** - Ensure "As a [user], I want [goal], so that [benefit]" format
-- **Verify Acceptance Criteria** - Look for clear, testable criteria
+- **Verify Acceptance Criteria** - Look for clear, testable criteria (separate from test scenarios)
+- **Review Test Scenarios** - Check for Positive (Happy Path), Negative (Error/Edge Handling), RBT (Risk-Based Testing)
 - **Review Framework Coverage** - Check R-O-I, I-N-V-E-S-T, A-C-C-E-P-T, and 3C Model elements
 - **Brand Context** - Ensure brand abbreviations are used correctly
+- **Figma Reference** - Check if Figma is properly attached vs just referenced
+- **Cross-browser/Device Testing** - Confirm testing scope is defined
 
 ## 💡 General Recommendations:
 - **Be specific** in user stories and acceptance criteria
@@ -1648,6 +1822,13 @@ class GroomRoom:
 - [ ] **Expected Result**: Clear outcome defined
 - [ ] **Pass-Fail**: Binary success criteria
 - [ ] **Traceable**: Links to requirements/features
+
+### Test Scenarios Checklist
+- [ ] **Positive (Happy Path)**: Success scenarios defined
+- [ ] **Negative (Error/Edge Handling)**: Error and edge cases covered
+- [ ] **RBT (Risk-Based Testing)**: Risk assessment included
+- [ ] **Cross-browser/Device Testing**: Scope confirmed Y/N
+- [ ] **Figma Reference**: Properly attached vs just referenced
 
 ### 3C Model
 - [ ] **Card**: Well-written user story
