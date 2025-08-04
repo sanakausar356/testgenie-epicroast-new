@@ -542,8 +542,8 @@ class GroomRoom:
         for requirement_key, requirement_info in self.dor_requirements.items():
             analysis = {
                 'name': requirement_info['name'],
-                'description': requirement_info['description'],
-                'responsibility': requirement_info['responsibility'],
+                'description': requirement_info.get('description', ''),
+                'responsibility': requirement_info.get('responsibility', ''),
                 'coverage_score': 0,
                 'missing_elements': [],
                 'suggestions': []

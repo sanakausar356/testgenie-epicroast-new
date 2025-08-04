@@ -483,6 +483,26 @@ Comment {i} by {comment['author']}:
                 console.print(f"[blue]Assignee object: {assignee_obj is not None}[/blue]")
                 console.print(f"[blue]Issue type object: {issue_type_obj is not None}[/blue]")
                 
+                # Safely extract description
+                raw_description = fields.get('description')
+                if raw_description is None:
+                    description = ''
+                elif isinstance(raw_description, dict):
+                    # Handle Atlassian Document Format
+                    if 'content' in raw_description:
+                        # Extract text from ADF content
+                        content_parts = []
+                        for content_item in raw_description.get('content', []):
+                            if content_item.get('type') == 'paragraph':
+                                for text_item in content_item.get('content', []):
+                                    if text_item.get('type') == 'text':
+                                        content_parts.append(text_item.get('text', ''))
+                        description = ' '.join(content_parts) if content_parts else ''
+                    else:
+                        description = str(raw_description)
+                else:
+                    description = str(raw_description)
+                
                 card = {
                     'key': issue.get('key', ''),
                     'summary': fields.get('summary', ''),
@@ -492,7 +512,7 @@ Comment {i} by {comment['author']}:
                     'project': project_key,
                     'issueType': issue_type_obj.get('name', 'Story') if issue_type_obj else 'Story',
                     'created': fields.get('created', ''),
-                    'description': fields.get('description', ''),
+                    'description': description,
                     'team': team
                 }
                 cards.append(card)
@@ -534,6 +554,7 @@ Comment {i} by {comment['author']}:
                 'project': 'ODCD',
                 'issueType': 'Story',
                 'created': '2024-01-15',
+                'description': 'Implement secure user authentication flow with OAuth 2.0 and JWT tokens. Include password reset functionality and multi-factor authentication support.',
                 'team': 'odcd-everest'
             },
             {
@@ -545,6 +566,7 @@ Comment {i} by {comment['author']}:
                 'project': 'ODCD',
                 'issueType': 'Story',
                 'created': '2024-01-16',
+                'description': 'Integrate Stripe payment gateway for processing credit card payments. Include webhook handling for payment status updates and error handling.',
                 'team': 'odcd-everest'
             },
             {
@@ -556,6 +578,7 @@ Comment {i} by {comment['author']}:
                 'project': 'ODCD',
                 'issueType': 'Epic',
                 'created': '2024-01-14',
+                'description': 'Upgrade PWA Kit from version 12.x to 13.x. This includes breaking changes in the API and requires updates to existing components and configurations.',
                 'team': 'everest-pwa-kit'
             },
             {
@@ -567,6 +590,7 @@ Comment {i} by {comment['author']}:
                 'project': 'ODCD',
                 'issueType': 'Story',
                 'created': '2024-01-17',
+                'description': 'Add dark mode toggle functionality to the application. Include theme persistence and automatic detection based on system preferences.',
                 'team': 'the-batman'
             },
             {
@@ -578,6 +602,7 @@ Comment {i} by {comment['author']}:
                 'project': 'ODCD',
                 'issueType': 'Task',
                 'created': '2024-01-18',
+                'description': 'Review and optimize slow database queries in the reporting module. Add proper indexing and implement query caching where appropriate.',
                 'team': 'odcd-silver-surfers'
             }
         ] 
