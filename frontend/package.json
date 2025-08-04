@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^1.7.17",
+    "@tailwindcss/typography": "^0.5.16",
     "clsx": "^2.0.0",
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",

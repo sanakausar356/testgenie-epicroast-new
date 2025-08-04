@@ -86,54 +86,8 @@ function App() {
           </div>
         </div>
 
-        {/* Desktop Layout - 2-column for both tabs */}
-        <div className="hidden lg:block">
-          {activeTab === 'epicroast' && (
-            <div className="grid lg:grid-cols-2 gap-8">
-              <EpicRoastPanel 
-                sharedTicketNumber={sharedTicketNumber}
-                setSharedTicketNumber={setSharedTicketNumber}
-                setIsLoading={setIsLoading}
-              />
-              <TestGeniePanel 
-                sharedTicketNumber={sharedTicketNumber}
-                setSharedTicketNumber={setSharedTicketNumber}
-                setIsLoading={setIsLoading}
-              />
-            </div>
-          )}
-          {activeTab === 'groomroom' && (
-            <div className="grid lg:grid-cols-2 gap-8">
-              <GroomRoomPanel 
-                sharedTicketNumber={sharedTicketNumber}
-                setSharedTicketNumber={setSharedTicketNumber}
-                setIsLoading={setIsLoading}
-              />
-              <TestGeniePanel 
-                sharedTicketNumber={sharedTicketNumber}
-                setSharedTicketNumber={setSharedTicketNumber}
-                setIsLoading={setIsLoading}
-              />
-            </div>
-          )}
-          {activeTab === 'testgenie' && (
-            <div className="grid lg:grid-cols-2 gap-8">
-              <EpicRoastPanel 
-                sharedTicketNumber={sharedTicketNumber}
-                setSharedTicketNumber={setSharedTicketNumber}
-                setIsLoading={setIsLoading}
-              />
-              <TestGeniePanel 
-                sharedTicketNumber={sharedTicketNumber}
-                setSharedTicketNumber={setSharedTicketNumber}
-                setIsLoading={setIsLoading}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Mobile Layout - Tabbed */}
-        <div className="lg:hidden">
+        {/* Single Panel Layout - Desktop and Mobile */}
+        <div className="max-w-4xl mx-auto">
           {activeTab === 'epicroast' && (
             <EpicRoastPanel 
               sharedTicketNumber={sharedTicketNumber}
