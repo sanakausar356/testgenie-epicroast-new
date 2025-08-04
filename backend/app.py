@@ -285,6 +285,18 @@ def generate_groom():
                     'error': f'Could not fetch ticket {ticket_number}'
                 }), 404
         
+        # Check if groomroom client is available
+        if not groomroom.client:
+            return jsonify({
+                'success': False,
+                'error': 'Azure OpenAI client not configured. Please check environment variables.',
+                'details': {
+                    'endpoint_set': bool(os.getenv('AZURE_OPENAI_ENDPOINT')),
+                    'api_key_set': bool(os.getenv('AZURE_OPENAI_API_KEY')),
+                    'deployment_set': bool(os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'))
+                }
+            }), 503
+        
         # Generate groom analysis
         groom = groomroom.generate_groom_analysis(ticket_content, level=level)
         
@@ -298,9 +310,12 @@ def generate_groom():
         })
         
     except Exception as e:
+        print(f"Error in groomroom API: {e}")
+        print(f"Error type: {type(e).__name__}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f'Error generating groom analysis: {str(e)}',
+            'error_type': type(e).__name__
         }), 500
 
 @app.route('/api/teams/share', methods=['POST'])

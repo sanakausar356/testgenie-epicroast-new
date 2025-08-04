@@ -341,7 +341,7 @@ You are an analytical assistant. This is for the 'Very Light' roast level - NO h
                         {"role": "user", "content": re_prompt}
                     ],
                     max_completion_tokens=1500,
-                    temperature=0.2  # Lower temperature for more consistent output
+                    # Removed temperature parameter as o4-mini model doesn't support it
                 )
                 
                 new_content = response.choices[0].message.content

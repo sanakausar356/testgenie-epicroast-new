@@ -6,18 +6,24 @@ Main entry point for Railway deployment
 import sys
 import os
 
-# Add the backend directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+# Add the current directory to the path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import and run the Flask app
 try:
-    from app import app
+    from backend.app import app
     print("✅ Successfully imported full backend app")
 except Exception as e:
     print(f"Error importing full backend app: {e}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Python path: {sys.path}")
+    
     # Create a minimal Flask app as fallback
     from flask import Flask, jsonify, request
+    from flask_cors import CORS
+    
     app = Flask(__name__)
+    CORS(app)
     
     @app.route('/health', methods=['GET'])
     def health_check():
@@ -27,6 +33,7 @@ except Exception as e:
             'services': {
                 'testgenie': False,
                 'epicroast': False,
+                'groomroom': False,
                 'jira': False
             }
         })
@@ -39,6 +46,7 @@ except Exception as e:
             'services': {
                 'testgenie': False,
                 'epicroast': False,
+                'groomroom': False,
                 'jira': False
             }
         })
@@ -57,4 +65,5 @@ except Exception as e:
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    print(f"🚀 Starting server on port {port}")
     app.run(host='0.0.0.0', port=port) 

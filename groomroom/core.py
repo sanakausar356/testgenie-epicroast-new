@@ -746,21 +746,22 @@ class GroomRoom:
     
     def generate_groom_analysis(self, ticket_content: str, level: str = "default") -> str:
         """Generate professional groom analysis using Azure OpenAI"""
-        level_prompt = self.get_groom_level_prompt(level)
-        
-        # Analyze content for brand abbreviations, frameworks, DOR requirements, and card type
-        brand_analysis = self.analyze_brand_abbreviations(ticket_content)
-        framework_analysis = self.analyze_frameworks(ticket_content)
-        dor_analysis = self.analyze_dor_requirements(ticket_content)
-        card_analysis = self.analyze_card_type(ticket_content)
-        
-        # Create summaries
-        framework_summary = self._create_framework_summary(framework_analysis)
-        brand_summary = self._create_brand_summary(brand_analysis)
-        dor_summary = self._create_dor_summary(dor_analysis)
-        card_summary = self._create_card_summary(card_analysis)
-        
-        prompt = f"""
+        try:
+            level_prompt = self.get_groom_level_prompt(level)
+            
+            # Analyze content for brand abbreviations, frameworks, DOR requirements, and card type
+            brand_analysis = self.analyze_brand_abbreviations(ticket_content)
+            framework_analysis = self.analyze_frameworks(ticket_content)
+            dor_analysis = self.analyze_dor_requirements(ticket_content)
+            card_analysis = self.analyze_card_type(ticket_content)
+            
+            # Create summaries
+            framework_summary = self._create_framework_summary(framework_analysis)
+            brand_summary = self._create_brand_summary(brand_analysis)
+            dor_summary = self._create_dor_summary(dor_analysis)
+            card_summary = self._create_card_summary(card_analysis)
+            
+            prompt = f"""
 {level_prompt}
 
 **Jira Ticket Content:**
@@ -884,8 +885,7 @@ class GroomRoom:
 
 **REMEMBER: Use markdown formatting only, no HTML tags!**
 """
-        
-        try:
+            
             if not self.client:
                 console.print("[red]Azure OpenAI client not available[/red]")
                 return self.get_fallback_groom_analysis()
@@ -904,8 +904,8 @@ class GroomRoom:
                     {"role": "system", "content": level_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=2000,
-                temperature=0.3  # Lower temperature for more consistent output
+                max_completion_tokens=2000
+                # Removed temperature parameter as o4-mini model doesn't support it
             )
             
             groom_content = response.choices[0].message.content
@@ -922,6 +922,7 @@ class GroomRoom:
         except Exception as e:
             console.print(f"[red]Error generating groom analysis: {e}[/red]")
             console.print(f"[red]Error type: {type(e).__name__}[/red]")
+            console.print(f"[red]Error details: {str(e)}[/red]")
             return self.get_fallback_groom_analysis()
     
     def _create_framework_summary(self, framework_analysis: Dict) -> str:
@@ -1033,6 +1034,38 @@ class GroomRoom:
 2. Identify missing elements from each framework
 3. Add specific acceptance criteria
 4. Ensure brand context is clear and accurate
+
+## 🔧 Technical Information:
+- **Service Status**: Azure OpenAI API temporarily unavailable
+- **Recommended Action**: Try again in a few minutes
+- **Alternative**: Use manual framework checklist below
+
+## 📋 Framework Checklist:
+### R-O-I Framework
+- [ ] **Role**: Clear user persona defined
+- [ ] **Objective**: Specific goal or action stated
+- [ ] **Insight**: Business value or benefit explained
+
+### I-N-V-E-S-T Framework
+- [ ] **Independent**: Can be developed/tested separately
+- [ ] **Negotiable**: Scope can be adjusted if needed
+- [ ] **Valuable**: Delivers business value
+- [ ] **Estimable**: Effort can be estimated
+- [ ] **Small**: Manageable size for one sprint
+- [ ] **Testable**: Clear acceptance criteria
+
+### A-C-C-E-P-T Criteria
+- [ ] **Action**: Clear action or behavior defined
+- [ ] **Condition**: When/if scenarios covered
+- [ ] **Criteria**: Specific requirements listed
+- [ ] **Expected Result**: Clear outcome defined
+- [ ] **Pass-Fail**: Binary success criteria
+- [ ] **Traceable**: Links to requirements/features
+
+### 3C Model
+- [ ] **Card**: Well-written user story
+- [ ] **Conversation**: Team discussion points covered
+- [ ] **Confirmation**: Acceptance criteria defined
 
 *Please try again later or contact support if the issue persists.*
 """
