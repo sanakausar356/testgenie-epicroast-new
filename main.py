@@ -5,6 +5,14 @@ Main entry point for Railway deployment
 
 import sys
 import os
+import logging
+
+# Configure logging for Railway
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Add the current directory to the path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -12,11 +20,11 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Import and run the Flask app
 try:
     from backend.app import app
-    print("✅ Successfully imported full backend app")
+    logger.info("✅ Successfully imported full backend app")
 except Exception as e:
-    print(f"Error importing full backend app: {e}")
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Python path: {sys.path}")
+    logger.error(f"Error importing full backend app: {e}")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"Python path: {sys.path}")
     
     # Create a minimal Flask app as fallback
     from flask import Flask, jsonify, request
@@ -65,5 +73,11 @@ except Exception as e:
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    print(f"🚀 Starting server on port {port}")
-    app.run(host='0.0.0.0', port=port) 
+    logger.info(f"🚀 Starting server on port {port}")
+    logger.info(f"Environment: {os.environ.get('RAILWAY_ENVIRONMENT', 'development')}")
+    
+    try:
+        app.run(host='0.0.0.0', port=port, debug=False)
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}")
+        sys.exit(1) 

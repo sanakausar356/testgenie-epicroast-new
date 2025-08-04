@@ -11,7 +11,11 @@ from rich.panel import Panel
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
 import openai
-from jira_integration import JiraIntegration
+try:
+    from jira_integration import JiraIntegration
+except ImportError:
+    # Handle import error for Railway deployment
+    JiraIntegration = None
 
 # Load environment variables
 load_dotenv()
@@ -24,7 +28,7 @@ class TestGenie:
     
     def __init__(self):
         self.client = None
-        self.jira_integration = JiraIntegration()
+        self.jira_integration = JiraIntegration() if JiraIntegration else None
         self.setup_azure_openai()
     
     def setup_azure_openai(self):
