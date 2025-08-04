@@ -1,0 +1,5 @@
+[33mcae5370[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/groom-room-implementation[m[33m, [m[1;31morigin/feature/groom-room-implementation[m[33m)[m Add test script to verify groom room fix
+[33m0ec0639[m Fix groom room analysis error handling and improve fallback responses
+[33meec1524[m Update backend with complete API endpoints for all three services
+[33m31dad9e[m Complete implementation of all three tabs with full functionality
+[33m303dc93[m Fix description error by returning formatted ticket data instead of raw Jira data

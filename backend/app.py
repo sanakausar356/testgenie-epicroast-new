@@ -250,7 +250,10 @@ def generate_roast():
 @app.route('/api/groomroom/generate', methods=['POST'])
 def generate_groom():
     """Generate groom analysis from ticket content"""
+    print("=== GROOMROOM API CALL START ===")
+    
     if not groomroom:
+        print("ERROR: GroomRoom service not available")
         return jsonify({
             'success': False,
             'error': 'GroomRoom service not available'
@@ -262,7 +265,10 @@ def generate_groom():
         ticket_number = data.get('ticket_number', '')
         level = data.get('level', 'default')
         
+        print(f"Request data: ticket_content length={len(ticket_content)}, ticket_number={ticket_number}, level={level}")
+        
         if not ticket_content and not ticket_number:
+            print("ERROR: No ticket content or number provided")
             return jsonify({
                 'success': False,
                 'error': 'Either ticket_content or ticket_number must be provided'
@@ -270,7 +276,9 @@ def generate_groom():
         
         # Get ticket content from Jira if ticket number provided
         if ticket_number and not ticket_content:
+            print(f"Fetching ticket {ticket_number} from Jira...")
             if not jira_integration or not jira_integration.is_available():
+                print("ERROR: Jira integration not available")
                 return jsonify({
                     'success': False,
                     'error': 'Jira integration not available'
@@ -279,14 +287,18 @@ def generate_groom():
             ticket_info = jira_integration.get_ticket_info(ticket_number)
             if ticket_info:
                 ticket_content = jira_integration.format_ticket_for_analysis(ticket_info)
+                print(f"Successfully fetched ticket content, length={len(ticket_content)}")
             else:
+                print(f"ERROR: Could not fetch ticket {ticket_number}")
                 return jsonify({
                     'success': False,
                     'error': f'Could not fetch ticket {ticket_number}'
                 }), 404
         
         # Check if groomroom client is available
+        print(f"GroomRoom client available: {groomroom.client is not None}")
         if not groomroom.client:
+            print("ERROR: Azure OpenAI client not configured")
             return jsonify({
                 'success': False,
                 'error': 'Azure OpenAI client not configured. Please check environment variables.',
@@ -298,7 +310,10 @@ def generate_groom():
             }), 503
         
         # Generate groom analysis
+        print(f"Calling groomroom.generate_groom_analysis with level={level}")
         groom = groomroom.generate_groom_analysis(ticket_content, level=level)
+        print(f"Groom analysis generated, length={len(groom) if groom else 0}")
+        print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
         
         return jsonify({
             'success': True,
@@ -310,13 +325,15 @@ def generate_groom():
         })
         
     except Exception as e:
-        print(f"Error in groomroom API: {e}")
+        print(f"ERROR in groomroom API: {e}")
         print(f"Error type: {type(e).__name__}")
         return jsonify({
             'success': False,
             'error': f'Error generating groom analysis: {str(e)}',
             'error_type': type(e).__name__
         }), 500
+    finally:
+        print("=== GROOMROOM API CALL END ===")
 
 @app.route('/api/teams/share', methods=['POST'])
 def share_to_teams():

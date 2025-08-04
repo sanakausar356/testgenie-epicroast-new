@@ -162,6 +162,54 @@ class GroomRoom:
                 ]
             }
         }
+        
+        # Definition of Done (DoD) requirements
+        self.dod_requirements = {
+            'qa_signoff': {
+                'name': 'QA Sign-off',
+                'description': 'Quality assurance testing completed and approved',
+                'checklist': ['Unit tests passed', 'Integration tests passed', 'UAT scenarios validated']
+            },
+            'accessibility_compliance': {
+                'name': 'Accessibility Compliance',
+                'description': 'WCAG guidelines and accessibility standards met',
+                'checklist': ['Keyboard navigation', 'Screen reader compatibility', 'Color contrast ratios']
+            },
+            'uat_scenarios': {
+                'name': 'UAT Scenarios',
+                'description': 'User acceptance testing scenarios defined and validated',
+                'checklist': ['Business user validation', 'End-to-end workflow testing', 'Stakeholder approval']
+            },
+            'documentation': {
+                'name': 'Documentation',
+                'description': 'Required documentation completed',
+                'checklist': ['Technical documentation', 'User guides', 'API documentation']
+            }
+        }
+        
+        # Cross-functional concerns
+        self.cross_functional_concerns = {
+            'accessibility': {
+                'name': 'Accessibility',
+                'description': 'WCAG compliance and inclusive design',
+                'indicators': ['modal', 'form', 'navigation', 'interactive', 'color', 'contrast']
+            },
+            'performance': {
+                'name': 'Performance',
+                'description': 'Performance expectations and optimization',
+                'indicators': ['loading', 'response time', 'optimization', 'caching', 'database']
+            },
+            'security': {
+                'name': 'Security',
+                'description': 'Security considerations and compliance',
+                'indicators': ['authentication', 'authorization', 'input validation', 'rate limiting', 'encryption']
+            },
+            'ux_validation': {
+                'name': 'UX Validation',
+                'description': 'User experience validation and testing',
+                'indicators': ['user testing', 'usability', 'user feedback', 'design review']
+            }
+        }
     
     def setup_azure_openai(self):
         """Initialize Azure OpenAI client"""
@@ -282,7 +330,14 @@ class GroomRoom:
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
-- **Task**: For enabling/disabling configs or documentation creation""",
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements:**
+- **Dependencies & Blockers**: Check for upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
             
             "insight": """You are a focused analyst examining Jira tickets. For the 'Insight' level, provide focused analysis that calls out missing details and implied risks. Use concise bullet points and highlight specific gaps.
 
@@ -301,7 +356,14 @@ class GroomRoom:
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
-- **Task**: For enabling/disabling configs or documentation creation""",
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements:**
+- **Dependencies & Blockers**: Check for upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
             
             "deep_dive": """You are a thorough analyst conducting deep analysis of Jira tickets. For the 'Deep Dive' level, provide comprehensive analysis including edge-case checks, data validations, and compliance notes. Be thorough and detailed.
 
@@ -320,7 +382,14 @@ class GroomRoom:
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
-- **Task**: For enabling/disabling configs or documentation creation""",
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements:**
+- **Dependencies & Blockers**: Check for upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
             
             "actionable": """You are a practical analyst focused on actionable feedback. For the 'Actionable' level, highlight only items that directly map to user stories or acceptance criteria. Provide 'next steps' phrased as Jira tasks.
 
@@ -339,7 +408,14 @@ class GroomRoom:
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
-- **Task**: For enabling/disabling configs or documentation creation""",
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements:**
+- **Dependencies & Blockers**: Check for upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
             
             "summary": """You are a concise analyst providing ultra-brief summaries. For the 'Summary' level, provide exactly 3 key gaps and 2 critical suggestions. Keep it brief and focused for quick scans.
 
@@ -358,7 +434,14 @@ class GroomRoom:
 **CRITICAL: Card Type Validation:**
 - **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
-- **Task**: For enabling/disabling configs or documentation creation"""
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements:**
+- **Dependencies & Blockers**: Check for upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements"""
         }
         
         return level_prompts.get(level, level_prompts["default"])
@@ -744,22 +827,332 @@ class GroomRoom:
         
         return card_analysis
     
+    def analyze_dependencies_and_blockers(self, content: str) -> Dict[str, Dict]:
+        """Analyze content for dependencies and blockers"""
+        analysis = {
+            'dependencies_found': [],
+            'blockers_identified': [],
+            'integration_points': [],
+            'upstream_dependencies': [],
+            'downstream_dependencies': [],
+            'recommendations': []
+        }
+        
+        content_lower = content.lower()
+        
+        # Check for dependency indicators
+        dependency_indicators = ['depends on', 'dependency', 'requires', 'needs', 'blocked by', 'waiting for']
+        if any(indicator in content_lower for indicator in dependency_indicators):
+            analysis['dependencies_found'].append('Dependencies mentioned in ticket')
+        else:
+            analysis['recommendations'].append('No dependencies or blockers identified. Confirm integration points (e.g., backend readiness, auth services) before sprinting.')
+        
+        # Check for integration points
+        integration_indicators = ['api', 'backend', 'database', 'service', 'integration', 'auth', 'authentication']
+        for indicator in integration_indicators:
+            if indicator in content_lower:
+                analysis['integration_points'].append(f'{indicator.title()} integration')
+        
+        # Check for upstream dependencies
+        upstream_indicators = ['waiting for', 'blocked by', 'requires approval', 'needs signoff']
+        if any(indicator in content_lower for indicator in upstream_indicators):
+            analysis['upstream_dependencies'].append('Upstream dependencies detected')
+        
+        # Check for downstream dependencies
+        downstream_indicators = ['will enable', 'allows', 'enables', 'supports']
+        if any(indicator in content_lower for indicator in downstream_indicators):
+            analysis['downstream_dependencies'].append('Downstream dependencies detected')
+        
+        return analysis
+    
+    def analyze_dod_alignment(self, content: str) -> Dict[str, Dict]:
+        """Analyze content against Definition of Done (DoD) requirements"""
+        dod_analysis = {}
+        
+        for dod_key, dod_info in self.dod_requirements.items():
+            analysis = {
+                'name': dod_info['name'],
+                'description': dod_info['description'],
+                'checklist': dod_info['checklist'],
+                'coverage_score': 0,
+                'missing_elements': [],
+                'suggestions': []
+            }
+            
+            content_lower = content.lower()
+            
+            if dod_key == 'qa_signoff':
+                qa_indicators = ['qa', 'testing', 'test cases', 'validation', 'quality assurance']
+                if any(indicator in content_lower for indicator in qa_indicators):
+                    analysis['coverage_score'] += 1
+                else:
+                    analysis['missing_elements'].append('QA sign-off requirements')
+                    analysis['suggestions'].append('Ensure the DoD checklist is addressed—QA sign-off, accessibility compliance, UAT scenarios, etc.')
+            
+            elif dod_key == 'accessibility_compliance':
+                accessibility_indicators = ['accessibility', 'wcag', 'screen reader', 'keyboard navigation', 'contrast']
+                if any(indicator in content_lower for indicator in accessibility_indicators):
+                    analysis['coverage_score'] += 1
+                else:
+                    analysis['missing_elements'].append('Accessibility compliance')
+                    analysis['suggestions'].append('Include accessibility requirements in DoD checklist')
+            
+            elif dod_key == 'uat_scenarios':
+                uat_indicators = ['uat', 'user acceptance', 'business validation', 'stakeholder approval']
+                if any(indicator in content_lower for indicator in uat_indicators):
+                    analysis['coverage_score'] += 1
+                else:
+                    analysis['missing_elements'].append('UAT scenarios')
+                    analysis['suggestions'].append('Define UAT scenarios for business validation')
+            
+            elif dod_key == 'documentation':
+                doc_indicators = ['documentation', 'docs', 'technical docs', 'user guide', 'api docs']
+                if any(indicator in content_lower for indicator in doc_indicators):
+                    analysis['coverage_score'] += 1
+                else:
+                    analysis['missing_elements'].append('Documentation requirements')
+                    analysis['suggestions'].append('Include documentation requirements in DoD')
+            
+            # Calculate percentage coverage
+            total_possible = 1  # Base score for each DoD requirement
+            analysis['coverage_percentage'] = (analysis['coverage_score'] / total_possible) * 100 if total_possible > 0 else 0
+            
+            dod_analysis[dod_key] = analysis
+        
+        return dod_analysis
+    
+    def analyze_stakeholder_validation(self, content: str) -> Dict[str, Dict]:
+        """Analyze content for stakeholder and PO validation"""
+        analysis = {
+            'stakeholder_validation': {
+                'found': False,
+                'indicators': [],
+                'missing': True,
+                'recommendation': 'Confirm stakeholder alignment or PO approval of Figma design and success criteria.'
+            },
+            'po_approval': {
+                'found': False,
+                'indicators': [],
+                'missing': True,
+                'recommendation': 'Ensure Product Owner has reviewed and approved the current scope/design.'
+            },
+            'design_validation': {
+                'found': False,
+                'indicators': [],
+                'missing': True,
+                'recommendation': 'Confirm design validation and stakeholder sign-off.'
+            }
+        }
+        
+        content_lower = content.lower()
+        
+        # Check for stakeholder validation indicators
+        stakeholder_indicators = ['stakeholder', 'approval', 'sign-off', 'signoff', 'validated', 'approved']
+        if any(indicator in content_lower for indicator in stakeholder_indicators):
+            analysis['stakeholder_validation']['found'] = True
+            analysis['stakeholder_validation']['missing'] = False
+            analysis['stakeholder_validation']['indicators'].append('Stakeholder validation mentioned')
+        
+        # Check for PO approval indicators
+        po_indicators = ['product owner', 'po', 'product manager', 'pm approval']
+        if any(indicator in content_lower for indicator in po_indicators):
+            analysis['po_approval']['found'] = True
+            analysis['po_approval']['missing'] = False
+            analysis['po_approval']['indicators'].append('PO approval mentioned')
+        
+        # Check for design validation indicators
+        design_indicators = ['figma', 'design', 'mockup', 'wireframe', 'prototype', 'design review']
+        if any(indicator in content_lower for indicator in design_indicators):
+            analysis['design_validation']['found'] = True
+            analysis['design_validation']['missing'] = False
+            analysis['design_validation']['indicators'].append('Design validation mentioned')
+        
+        return analysis
+    
+    def analyze_sprint_readiness(self, content: str) -> Dict[str, Dict]:
+        """Analyze content for sprint readiness indicators"""
+        analysis = {
+            'sprint_ready': False,
+            'readiness_score': 0,
+            'missing_for_sprint': [],
+            'sprint_context': 'unknown',
+            'recommendations': []
+        }
+        
+        content_lower = content.lower()
+        
+        # Check for sprint readiness indicators
+        ready_indicators = ['ready for sprint', 'sprint ready', 'ready to implement', 'implementation ready']
+        if any(indicator in content_lower for indicator in ready_indicators):
+            analysis['sprint_ready'] = True
+            analysis['readiness_score'] += 1
+        
+        # Check for missing elements that would prevent sprint readiness
+        missing_indicators = ['tbd', 'to be determined', 'pending', 'blocked', 'waiting']
+        if any(indicator in content_lower for indicator in missing_indicators):
+            analysis['missing_for_sprint'].append('Pending items identified')
+            analysis['recommendations'].append('Confirm if this story is expected to be pulled in the next sprint, or requires refinement backlog.')
+        
+        # Check for sprint context
+        if 'next sprint' in content_lower or 'current sprint' in content_lower:
+            analysis['sprint_context'] = 'current/next sprint'
+        elif 'backlog' in content_lower or 'refinement' in content_lower:
+            analysis['sprint_context'] = 'backlog/refinement'
+        
+        return analysis
+    
+    def analyze_cross_functional_concerns(self, content: str) -> Dict[str, Dict]:
+        """Analyze content for cross-functional concerns"""
+        analysis = {}
+        
+        for concern_key, concern_info in self.cross_functional_concerns.items():
+            concern_analysis = {
+                'name': concern_info['name'],
+                'description': concern_info['description'],
+                'indicators_found': [],
+                'coverage_score': 0,
+                'missing': True,
+                'recommendations': []
+            }
+            
+            content_lower = content.lower()
+            
+            # Check for concern indicators
+            for indicator in concern_info['indicators']:
+                if indicator in content_lower:
+                    concern_analysis['indicators_found'].append(indicator)
+                    concern_analysis['coverage_score'] += 1
+            
+            if concern_analysis['coverage_score'] > 0:
+                concern_analysis['missing'] = False
+            else:
+                concern_analysis['recommendations'].append(f'Consider {concern_info["name"].lower()} requirements if applicable')
+            
+            analysis[concern_key] = concern_analysis
+        
+        # Add general recommendation
+        if not any(analysis[concern]['coverage_score'] > 0 for concern in analysis):
+            analysis['general_recommendation'] = 'Ensure accessibility, performance, and security expectations are documented if applicable.'
+        
+        return analysis
+    
+    def create_visual_checklist(self, all_analyses: Dict) -> Dict[str, Dict]:
+        """Create a visual checklist summary for quick scanning"""
+        checklist = {
+            'overall_status': 'yellow',  # red, yellow, green
+            'sections': {},
+            'summary': {
+                'total_items': 0,
+                'completed_items': 0,
+                'missing_items': 0,
+                'critical_gaps': []
+            }
+        }
+        
+        # Analyze DOR requirements
+        dor_analysis = all_analyses.get('dor_analysis', {})
+        dor_status = 'green'
+        dor_completed = 0
+        dor_total = 0
+        
+        for requirement_key, analysis in dor_analysis.items():
+            dor_total += 1
+            if analysis['coverage_percentage'] >= 75:
+                dor_completed += 1
+            elif analysis['coverage_percentage'] < 50:
+                dor_status = 'red'
+                checklist['summary']['critical_gaps'].append(f"DOR: {analysis['name']} - {analysis['coverage_percentage']:.1f}% coverage")
+        
+        if dor_status == 'green' and dor_completed < dor_total:
+            dor_status = 'yellow'
+        
+        checklist['sections']['dor'] = {
+            'name': 'Definition of Ready',
+            'status': dor_status,
+            'completed': dor_completed,
+            'total': dor_total,
+            'percentage': (dor_completed / dor_total * 100) if dor_total > 0 else 0
+        }
+        
+        # Analyze dependencies
+        dep_analysis = all_analyses.get('dependencies_analysis', {})
+        dep_status = 'green' if not dep_analysis.get('dependencies_found') else 'yellow'
+        checklist['sections']['dependencies'] = {
+            'name': 'Dependencies & Blockers',
+            'status': dep_status,
+            'completed': 1 if dep_status == 'green' else 0,
+            'total': 1,
+            'percentage': 100 if dep_status == 'green' else 50
+        }
+        
+        # Analyze stakeholder validation
+        stakeholder_analysis = all_analyses.get('stakeholder_analysis', {})
+        stakeholder_completed = sum(1 for section in stakeholder_analysis.values() if not section.get('missing', True))
+        stakeholder_total = len(stakeholder_analysis)
+        stakeholder_status = 'green' if stakeholder_completed == stakeholder_total else 'yellow' if stakeholder_completed > 0 else 'red'
+        
+        checklist['sections']['stakeholder'] = {
+            'name': 'Stakeholder Validation',
+            'status': stakeholder_status,
+            'completed': stakeholder_completed,
+            'total': stakeholder_total,
+            'percentage': (stakeholder_completed / stakeholder_total * 100) if stakeholder_total > 0 else 0
+        }
+        
+        # Calculate overall status
+        total_sections = len(checklist['sections'])
+        green_sections = sum(1 for section in checklist['sections'].values() if section['status'] == 'green')
+        red_sections = sum(1 for section in checklist['sections'].values() if section['status'] == 'red')
+        
+        if red_sections > 0:
+            checklist['overall_status'] = 'red'
+        elif green_sections == total_sections:
+            checklist['overall_status'] = 'green'
+        else:
+            checklist['overall_status'] = 'yellow'
+        
+        # Calculate summary
+        checklist['summary']['total_items'] = sum(section['total'] for section in checklist['sections'].values())
+        checklist['summary']['completed_items'] = sum(section['completed'] for section in checklist['sections'].values())
+        checklist['summary']['missing_items'] = checklist['summary']['total_items'] - checklist['summary']['completed_items']
+        
+        return checklist
+    
     def generate_groom_analysis(self, ticket_content: str, level: str = "default") -> str:
         """Generate professional groom analysis using Azure OpenAI"""
         try:
             level_prompt = self.get_groom_level_prompt(level)
             
-            # Analyze content for brand abbreviations, frameworks, DOR requirements, and card type
+            # Analyze content for all aspects
             brand_analysis = self.analyze_brand_abbreviations(ticket_content)
             framework_analysis = self.analyze_frameworks(ticket_content)
             dor_analysis = self.analyze_dor_requirements(ticket_content)
             card_analysis = self.analyze_card_type(ticket_content)
+            dependencies_analysis = self.analyze_dependencies_and_blockers(ticket_content)
+            dod_analysis = self.analyze_dod_alignment(ticket_content)
+            stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content)
+            sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
+            cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
+            
+            # Create visual checklist
+            all_analyses = {
+                'dor_analysis': dor_analysis,
+                'dependencies_analysis': dependencies_analysis,
+                'stakeholder_analysis': stakeholder_analysis
+            }
+            visual_checklist = self.create_visual_checklist(all_analyses)
             
             # Create summaries
             framework_summary = self._create_framework_summary(framework_analysis)
             brand_summary = self._create_brand_summary(brand_analysis)
             dor_summary = self._create_dor_summary(dor_analysis)
             card_summary = self._create_card_summary(card_analysis)
+            dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
+            dod_summary = self._create_dod_summary(dod_analysis)
+            stakeholder_summary = self._create_stakeholder_summary(stakeholder_analysis)
+            sprint_readiness_summary = self._create_sprint_readiness_summary(sprint_readiness_analysis)
+            cross_functional_summary = self._create_cross_functional_summary(cross_functional_analysis)
+            checklist_summary = self._create_checklist_summary(visual_checklist)
             
             prompt = f"""
 {level_prompt}
@@ -778,6 +1171,24 @@ class GroomRoom:
 
 **Card Type Analysis:**
 {card_summary}
+
+**Dependencies & Blockers Analysis:**
+{dependencies_summary}
+
+**Definition of Done (DoD) Alignment:**
+{dod_summary}
+
+**Stakeholder Validation Analysis:**
+{stakeholder_summary}
+
+**Sprint Readiness Analysis:**
+{sprint_readiness_summary}
+
+**Cross-Functional Concerns Analysis:**
+{cross_functional_summary}
+
+**Visual Checklist Summary:**
+{checklist_summary}
 
 **CRITICAL FORMATTING RULES:**
 - Use ONLY markdown formatting, NEVER HTML tags
@@ -801,9 +1212,6 @@ class GroomRoom:
 
 [Balanced analysis with constructive feedback]
 
-## 🎯 Framework Coverage:
-[Summary of framework analysis with specific findings]
-
 ## 🔍 Key Findings:
 - **Finding 1** with relevant context
 - **Finding 2** with relevant context
@@ -813,6 +1221,25 @@ class GroomRoom:
 - **Suggestion 1** with specific guidance
 - **Suggestion 2** with specific guidance
 - **Suggestion 3** with specific guidance
+
+## 🔗 Dependencies & Blockers:
+- **Dependency status** with integration points
+- **Blocker assessment** with recommendations
+
+## ✅ Definition of Done Alignment:
+- **DoD coverage** with missing elements
+- **QA and accessibility** requirements
+
+## 👥 Stakeholder Validation:
+- **PO approval status** with recommendations
+- **Design validation** requirements
+
+## 🚀 Sprint Readiness:
+- **Readiness assessment** with missing items
+- **Sprint context** and recommendations
+
+## 🎯 Framework Coverage:
+[Summary of framework analysis with specific findings]
 
 ## 🎯 Summary:
 [Professional summary of key areas needing attention]
@@ -1009,6 +1436,162 @@ class GroomRoom:
         
         return '\n'.join(summary)
     
+    def _create_dependencies_summary(self, dependencies_analysis: Dict) -> str:
+        """Create a summary of dependencies and blockers analysis"""
+        summary = []
+        
+        if dependencies_analysis['dependencies_found']:
+            summary.append("**Dependencies Found:**")
+            for dep in dependencies_analysis['dependencies_found']:
+                summary.append(f"  - 🔗 {dep}")
+        
+        if dependencies_analysis['integration_points']:
+            summary.append("**Integration Points:**")
+            for point in dependencies_analysis['integration_points']:
+                summary.append(f"  - 🔌 {point}")
+        
+        if dependencies_analysis['upstream_dependencies']:
+            summary.append("**Upstream Dependencies:**")
+            for dep in dependencies_analysis['upstream_dependencies']:
+                summary.append(f"  - ⬆️ {dep}")
+        
+        if dependencies_analysis['downstream_dependencies']:
+            summary.append("**Downstream Dependencies:**")
+            for dep in dependencies_analysis['downstream_dependencies']:
+                summary.append(f"  - ⬇️ {dep}")
+        
+        if dependencies_analysis['recommendations']:
+            summary.append("**Recommendations:**")
+            for rec in dependencies_analysis['recommendations']:
+                summary.append(f"  - 💡 {rec}")
+        
+        return '\n'.join(summary) if summary else "No dependencies or blockers identified."
+    
+    def _create_dod_summary(self, dod_analysis: Dict) -> str:
+        """Create a summary of Definition of Done analysis"""
+        summary = []
+        
+        for dod_key, analysis in dod_analysis.items():
+            dod_name = analysis['name']
+            coverage = analysis['coverage_percentage']
+            missing = analysis['missing_elements']
+            suggestions = analysis['suggestions']
+            
+            summary.append(f"**{dod_name}**: {coverage:.1f}% coverage")
+            if missing:
+                summary.append(f"  Missing: {', '.join(missing)}")
+            if suggestions:
+                summary.append(f"  Suggestions: {', '.join(suggestions)}")
+            summary.append("")
+        
+        return '\n'.join(summary)
+    
+    def _create_stakeholder_summary(self, stakeholder_analysis: Dict) -> str:
+        """Create a summary of stakeholder validation analysis"""
+        summary = []
+        
+        for section_key, section_data in stakeholder_analysis.items():
+            section_name = section_key.replace('_', ' ').title()
+            found = section_data['found']
+            missing = section_data['missing']
+            recommendation = section_data.get('recommendation', '')
+            
+            status = "✅ Found" if found else "❌ Missing"
+            summary.append(f"**{section_name}**: {status}")
+            
+            if section_data.get('indicators'):
+                for indicator in section_data['indicators']:
+                    summary.append(f"  - {indicator}")
+            
+            if missing and recommendation:
+                summary.append(f"  💡 {recommendation}")
+        
+        return '\n'.join(summary)
+    
+    def _create_sprint_readiness_summary(self, sprint_readiness_analysis: Dict) -> str:
+        """Create a summary of sprint readiness analysis"""
+        summary = []
+        
+        readiness_status = "✅ Ready" if sprint_readiness_analysis['sprint_ready'] else "❌ Not Ready"
+        summary.append(f"**Sprint Readiness**: {readiness_status}")
+        
+        if sprint_readiness_analysis['sprint_context'] != 'unknown':
+            summary.append(f"**Sprint Context**: {sprint_readiness_analysis['sprint_context']}")
+        
+        if sprint_readiness_analysis['missing_for_sprint']:
+            summary.append("**Missing for Sprint:**")
+            for item in sprint_readiness_analysis['missing_for_sprint']:
+                summary.append(f"  - ⚠️ {item}")
+        
+        if sprint_readiness_analysis['recommendations']:
+            summary.append("**Recommendations:**")
+            for rec in sprint_readiness_analysis['recommendations']:
+                summary.append(f"  - 💡 {rec}")
+        
+        return '\n'.join(summary)
+    
+    def _create_cross_functional_summary(self, cross_functional_analysis: Dict) -> str:
+        """Create a summary of cross-functional concerns analysis"""
+        summary = []
+        
+        for concern_key, concern_data in cross_functional_analysis.items():
+            if concern_key == 'general_recommendation':
+                continue
+                
+            concern_name = concern_data['name']
+            coverage = concern_data['coverage_score']
+            missing = concern_data['missing']
+            recommendations = concern_data['recommendations']
+            
+            status = "✅ Addressed" if not missing else "❌ Not Addressed"
+            summary.append(f"**{concern_name}**: {status} ({coverage} indicators)")
+            
+            if concern_data['indicators_found']:
+                summary.append(f"  Indicators: {', '.join(concern_data['indicators_found'])}")
+            
+            if recommendations:
+                for rec in recommendations:
+                    summary.append(f"  💡 {rec}")
+        
+        if cross_functional_analysis.get('general_recommendation'):
+            summary.append(f"**General**: {cross_functional_analysis['general_recommendation']}")
+        
+        return '\n'.join(summary)
+    
+    def _create_checklist_summary(self, visual_checklist: Dict) -> str:
+        """Create a summary of visual checklist"""
+        summary = []
+        
+        status_emoji = {
+            'green': '🟢',
+            'yellow': '🟡', 
+            'red': '🔴'
+        }
+        
+        overall_status = visual_checklist['overall_status']
+        summary.append(f"**Overall Status**: {status_emoji[overall_status]} {overall_status.upper()}")
+        
+        summary.append("**Section Status:**")
+        for section_key, section_data in visual_checklist['sections'].items():
+            section_name = section_data['name']
+            section_status = section_data['status']
+            completed = section_data['completed']
+            total = section_data['total']
+            percentage = section_data['percentage']
+            
+            status_icon = status_emoji[section_status]
+            summary.append(f"  {status_icon} {section_name}: {completed}/{total} ({percentage:.0f}%)")
+        
+        checklist_summary = visual_checklist['summary']
+        summary.append(f"**Summary**: {checklist_summary['completed_items']}/{checklist_summary['total_items']} items complete")
+        
+        if checklist_summary['critical_gaps']:
+            summary.append("**Critical Gaps:**")
+            for gap in checklist_summary['critical_gaps']:
+                summary.append(f"  🔴 {gap}")
+        
+        return '\n'.join(summary)
+    
     def get_fallback_groom_analysis(self) -> str:
         """Return a fallback groom analysis if API fails"""
         return """
@@ -1016,7 +1599,7 @@ class GroomRoom:
 
 *The groom analysis generator is temporarily unavailable! 🔧*
 
-## 🔍 Quick Manual Analysis:
+## 🔍 Key Issues to Address:
 - **Check User Story Template** - Ensure "As a [user], I want [goal], so that [benefit]" format
 - **Verify Acceptance Criteria** - Look for clear, testable criteria
 - **Review Framework Coverage** - Check R-O-I, I-N-V-E-S-T, A-C-C-E-P-T, and 3C Model elements
