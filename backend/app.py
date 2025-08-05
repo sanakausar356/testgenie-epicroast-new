@@ -327,10 +327,11 @@ def generate_groom():
                 }
             }), 503
         
-        # Generate groom analysis
-        print(f"Calling groomroom.generate_groom_analysis with level={level}")
-        groom = groomroom.generate_groom_analysis(ticket_content, level=level)
-        print(f"Groom analysis generated, length={len(groom) if groom else 0}")
+        # Generate enhanced groom analysis
+        print(f"Calling groomroom.generate_groom_analysis_enhanced with level={level}")
+        debug_mode = data.get('debug_mode', False)
+        groom = groomroom.generate_groom_analysis_enhanced(ticket_content, level=level, debug_mode=debug_mode)
+        print(f"Enhanced groom analysis generated, length={len(groom) if groom else 0}")
         print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
         
         return jsonify({

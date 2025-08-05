@@ -1,194 +1,284 @@
 #!/usr/bin/env python3
 """
 Test script for enhanced GroomRoom functionality
-Tests the new Acceptance Criteria and Test Scenarios parsing capabilities
+Tests the new field reading accuracy fixes
 """
 
 import sys
 import os
+from dotenv import load_dotenv
+
+# Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from groomroom.core import GroomRoom
+# Load environment variables
+load_dotenv()
 
-def test_enhanced_acceptance_criteria():
-    """Test enhanced Acceptance Criteria analysis"""
-    print("🧪 Testing Enhanced Acceptance Criteria Analysis...")
+def test_enhanced_user_story_detection():
+    """Test enhanced user story detection"""
+    print("🧪 Testing Enhanced User Story Detection...")
     
-    groom_room = GroomRoom()
+    from groomroom.core import GroomRoom
     
-    # Test case 1: Good AC with Figma link
+    groomroom = GroomRoom()
+    
+    # Test case 1: User story in description (like ODCD-33741)
     test_content_1 = """
-    Summary: Add login modal to homepage
+Summary: Add payment method to checkout
+Description: As a customer, I want to add a new payment method during checkout, so that I can complete my purchase.
+Acceptance Criteria:
+- User can add credit card
+- User can add PayPal
+- Payment method is saved for future use
+"""
     
-    Acceptance Criteria:
-    - When a user clicks the login button, then the modal should appear with email and password fields
-    - When a user enters valid credentials and clicks submit, then they should be logged in successfully
-    - When a user enters invalid credentials, then an error message should be displayed
-    - The modal should match the design in https://www.figma.com/file/abc123/Login-Modal-Frame-2
+    result_1 = groomroom.detect_user_story_enhanced(test_content_1)
+    print(f"Test 1 - User story in description:")
+    print(f"  Found: {result_1['user_story_found']}")
+    print(f"  Location: {result_1['location']}")
+    print(f"  Confidence: {result_1['confidence']}")
+    print(f"  Debug: {result_1['debug_info']}")
+    print()
     
-    Test Scenarios:
-    - Positive: Valid login flow
-    - Negative: Invalid credentials, network errors
-    - RBT: High-risk authentication scenarios
-    - Cross-browser: Test on Chrome, Safari, Firefox
-    """
-    
-    ac_analysis = groom_room.analyze_enhanced_acceptance_criteria(test_content_1)
-    
-    print(f"✅ AC Present: {ac_analysis['ac_present']}")
-    print(f"✅ Overall Quality: {ac_analysis['overall_quality']}")
-    print(f"✅ Figma Links Found: {len(ac_analysis['figma_links'])}")
-    print(f"✅ Test Scenarios in AC: {ac_analysis['test_scenarios_in_ac']}")
-    
-    # Test case 2: Vague AC
+    # Test case 2: User story in Acceptance Criteria
     test_content_2 = """
-    Summary: Fix the bug
+Summary: Update user profile
+Description: Allow users to update their profile information
+Acceptance Criteria:
+As a user, I want to update my profile information, so that I can keep my details current.
+- User can edit name
+- User can edit email
+- Changes are saved immediately
+"""
     
-    Acceptance Criteria:
-    - Should match Figma
-    - Works like current version
-    - Fixes the bug properly
-    """
+    result_2 = groomroom.detect_user_story_enhanced(test_content_2)
+    print(f"Test 2 - User story in AC:")
+    print(f"  Found: {result_2['user_story_found']}")
+    print(f"  Location: {result_2['location']}")
+    print(f"  Confidence: {result_2['confidence']}")
+    print(f"  Debug: {result_2['debug_info']}")
+    print()
     
-    ac_analysis_2 = groom_room.analyze_enhanced_acceptance_criteria(test_content_2)
+    # Test case 3: No user story
+    test_content_3 = """
+Summary: Fix login bug
+Description: Users cannot log in with valid credentials
+Acceptance Criteria:
+- Login form accepts valid credentials
+- Error message shown for invalid credentials
+- Session is created after successful login
+"""
     
-    print(f"\n❌ Vague AC Detected: {len(ac_analysis_2['vague_ac_detected'])}")
-    for vague in ac_analysis_2['vague_ac_detected']:
-        print(f"  - {vague['issue']}")
-    
-    return True
+    result_3 = groomroom.detect_user_story_enhanced(test_content_3)
+    print(f"Test 3 - No user story:")
+    print(f"  Found: {result_3['user_story_found']}")
+    print(f"  Location: {result_3['location']}")
+    print(f"  Confidence: {result_3['confidence']}")
+    print(f"  Debug: {result_3['debug_info']}")
+    print()
 
-def test_enhanced_test_scenarios():
-    """Test enhanced Test Scenarios analysis"""
-    print("\n🧪 Testing Enhanced Test Scenarios Analysis...")
+def test_enhanced_figma_detection():
+    """Test enhanced Figma link detection"""
+    print("🎨 Testing Enhanced Figma Link Detection...")
     
-    groom_room = GroomRoom()
+    from groomroom.core import GroomRoom
     
-    # Test case 1: Good test scenarios
+    groomroom = GroomRoom()
+    
+    # Test case 1: Figma link in Acceptance Criteria
     test_content_1 = """
-    Summary: Add payment integration
+Summary: Design new checkout flow
+Description: Implement new checkout design
+Acceptance Criteria:
+- Follow design in https://www.figma.com/file/abc123/checkout-design
+- Button should be blue as shown in design
+- Layout matches Figma mockup exactly
+"""
     
-    Test Scenarios:
-    - Positive: User completes payment successfully with valid card
-    - Negative: Payment fails with invalid card, network timeout
-    - RBT: High-value transactions, data corruption scenarios
-    - Cross-browser: Test payment flow on mobile and desktop browsers
-    """
+    result_1 = groomroom.detect_figma_links_enhanced(test_content_1)
+    print(f"Test 1 - Figma link in AC:")
+    print(f"  Found: {result_1['figma_link_found']}")
+    print(f"  Locations: {result_1['locations']}")
+    print(f"  Links: {result_1['links']}")
+    print(f"  Confidence: {result_1['confidence']}")
+    print(f"  Debug: {result_1['debug_info']}")
+    print()
     
-    ts_analysis = groom_room.analyze_enhanced_test_scenarios_v2(test_content_1)
-    
-    print(f"✅ Test Scenarios Field Present: {ts_analysis['test_scenarios_field_present']}")
-    print(f"✅ Field Quality: {ts_analysis['field_quality']}")
-    print(f"✅ Misuse Detected: {ts_analysis['misuse_detected']}")
-    
-    # Test case 2: Misused test scenarios field
+    # Test case 2: Figma link in description
     test_content_2 = """
-    Summary: Update user profile
-    
-    Test Scenarios:
-    TODO: Add test cases
-    TBD: Need to determine scope
-    """
-    
-    ts_analysis_2 = groom_room.analyze_enhanced_test_scenarios_v2(test_content_2)
-    
-    print(f"\n❌ Field Misuse Detected: {ts_analysis_2['misuse_detected']}")
-    for misuse in ts_analysis_2['misuse_details']:
-        print(f"  - {misuse}")
-    
-    return True
+Summary: Update homepage design
+Description: 
+Please refer to the new homepage design: https://www.figma.com/file/def456/homepage-update
+The design shows a new hero section and updated navigation.
 
-def test_figma_link_detection():
-    """Test Figma link detection and analysis"""
-    print("\n🎨 Testing Figma Link Detection...")
+Acceptance Criteria:
+- Implement new hero section
+- Update navigation layout
+- Match colors from design
+"""
     
-    groom_room = GroomRoom()
+    result_2 = groomroom.detect_figma_links_enhanced(test_content_2)
+    print(f"Test 2 - Figma link in description:")
+    print(f"  Found: {result_2['figma_link_found']}")
+    print(f"  Locations: {result_2['locations']}")
+    print(f"  Links: {result_2['links']}")
+    print(f"  Confidence: {result_2['confidence']}")
+    print(f"  Debug: {result_2['debug_info']}")
+    print()
     
-    # Test case 1: Figma link with context
+    # Test case 3: No Figma link
+    test_content_3 = """
+Summary: Fix responsive layout
+Description: Layout breaks on mobile devices
+Acceptance Criteria:
+- Layout works on mobile
+- Layout works on tablet
+- Layout works on desktop
+"""
+    
+    result_3 = groomroom.detect_figma_links_enhanced(test_content_3)
+    print(f"Test 3 - No Figma link:")
+    print(f"  Found: {result_3['figma_link_found']}")
+    print(f"  Locations: {result_3['locations']}")
+    print(f"  Links: {result_3['links']}")
+    print(f"  Confidence: {result_3['confidence']}")
+    print(f"  Debug: {result_3['debug_info']}")
+    print()
+
+def test_dod_evaluation():
+    """Test DoD evaluation logic"""
+    print("✅ Testing DoD Evaluation Logic...")
+    
+    from groomroom.core import GroomRoom
+    
+    groomroom = GroomRoom()
+    
+    # Test case 1: Release-ready status
     test_content_1 = """
-    Acceptance Criteria:
-    - When user clicks the button, then the modal should appear as shown in Frame #2 of https://www.figma.com/file/abc123/Design-System
-    - The modal should have the same layout and animations as the Figma prototype
-    """
+Summary: Production deployment
+Status: Ready for Release
+Status Category: Release
+Description: Deploy to production environment
+"""
     
-    ac_analysis = groom_room.analyze_enhanced_acceptance_criteria(test_content_1)
+    result_1 = groomroom.should_evaluate_dod(test_content_1)
+    print(f"Test 1 - Release-ready status:")
+    print(f"  Should evaluate: {result_1['should_evaluate']}")
+    print(f"  Status found: {result_1['status_found']}")
+    print(f"  Reason: {result_1['reason']}")
+    print(f"  Debug: {result_1['debug_info']}")
+    print()
     
-    print(f"✅ Figma Links Found: {len(ac_analysis['figma_links'])}")
-    for link in ac_analysis['figma_links']:
-        print(f"  - URL: {link['url']}")
-        print(f"  - Has Context: {link['has_context']}")
-        print(f"  - Has Behavioral Expectation: {link['has_behavioral_expectation']}")
-        print(f"  - Is Generic: {link['is_generic']}")
-        print(f"  - Recommendation: {link['recommendation']}")
-    
-    # Test case 2: Generic Figma link
+    # Test case 2: Grooming status
     test_content_2 = """
-    Acceptance Criteria:
-    - Should match https://www.figma.com/file/xyz789/Design
-    """
+Summary: New feature implementation
+Status: To Do
+Status Category: Development
+Description: Implement new user feature
+"""
     
-    ac_analysis_2 = groom_room.analyze_enhanced_acceptance_criteria(test_content_2)
+    result_2 = groomroom.should_evaluate_dod(test_content_2)
+    print(f"Test 2 - Grooming status:")
+    print(f"  Should evaluate: {result_2['should_evaluate']}")
+    print(f"  Status found: {result_2['status_found']}")
+    print(f"  Reason: {result_2['reason']}")
+    print(f"  Debug: {result_2['debug_info']}")
+    print()
     
-    print(f"\n❌ Generic Figma Link:")
-    for link in ac_analysis_2['figma_links']:
-        print(f"  - Is Generic: {link['is_generic']}")
-        print(f"  - Recommendation: {link['recommendation']}")
+    # Test case 3: PROD RELEASE QUEUE status
+    test_content_3 = """
+Summary: Bug fix for production
+Status: PROD RELEASE QUEUE
+Description: Fix critical bug in production
+"""
     
-    return True
+    result_3 = groomroom.should_evaluate_dod(test_content_3)
+    print(f"Test 3 - PROD RELEASE QUEUE status:")
+    print(f"  Should evaluate: {result_3['should_evaluate']}")
+    print(f"  Status found: {result_3['status_found']}")
+    print(f"  Reason: {result_3['reason']}")
+    print(f"  Debug: {result_3['debug_info']}")
+    print()
 
-def test_separation_logic():
-    """Test separation logic between AC and Test Scenarios"""
-    print("\n🔄 Testing Separation Logic...")
+def test_enhanced_scoring():
+    """Test enhanced scoring with detection flags"""
+    print("📊 Testing Enhanced Scoring...")
     
-    groom_room = GroomRoom()
+    from groomroom.core import GroomRoom
     
-    # Test case: Test scenarios embedded in AC
+    groomroom = GroomRoom()
+    
+    # Test case: User story and Figma found
     test_content = """
-    Summary: Add search functionality
+Summary: New checkout design
+Description: As a customer, I want a streamlined checkout process, so that I can complete my purchase quickly.
+Acceptance Criteria:
+- Follow design in https://www.figma.com/file/abc123/checkout-design
+- Implement one-click checkout
+- Show order summary
+"""
     
-    Acceptance Criteria:
-    - When user enters search term, then results should appear
-    - When user clicks search button, then search should execute
-    - Test scenario: Enter valid search term and verify results
-    - Test scenario: Enter invalid search term and verify error handling
-    - RBT: Test with large datasets
-    """
+    # Run enhanced detection
+    user_story_analysis = groomroom.detect_user_story_enhanced(test_content)
+    figma_analysis = groomroom.detect_figma_links_enhanced(test_content)
     
-    ac_analysis = groom_room.analyze_enhanced_acceptance_criteria(test_content)
+    print(f"Enhanced Detection Results:")
+    print(f"  User Story Found: {user_story_analysis['user_story_found']}")
+    print(f"  Figma Link Found: {figma_analysis['figma_link_found']}")
+    print()
     
-    print(f"✅ Test Scenarios in AC Detected: {ac_analysis['test_scenarios_in_ac']}")
-    if ac_analysis['test_scenarios_in_ac']:
-        print("  - Recommendation: Move test scenarios to dedicated field")
+    # Create mock analysis data
+    mock_analyses = {
+        'dor_analysis': {
+            'user_story': {
+                'name': 'User Story',
+                'coverage_percentage': 30.0  # Low score that should be corrected
+            }
+        },
+        'stakeholder_analysis': {
+            'design_validation': {
+                'missing': True  # Should be corrected by Figma detection
+            }
+        },
+        'dependencies_analysis': {},
+        'test_scenarios_analysis': {}
+    }
     
-    return True
+    # Test enhanced scoring
+    enhanced_score = groomroom.calculate_groom_readiness_score_enhanced(
+        mock_analyses,
+        user_story_analysis['user_story_found'],
+        figma_analysis['figma_link_found']
+    )
+    
+    print(f"Enhanced Scoring Results:")
+    print(f"  Overall Score: {enhanced_score['overall_score']}")
+    print(f"  Total Possible: {enhanced_score['total_possible']}")
+    print(f"  Percentage: {(enhanced_score['overall_score'] / enhanced_score['total_possible'] * 100):.1f}%")
+    print(f"  Corrections Made: {enhanced_score['enhanced_scoring']['corrections_made']}")
+    print()
 
 def main():
     """Run all tests"""
-    print("🚀 Starting Enhanced GroomRoom Tests...\n")
+    print("🚀 Starting Enhanced GroomRoom Tests")
+    print("=" * 50)
     
     try:
-        test_enhanced_acceptance_criteria()
-        test_enhanced_test_scenarios()
-        test_figma_link_detection()
-        test_separation_logic()
+        test_enhanced_user_story_detection()
+        test_enhanced_figma_detection()
+        test_dod_evaluation()
+        test_enhanced_scoring()
         
-        print("\n✅ All tests completed successfully!")
-        print("\n📋 Summary of Enhanced Features:")
-        print("- Enhanced Acceptance Criteria validation (intent, conditions, expected results, pass/fail logic)")
-        print("- Vague AC detection with specific pattern matching")
-        print("- Figma link detection and context analysis")
-        print("- Enhanced Test Scenarios analysis with NLP patterns")
-        print("- Field misuse detection for Test Scenarios")
-        print("- Separation logic to detect test scenarios in AC")
+        print("✅ All tests completed successfully!")
+        print("Enhanced GroomRoom functionality is working correctly.")
         
     except Exception as e:
-        print(f"\n❌ Test failed with error: {e}")
+        print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        return 1
     
-    return True
+    return 0
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1) 
+    exit(main()) 

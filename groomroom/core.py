@@ -3349,3 +3349,705 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         else:
             analysis['coverage_analysis']['cross_browser']['status'] = 'missing'
             analysis['coverage_analysis']['cross_browser']['missing'].append('Cross-browser/device: ❌ Not defined')
+
+    # ============================================================================
+    # NEW METHODS FOR JIRA FIELD READING ACCURACY FIXES
+    # ============================================================================
+
+    def detect_user_story_enhanced(self, content: str) -> Dict[str, any]:
+        """
+        Enhanced user story detection that scans both description and Acceptance Criteria fields
+        Fixes false negatives on tickets like ODCD-33741
+        """
+        analysis = {
+            'user_story_found': False,
+            'location': None,
+            'pattern_matched': None,
+            'confidence': 0.0,
+            'debug_info': []
+        }
+        
+        # Enhanced regex patterns to catch variations
+        user_story_patterns = [
+            r"As a .*?, I want .*?, so that .*?\.",
+            r"As a .*? I want .*? so that .*?\.",
+            r"As a .*?, I want .*? so I can .*?\.",
+            r"As a .*? I want to .*? so that .*?\.",
+            r"As a .*?, I want to .*? so I can .*?\.",
+            r"As a .*? I want .*? so I can .*?\.",
+            r"As a .*?, I want .*? so that .*?",
+            r"As a .*? I want .*? so that .*?",
+            r"As a .*?, I want .*? so I can .*?",
+            r"As a .*? I want to .*? so that .*?",
+            r"As a .*?, I want to .*? so I can .*?",
+            r"As a .*? I want .*? so I can .*?",
+            # Additional patterns for variations
+            r"As a .*?, I want .*?, so I can .*?\.",
+            r"As a .*? I want .*?, so I can .*?\.",
+            r"As a .*?, I want to .*?, so that .*?\.",
+            r"As a .*? I want to .*?, so that .*?\.",
+            r"As a .*?, I want to .*?, so I can .*?\.",
+            r"As a .*? I want to .*?, so I can .*?\."
+        ]
+        
+        # Search in description field
+        description_section = self._extract_field_section(content, 'description')
+        if description_section:
+            for pattern in user_story_patterns:
+                match = re.search(pattern, description_section, re.IGNORECASE | re.DOTALL)
+                if match:
+                    analysis['user_story_found'] = True
+                    analysis['location'] = 'description'
+                    analysis['pattern_matched'] = pattern
+                    analysis['confidence'] = 0.9
+                    analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
+                    break
+        
+        # Also search in the entire content for description-like patterns if not found in specific field
+        if not analysis['user_story_found']:
+            # Look for description-like content after "Description:" in the main content
+            description_match = re.search(r'Description:\s*(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)', content, re.IGNORECASE | re.DOTALL)
+            if description_match:
+                description_text = description_match.group(1).strip()
+                for pattern in user_story_patterns:
+                    match = re.search(pattern, description_text, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        analysis['user_story_found'] = True
+                        analysis['location'] = 'description'
+                        analysis['pattern_matched'] = pattern
+                        analysis['confidence'] = 0.9
+                        analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
+                        break
+        
+        # Search in Acceptance Criteria field if not found in description
+        if not analysis['user_story_found']:
+            ac_section = self._extract_field_section(content, 'acceptance criteria')
+            if ac_section:
+                for pattern in user_story_patterns:
+                    match = re.search(pattern, ac_section, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        analysis['user_story_found'] = True
+                        analysis['location'] = 'acceptance_criteria'
+                        analysis['pattern_matched'] = pattern
+                        analysis['confidence'] = 0.8
+                        analysis['debug_info'].append(f"User story found in AC with pattern: {pattern}")
+                        break
+        
+        # Search in comments field if still not found
+        if not analysis['user_story_found']:
+            comments_section = self._extract_field_section(content, 'comments')
+            if comments_section:
+                for pattern in user_story_patterns:
+                    match = re.search(pattern, comments_section, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        analysis['user_story_found'] = True
+                        analysis['location'] = 'comments'
+                        analysis['pattern_matched'] = pattern
+                        analysis['confidence'] = 0.7
+                        analysis['debug_info'].append(f"User story found in comments with pattern: {pattern}")
+                        break
+        
+        if not analysis['user_story_found']:
+            analysis['debug_info'].append("No user story pattern found in any field")
+        
+        return analysis
+
+    def detect_figma_links_enhanced(self, content: str) -> Dict[str, any]:
+        """
+        Enhanced Figma link detection that scans multiple fields
+        Fixes missed Figma links in Acceptance Criteria and other fields
+        """
+        analysis = {
+            'figma_link_found': False,
+            'locations': [],
+            'links': [],
+            'confidence': 0.0,
+            'debug_info': []
+        }
+        
+        # Enhanced Figma link regex pattern - more specific to avoid partial matches
+        figma_pattern = r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9]+(?:\/.*)?"
+        
+        # Search in Acceptance Criteria field
+        ac_section = self._extract_field_section(content, 'acceptance criteria')
+        if ac_section:
+            matches = re.finditer(figma_pattern, ac_section, re.IGNORECASE)
+            matches_list = [match.group(0) for match in matches]
+            if matches_list:
+                analysis['figma_link_found'] = True
+                analysis['locations'].append('acceptance_criteria')
+                analysis['links'].extend(matches_list)
+                analysis['confidence'] = 0.9
+                analysis['debug_info'].append(f"Figma links found in AC: {len(matches_list)} links")
+        
+        # Search in description field
+        description_section = self._extract_field_section(content, 'description')
+        if description_section:
+            matches = re.finditer(figma_pattern, description_section, re.IGNORECASE)
+            matches_list = [match.group(0) for match in matches]
+            if matches_list:
+                analysis['figma_link_found'] = True
+                if 'description' not in analysis['locations']:
+                    analysis['locations'].append('description')
+                analysis['links'].extend(matches_list)
+                analysis['confidence'] = max(analysis['confidence'], 0.8)
+                analysis['debug_info'].append(f"Figma links found in description: {len(matches_list)} links")
+        
+        # Search in comments field
+        comments_section = self._extract_field_section(content, 'comments')
+        if comments_section:
+            matches = re.finditer(figma_pattern, comments_section, re.IGNORECASE)
+            matches_list = [match.group(0) for match in matches]
+            if matches_list:
+                analysis['figma_link_found'] = True
+                if 'comments' not in analysis['locations']:
+                    analysis['locations'].append('comments')
+                analysis['links'].extend(matches_list)
+                analysis['confidence'] = max(analysis['confidence'], 0.7)
+                analysis['debug_info'].append(f"Figma links found in comments: {len(matches_list)} links")
+        
+        # Remove duplicates from links
+        analysis['links'] = list(set(analysis['links']))
+        
+        if not analysis['figma_link_found']:
+            analysis['debug_info'].append("No Figma links found in any field")
+        
+        return analysis
+
+    def should_evaluate_dod(self, content: str) -> Dict[str, any]:
+        """
+        Determine if Definition of Done should be evaluated based on ticket status
+        Fixes premature DoD analysis for grooming-stage tickets
+        """
+        analysis = {
+            'should_evaluate': False,
+            'status_found': None,
+            'status_category_found': None,
+            'reason': None,
+            'debug_info': []
+        }
+        
+        # Extract status and status category fields
+        status_section = self._extract_field_section(content, 'status')
+        status_category_section = self._extract_field_section(content, 'status category')
+        
+        # Check for release-ready statuses
+        release_statuses = [
+            'release', 'ready for release', 'prod release queue', 'production release',
+            'ready for production', 'prod ready', 'release ready'
+        ]
+        
+        content_lower = content.lower()
+        
+        # Check if any release status is mentioned
+        for status in release_statuses:
+            if status in content_lower:
+                analysis['should_evaluate'] = True
+                analysis['status_found'] = status
+                analysis['reason'] = f"Status indicates release readiness: {status}"
+                analysis['debug_info'].append(f"Release status detected: {status}")
+                break
+        
+        # Check status category field specifically
+        if status_category_section:
+            status_category_lower = status_category_section.lower()
+            if 'release' in status_category_lower:
+                analysis['should_evaluate'] = True
+                analysis['status_category_found'] = 'release'
+                analysis['reason'] = "Status category indicates release readiness"
+                analysis['debug_info'].append("Release status category detected")
+        
+        # Check status field specifically
+        if status_section:
+            status_lower = status_section.lower()
+            for status in release_statuses:
+                if status in status_lower:
+                    analysis['should_evaluate'] = True
+                    analysis['status_found'] = status
+                    analysis['reason'] = f"Status field indicates release readiness: {status}"
+                    analysis['debug_info'].append(f"Release status in status field: {status}")
+                    break
+        
+        if not analysis['should_evaluate']:
+            analysis['reason'] = "Ticket not in release-ready status - DoD evaluation suppressed for grooming"
+            analysis['debug_info'].append("No release-ready status detected - suppressing DoD evaluation")
+        
+        return analysis
+
+    def calculate_groom_readiness_score_enhanced(self, all_analyses: Dict, user_story_found: bool = False, figma_link_found: bool = False) -> Dict[str, any]:
+        """
+        Enhanced groom readiness score calculation that uses detection flags
+        Fixes scoring penalties when user story and figma are actually present
+        """
+        score_data = {
+            'overall_score': 0,
+            'total_possible': 0,
+            'completed_items': 0,
+            'missing_items': 0,
+            'score_breakdown': {},
+            'critical_gaps': [],
+            'enhanced_scoring': {
+                'user_story_penalty_applied': False,
+                'figma_penalty_applied': False,
+                'corrections_made': []
+            }
+        }
+        
+        # Analyze DOR requirements with enhanced user story detection
+        dor_analysis = all_analyses.get('dor_analysis', {})
+        dor_score = 0
+        dor_total = 0
+        
+        for requirement_key, analysis in dor_analysis.items():
+            coverage = analysis['coverage_percentage']
+            
+            # Apply user story correction if detected
+            if requirement_key == 'user_story' and user_story_found and coverage < 50:
+                original_coverage = coverage
+                coverage = 100  # Full credit if user story is actually found
+                score_data['enhanced_scoring']['user_story_penalty_applied'] = True
+                score_data['enhanced_scoring']['corrections_made'].append(
+                    f"User Story: Corrected from {original_coverage:.1f}% to 100% (detected via enhanced analysis)"
+                )
+            
+            dor_total += 100  # Each requirement is worth 100 points
+            dor_score += coverage
+            
+            if coverage < 50:
+                score_data['critical_gaps'].append(f"DOR: {analysis['name']} - {coverage:.1f}% coverage")
+        
+        score_data['score_breakdown']['dor'] = {
+            'score': dor_score,
+            'total': dor_total,
+            'percentage': (dor_score / dor_total * 100) if dor_total > 0 else 0
+        }
+        
+        # Analyze dependencies
+        dep_analysis = all_analyses.get('dependencies_analysis', {})
+        dep_score = 100 if not dep_analysis.get('dependencies_found') else 50
+        score_data['score_breakdown']['dependencies'] = {
+            'score': dep_score,
+            'total': 100,
+            'percentage': dep_score
+        }
+        
+        # Analyze stakeholder validation with enhanced Figma detection
+        stakeholder_analysis = all_analyses.get('stakeholder_analysis', {})
+        stakeholder_score = 0
+        stakeholder_total = len(stakeholder_analysis) * 100
+        
+        for section_key, section_data in stakeholder_analysis.items():
+            if not section_data.get('missing', True):
+                stakeholder_score += 100
+            elif section_key == 'po_approval' and section_data.get('visibility_issue', False):
+                stakeholder_score += 50  # Partial credit for PO approval with visibility issue
+            elif section_key == 'design_validation' and figma_link_found:
+                # Apply Figma correction if detected
+                stakeholder_score += 100  # Full credit if Figma is actually found
+                score_data['enhanced_scoring']['figma_penalty_applied'] = True
+                score_data['enhanced_scoring']['corrections_made'].append(
+                    f"Design Validation: Corrected to 100% (Figma link detected via enhanced analysis)"
+                )
+        
+        score_data['score_breakdown']['stakeholder'] = {
+            'score': stakeholder_score,
+            'total': stakeholder_total,
+            'percentage': (stakeholder_score / stakeholder_total * 100) if stakeholder_total > 0 else 0
+        }
+        
+        # Analyze test scenarios
+        test_scenarios_analysis = all_analyses.get('test_scenarios_analysis', {})
+        test_scenarios_score = 0
+        test_scenarios_total = 400  # 100 points each for happy_path, negative, rbt, cross_browser
+        
+        categories = ['happy_path', 'negative', 'rbt', 'cross_browser']
+        for category in categories:
+            category_data = test_scenarios_analysis.get(category, {})
+            if category_data.get('status') == 'found':
+                test_scenarios_score += 100
+        
+        score_data['score_breakdown']['test_scenarios'] = {
+            'score': test_scenarios_score,
+            'total': test_scenarios_total,
+            'percentage': (test_scenarios_score / test_scenarios_total * 100) if test_scenarios_total > 0 else 0
+        }
+        
+        # Calculate overall score
+        total_score = dor_score + dep_score + stakeholder_score + test_scenarios_score
+        total_possible = dor_total + 100 + stakeholder_total + test_scenarios_total  # 100 for dependencies
+        
+        score_data['overall_score'] = total_score
+        score_data['total_possible'] = total_possible
+        score_data['completed_items'] = total_score
+        score_data['missing_items'] = total_possible - total_score
+        
+        return score_data
+
+    def _extract_field_section(self, content: str, field_name: str) -> str:
+        """
+        Extract content from a specific Jira field section
+        """
+        # Common field patterns
+        field_patterns = [
+            rf'{field_name}[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            rf'{field_name.replace(" ", "_")}[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            rf'{field_name.replace(" ", "")}[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        for pattern in field_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                return match.group(1).strip()
+        
+        return ""
+
+    def generate_groom_analysis_enhanced(self, ticket_content: str, level: str = "default", debug_mode: bool = False) -> str:
+        """
+        Enhanced groom analysis that incorporates the new field reading accuracy fixes
+        """
+        try:
+            # Run enhanced detection methods
+            user_story_analysis = self.detect_user_story_enhanced(ticket_content)
+            figma_analysis = self.detect_figma_links_enhanced(ticket_content)
+            dod_evaluation = self.should_evaluate_dod(ticket_content)
+            
+            # Log debug information if enabled
+            if debug_mode:
+                console.print(f"[blue]Enhanced Analysis Debug:[/blue]")
+                console.print(f"[blue]User Story Found: {user_story_analysis['user_story_found']} (Location: {user_story_analysis['location']})[/blue]")
+                console.print(f"[blue]Figma Link Found: {figma_analysis['figma_link_found']} (Locations: {figma_analysis['locations']})[/blue]")
+                console.print(f"[blue]DoD Evaluation: {dod_evaluation['should_evaluate']} (Reason: {dod_evaluation['reason']})[/blue]")
+            
+            # Run original analysis methods
+            level_prompt = self.get_groom_level_prompt(level)
+            
+            # Analyze content for all aspects
+            ticket_summary_analysis = self.analyze_ticket_summary(ticket_content)
+            brand_analysis = self.analyze_brand_abbreviations(ticket_content)
+            framework_analysis = self.analyze_frameworks(ticket_content)
+            dor_analysis = self.analyze_dor_requirements(ticket_content)
+            card_analysis = self.analyze_card_type(ticket_content)
+            dependencies_analysis = self.analyze_dependencies_and_blockers(ticket_content)
+            dod_analysis = self.analyze_dod_alignment(ticket_content) if dod_evaluation['should_evaluate'] else {}
+            stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content)
+            sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
+            cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
+            test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
+            enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios_v2(ticket_content)
+            enhanced_ac_analysis = self.analyze_enhanced_acceptance_criteria(ticket_content)
+            additional_jira_fields_analysis = self.analyze_additional_jira_fields(ticket_content)
+            
+            # Create visual checklist with enhanced scoring
+            all_analyses = {
+                'dor_analysis': dor_analysis,
+                'dependencies_analysis': dependencies_analysis,
+                'stakeholder_analysis': stakeholder_analysis,
+                'test_scenarios_analysis': test_scenarios_analysis
+            }
+            visual_checklist = self.create_visual_checklist(all_analyses)
+            
+            # Apply enhanced scoring
+            enhanced_score_data = self.calculate_groom_readiness_score_enhanced(
+                all_analyses, 
+                user_story_analysis['user_story_found'], 
+                figma_analysis['figma_link_found']
+            )
+            
+            # Create summaries with enhanced information
+            ticket_summary_summary = self._create_ticket_summary_summary(ticket_summary_analysis)
+            framework_summary = self._create_framework_summary(framework_analysis)
+            brand_summary = self._create_brand_summary(brand_analysis)
+            dor_summary = self._create_dor_summary_enhanced(dor_analysis, user_story_analysis)
+            card_summary = self._create_card_summary(card_analysis)
+            dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
+            dod_summary = self._create_dod_summary_enhanced(dod_analysis, dod_evaluation)
+            stakeholder_summary = self._create_stakeholder_summary_enhanced(stakeholder_analysis, figma_analysis)
+            sprint_readiness_summary = self._create_sprint_readiness_summary(sprint_readiness_analysis)
+            cross_functional_summary = self._create_cross_functional_summary(cross_functional_analysis)
+            test_scenarios_summary = self._create_test_scenarios_summary(test_scenarios_analysis)
+            enhanced_test_scenarios_summary = self._create_enhanced_test_scenarios_summary(enhanced_test_scenarios_analysis)
+            enhanced_ac_summary = self._create_enhanced_acceptance_criteria_summary(enhanced_ac_analysis)
+            additional_jira_fields_summary = self._create_additional_jira_fields_summary(additional_jira_fields_analysis)
+            checklist_summary = self._create_checklist_summary_enhanced(visual_checklist, enhanced_score_data)
+            
+            # Add enhanced analysis information to the prompt
+            enhanced_analysis_info = f"""
+**Enhanced Field Analysis Results:**
+- User Story Detection: {'✅ Found' if user_story_analysis['user_story_found'] else '❌ Not Found'} (Location: {user_story_analysis['location'] or 'None'})
+- Figma Link Detection: {'✅ Found' if figma_analysis['figma_link_found'] else '❌ Not Found'} (Locations: {', '.join(figma_analysis['locations']) if figma_analysis['locations'] else 'None'})
+- DoD Evaluation: {'✅ Enabled' if dod_evaluation['should_evaluate'] else '❌ Suppressed'} (Reason: {dod_evaluation['reason']})
+
+**Enhanced Scoring Corrections:**
+{chr(10).join(enhanced_score_data['enhanced_scoring']['corrections_made']) if enhanced_score_data['enhanced_scoring']['corrections_made'] else 'No corrections needed'}
+"""
+            
+            prompt = f"""
+{level_prompt}
+
+{enhanced_analysis_info}
+
+**Jira Ticket Content:**
+{ticket_content}
+
+**Ticket Summary Analysis:**
+{ticket_summary_summary}
+
+**Brand Analysis:**
+{brand_summary}
+
+**Framework Analysis:**
+{framework_summary}
+
+**Definition of Ready (DOR) Analysis:**
+{dor_summary}
+
+**Card Type Analysis:**
+{card_summary}
+
+**Dependencies & Blockers Analysis:**
+{dependencies_summary}
+
+**Definition of Done (DoD) Alignment:**
+{dod_summary}
+
+**Stakeholder Validation Analysis:**
+{stakeholder_summary}
+
+**Sprint Readiness Analysis:**
+{sprint_readiness_summary}
+
+**Cross-Functional Concerns Analysis:**
+{cross_functional_summary}
+
+**Test Scenarios Analysis:**
+{test_scenarios_summary}
+
+**Enhanced Test Scenarios Analysis:**
+{enhanced_test_scenarios_summary}
+
+**Enhanced Acceptance Criteria Analysis:**
+{enhanced_ac_summary}
+
+**Additional Jira Fields Analysis:**
+{additional_jira_fields_summary}
+
+**Visual Checklist Summary:**
+{checklist_summary}
+
+**CRITICAL FORMATTING RULES:**
+- Use ONLY markdown formatting, NEVER HTML tags
+- Use **text** for bold emphasis (NOT <b>text</b>)
+- Use *text* for italic emphasis (NOT <i>text</i>)
+- Use # for main headings, ## for subheadings
+- Use - for bullet points
+- NEVER use HTML tags like <b>, </b>, <i>, </i>, etc.
+
+**ENHANCED ANALYSIS INSTRUCTIONS:**
+1. **User Story Detection**: If the enhanced analysis shows a user story was found, do NOT report it as missing in any section
+2. **Figma Link Detection**: If the enhanced analysis shows Figma links were found, do NOT report them as missing in Design Specifications, Stakeholder Validation, or Figma Design Reference sections
+3. **DoD Evaluation**: Only evaluate Definition of Done if the enhanced analysis shows it should be evaluated (release-ready status)
+4. **Avoid Duplicate Warnings**: If an issue has been addressed by enhanced detection, reference it briefly rather than repeating the full warning
+5. **Scoring Corrections**: The enhanced scoring has already corrected for detected user stories and Figma links - do not penalize again
+
+**Instructions:**
+1. Analyze the Jira ticket against the provided framework analysis
+2. Provide professional feedback based on the selected level
+3. Use the exact terminology from the presentation frameworks
+4. Include specific suggestions for improvement
+5. Reference the brand analysis if relevant
+6. Use ONLY markdown formatting - **bold** for emphasis, *italic* for emphasis, # for headings
+7. NEVER use HTML tags in your response
+8. **AVOID REPETITIVE FEEDBACK**: If a missing element (e.g., test scenarios or Figma link) has already been mentioned in one section, do not repeat it verbatim in other sections. Refer to it briefly if needed (e.g., "See Key Findings" or "As noted above"). Each issue should only be fully explained once or twice.
+9. **RESPECT ENHANCED DETECTION**: Use the enhanced analysis results to avoid false negatives and duplicate warnings.
+
+**Output Format for Default Level:**
+# 📋 Enhanced Groom Analysis
+
+[AI-powered comprehensive review with enhanced field detection - analyzing all available data for sprint readiness]
+
+## 📋 Ticket Summary:
+[1-3 sentence summary of what the ticket is about, derived from Summary, Description, and Card Type fields]
+
+## 🔍 Key Findings:
+- **Finding 1** with relevant context (respecting enhanced detection results)
+- **Finding 2** with relevant context (respecting enhanced detection results)
+- **Finding 3** with relevant context (respecting enhanced detection results)
+
+## 💡 Improvement Suggestions:
+- **Suggestion 1** with specific guidance
+- **Suggestion 2** with specific guidance
+- **Suggestion 3** with specific guidance
+
+## 🔗 Dependencies & Blockers:
+- **Dependency status** with integration points
+- **Blocker assessment** with recommendations
+
+## ✅ Definition of Done Alignment:
+- **DoD coverage** with missing elements (only if release-ready status)
+- **QA and accessibility** requirements (only if release-ready status)
+
+## 👥 Stakeholder Validation:
+- **PO approval status** with recommendations
+- **Design validation** requirements (respecting Figma link detection)
+
+## 🚀 Sprint Readiness:
+- **Readiness assessment** with missing items
+- **Sprint context** and recommendations
+
+## 🎯 Framework Coverage:
+[Summary of framework analysis with specific findings]
+
+## ✅ Acceptance Criteria Review:
+[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC and Figma links]
+
+## 🧪 Test Scenario Breakdown:
+[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse]
+
+## 🎨 Figma Design Reference:
+[Figma link analysis - evaluates context, behavioral expectations, and placement recommendations]
+
+## 🏗 Technical Detail Feedback:
+[Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
+
+## 📊 Enhanced Groom Readiness Score:
+[AI-estimated % readiness based on all analyzed fields with enhanced detection corrections]
+
+## 🧾 Grooming Checklist:
+[Visual reference for sprint team alignment on missing items]
+
+## 🎯 Summary:
+[Professional summary of key areas needing attention, respecting enhanced detection results]
+"""
+            
+            if not self.client:
+                return self.get_fallback_groom_analysis()
+            
+            response = self.client.chat.completions.create(
+                model=self.client.deployment_name,
+                messages=[
+                    {"role": "system", "content": "You are a professional Jira ticket analyst with expertise in agile methodologies and Definition of Ready requirements."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            console.print(f"[red]Error generating enhanced groom analysis: {e}[/red]")
+            return self.get_fallback_groom_analysis()
+
+    def _create_dor_summary_enhanced(self, dor_analysis: Dict, user_story_analysis: Dict) -> str:
+        """
+        Enhanced DOR summary that respects user story detection results
+        """
+        summary = "**Definition of Ready (DOR) Analysis:**\n"
+        
+        for requirement_key, analysis in dor_analysis.items():
+            summary += f"- **{analysis['name']}**: "
+            
+            if requirement_key == 'user_story' and user_story_analysis['user_story_found']:
+                summary += f"✅ Found via enhanced detection (Location: {user_story_analysis['location']})\n"
+            else:
+                coverage = analysis['coverage_percentage']
+                if coverage >= 75:
+                    summary += f"✅ Good coverage ({coverage:.1f}%)\n"
+                elif coverage >= 50:
+                    summary += f"⚠️ Partial coverage ({coverage:.1f}%)\n"
+                else:
+                    summary += f"❌ Poor coverage ({coverage:.1f}%)\n"
+                
+                if analysis['missing_elements']:
+                    summary += f"  - Missing: {', '.join(analysis['missing_elements'])}\n"
+                if analysis['suggestions']:
+                    summary += f"  - Suggestions: {', '.join(analysis['suggestions'])}\n"
+        
+        return summary
+
+    def _create_dod_summary_enhanced(self, dod_analysis: Dict, dod_evaluation: Dict) -> str:
+        """
+        Enhanced DoD summary that respects evaluation conditions
+        """
+        if not dod_evaluation['should_evaluate']:
+            return f"**Definition of Done (DoD) Alignment:**\n- ⏸️ Evaluation suppressed: {dod_evaluation['reason']}\n"
+        
+        summary = "**Definition of Done (DoD) Alignment:**\n"
+        
+        if not dod_analysis:
+            summary += "- ❌ No DoD requirements found\n"
+            return summary
+        
+        for dod_key, analysis in dod_analysis.items():
+            summary += f"- **{analysis['name']}**: "
+            coverage = analysis['coverage_percentage']
+            if coverage >= 75:
+                summary += f"✅ Good coverage ({coverage:.1f}%)\n"
+            elif coverage >= 50:
+                summary += f"⚠️ Partial coverage ({coverage:.1f}%)\n"
+            else:
+                summary += f"❌ Poor coverage ({coverage:.1f}%)\n"
+            
+            if analysis['missing_elements']:
+                summary += f"  - Missing: {', '.join(analysis['missing_elements'])}\n"
+            if analysis['suggestions']:
+                summary += f"  - Suggestions: {', '.join(analysis['suggestions'])}\n"
+        
+        return summary
+
+    def _create_stakeholder_summary_enhanced(self, stakeholder_analysis: Dict, figma_analysis: Dict) -> str:
+        """
+        Enhanced stakeholder summary that respects Figma link detection results
+        """
+        summary = "**Stakeholder Validation Analysis:**\n"
+        
+        for section_key, section_data in stakeholder_analysis.items():
+            summary += f"- **{section_key.replace('_', ' ').title()}**: "
+            
+            if section_key == 'design_validation' and figma_analysis['figma_link_found']:
+                summary += f"✅ Design validation found (Figma links detected in: {', '.join(figma_analysis['locations'])})\n"
+            elif not section_data.get('missing', True):
+                summary += "✅ Validation found\n"
+            else:
+                summary += "❌ Validation missing\n"
+                if section_data.get('recommendation'):
+                    summary += f"  - Recommendation: {section_data['recommendation']}\n"
+                if section_data.get('visibility_issue'):
+                    summary += f"  - Visibility issue: {section_data.get('visibility_recommendation', 'Add visible confirmation')}\n"
+        
+        return summary
+
+    def _create_checklist_summary_enhanced(self, visual_checklist: Dict, enhanced_score_data: Dict) -> str:
+        """
+        Enhanced checklist summary that includes scoring corrections
+        """
+        summary = "**Visual Checklist Summary:**\n"
+        
+        # Add enhanced scoring information
+        if enhanced_score_data['enhanced_scoring']['corrections_made']:
+            summary += "**Enhanced Scoring Corrections Applied:**\n"
+            for correction in enhanced_score_data['enhanced_scoring']['corrections_made']:
+                summary += f"- {correction}\n"
+            summary += "\n"
+        
+        # Add overall status
+        status_emoji = {
+            'red': '🔴',
+            'yellow': '🟡', 
+            'green': '🟢'
+        }
+        overall_status = visual_checklist['overall_status']
+        summary += f"**Overall Status**: {status_emoji.get(overall_status, '⚪')} {overall_status.upper()}\n"
+        
+        # Add section breakdown
+        for section_key, section_data in visual_checklist['sections'].items():
+            section_status = status_emoji.get(section_data['status'], '⚪')
+            summary += f"- **{section_data['name']}**: {section_status} {section_data['completed']}/{section_data['total']} ({section_data['percentage']:.1f}%)\n"
+        
+        # Add enhanced score
+        enhanced_score = enhanced_score_data['overall_score']
+        enhanced_total = enhanced_score_data['total_possible']
+        enhanced_percentage = (enhanced_score / enhanced_total * 100) if enhanced_total > 0 else 0
+        summary += f"\n**Enhanced Groom Readiness Score**: {enhanced_percentage:.1f}% ({enhanced_score}/{enhanced_total})\n"
+        
+        return summary
