@@ -4155,9 +4155,16 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         for field in fields:
             if field:
+                # First check for direct Figma URLs
                 match = re.search(figma_pattern, field, re.IGNORECASE)
                 if match:
                     return match.group(0)
+                
+                # Also check for mentions of "Figma" (case insensitive)
+                # This handles cases where "Figma" is hyperlinked or mentioned in text
+                if re.search(r'\bfigma\b', field, re.IGNORECASE):
+                    return "Figma reference found"
+        
         return None
 
     def should_include_dod(self, status: str) -> bool:

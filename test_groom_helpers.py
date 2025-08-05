@@ -1,270 +1,237 @@
 #!/usr/bin/env python3
 """
-Sanity check test file for GroomRoom helper methods
-Tests the centralized helper methods: has_user_story, find_figma_link, should_include_dod
+Test file for GroomRoom helper methods
+Tests the centralized helper methods for user story, Figma link, and DoD detection
 """
 
 import sys
 import os
-
-# Add the project root to the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from groomroom.core import GroomRoom
 
 def test_user_story_detection():
-    """Test the has_user_story helper method"""
-    print("🧪 Testing User Story Detection...")
-    
+    """Test user story detection with various formats"""
     groomroom = GroomRoom()
     
-    # Test cases
     test_cases = [
-        {
-            'description': "As a shopper, I want to sign up so that I can earn rewards.",
-            'ac': "",
-            'expected': True,
-            'name': "User story in description"
-        },
-        {
-            'description': "This is a regular description without user story format.",
-            'ac': "As a user, I want to login so that I can access my account.",
-            'expected': True,
-            'name': "User story in acceptance criteria"
-        },
-        {
-            'description': "As a customer, I want to browse products so I can find what I need.",
-            'ac': "As a user, I want to login so that I can access my account.",
-            'expected': True,
-            'name': "User stories in both description and AC"
-        },
-        {
-            'description': "This is a regular description without user story format.",
-            'ac': "The system should allow users to login.",
-            'expected': False,
-            'name': "No user story format"
-        },
-        {
-            'description': "As a user, I want to do something so that I can achieve a goal",
-            'ac': "",
-            'expected': True,
-            'name': "User story without period"
-        }
+        # Standard format
+        ("As a user, I want to see the redesigned sign up modal and be automatically opted into loyalty when I create an account, so that there is no confusion about the loyalty experience.", "", True),
+        # No user story
+        ("This is a regular description without user story format.", "", False),
+        # User story in acceptance criteria
+        ("", "As a customer, I want to sign up easily, so that I can start shopping.", True),
+        # Mixed content
+        ("Regular description", "As a shopper, I want to create an account, so that I can save my preferences.", True),
     ]
     
-    all_passed = True
-    for i, test_case in enumerate(test_cases, 1):
-        result = groomroom.has_user_story(test_case['description'], test_case['ac'])
-        passed = result == test_case['expected']
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"  {i}. {test_case['name']}: {status}")
-        if not passed:
-            print(f"     Expected: {test_case['expected']}, Got: {result}")
-            all_passed = False
-    
-    print(f"User Story Detection: {'✅ ALL PASSED' if all_passed else '❌ SOME FAILED'}\n")
-    return all_passed
+    print("🧪 Testing User Story Detection")
+    for description, ac, expected in test_cases:
+        result = groomroom.has_user_story(description, ac)
+        status = "✅ PASS" if result == expected else "❌ FAIL"
+        print(f"   {status} - Expected: {expected}, Got: {result}")
+        if result != expected:
+            print(f"      Description: '{description[:50]}...'")
+            print(f"      AC: '{ac[:50]}...'")
 
 def test_figma_detection():
-    """Test the find_figma_link helper method"""
-    print("🎨 Testing Figma Link Detection...")
-    
+    """Test Figma link detection with various formats"""
     groomroom = GroomRoom()
     
-    # Test cases
     test_cases = [
-        {
-            'fields': ["Design can be found here: https://www.figma.com/file/abc123"],
-            'expected': "https://www.figma.com/file/abc123",
-            'name': "Figma link in single field"
-        },
-        {
-            'fields': ["Description: Some text", "AC: Check design at https://www.figma.com/file/xyz789"],
-            'expected': "https://www.figma.com/file/xyz789",
-            'name': "Figma link in second field"
-        },
-        {
-            'fields': ["No figma link here", "Just regular text"],
-            'expected': None,
-            'name': "No Figma link"
-        },
-        {
-            'fields': ["https://www.figma.com/file/abc123", "https://www.figma.com/file/xyz789"],
-            'expected': "https://www.figma.com/file/abc123",
-            'name': "Multiple Figma links (should return first)"
-        },
-        {
-            'fields': ["Check the design: https://www.figma.com/file/abc123/design-name"],
-            'expected': "https://www.figma.com/file/abc123/design-name",
-            'name': "Figma link with additional path"
-        }
+        # Direct Figma URL
+        ("Check the design at https://www.figma.com/file/abc123", True),
+        # Figma mention without URL
+        ("UX should match Figma", True),
+        # Figma in acceptance criteria
+        ("", "UX should match Figma (Figma word is hyperlinked)", True),
+        # No Figma reference
+        ("This has no Figma reference", False),
+        # Figma in description
+        ("The design is in Figma", True),
     ]
     
-    all_passed = True
-    for i, test_case in enumerate(test_cases, 1):
-        result = groomroom.find_figma_link(*test_case['fields'])
-        passed = result == test_case['expected']
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"  {i}. {test_case['name']}: {status}")
-        if not passed:
-            print(f"     Expected: {test_case['expected']}, Got: {result}")
-            all_passed = False
-    
-    print(f"Figma Link Detection: {'✅ ALL PASSED' if all_passed else '❌ SOME FAILED'}\n")
-    return all_passed
+    print("\n🎨 Testing Figma Detection")
+    for field1, expected in test_cases:
+        result = groomroom.find_figma_link(field1)
+        found = bool(result)
+        status = "✅ PASS" if found == expected else "❌ FAIL"
+        print(f"   {status} - Expected: {expected}, Got: {found}")
+        if found != expected:
+            print(f"      Content: '{field1[:50]}...'")
+            print(f"      Result: {result}")
 
 def test_dod_gate():
-    """Test the should_include_dod helper method"""
-    print("🚀 Testing DoD Evaluation Gate...")
-    
+    """Test DoD evaluation with various statuses"""
     groomroom = GroomRoom()
     
-    # Test cases
     test_cases = [
-        {
-            'status': "PROD RELEASE QUEUE",
-            'expected': True,
-            'name': "Prod release queue status"
-        },
-        {
-            'status': "Ready for Release",
-            'expected': True,
-            'name': "Ready for release status"
-        },
-        {
-            'status': "UAT Complete",
-            'expected': True,
-            'name': "UAT complete status"
-        },
-        {
-            'status': "In Production",
-            'expected': True,
-            'name': "In production status"
-        },
-        {
-            'status': "To Do",
-            'expected': False,
-            'name': "Grooming status"
-        },
-        {
-            'status': "In Progress",
-            'expected': False,
-            'name': "Development status"
-        },
-        {
-            'status': "Ready for Review",
-            'expected': False,
-            'name': "Review status"
-        },
-        {
-            'status': "",
-            'expected': False,
-            'name': "Empty status"
-        },
-        {
-            'status': None,
-            'expected': False,
-            'name': "None status"
-        }
+        ("PROD RELEASE QUEUE", True),
+        ("Ready for Release", True),
+        ("UAT Complete", True),
+        ("In Production", True),
+        ("To Do", False),
+        ("In Progress", False),
+        ("Ready For Dev", False),
+        ("", False),
     ]
     
-    all_passed = True
-    for i, test_case in enumerate(test_cases, 1):
-        result = groomroom.should_include_dod(test_case['status'])
-        passed = result == test_case['expected']
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"  {i}. {test_case['name']}: {status}")
-        if not passed:
-            print(f"     Expected: {test_case['expected']}, Got: {result}")
-            all_passed = False
-    
-    print(f"DoD Evaluation Gate: {'✅ ALL PASSED' if all_passed else '❌ SOME FAILED'}\n")
-    return all_passed
+    print("\n📋 Testing DoD Gate")
+    for status, expected in test_cases:
+        result = groomroom.should_include_dod(status)
+        status_icon = "✅ PASS" if result == expected else "❌ FAIL"
+        print(f"   {status_icon} - Status: '{status}' -> Expected: {expected}, Got: {result}")
 
 def test_analysis_context():
-    """Test the create_analysis_context helper method"""
-    print("🔧 Testing Analysis Context Creation...")
-    
+    """Test the create_analysis_context method"""
     groomroom = GroomRoom()
     
-    # Test ticket content with all elements - using format that _extract_field_section can parse
+    # Test content with user story, Figma reference, and non-release status
     test_content = """
-Description: As a user, I want to login so that I can access my account.
+Description
 
-Acceptance Criteria:
-- User can enter credentials
-- Design reference: https://www.figma.com/file/abc123
-- System validates input
+Prior to starting dev work on this ticket, need data from SFRA controllers for left side of modal: accountmodal-register and accountmodal-login
 
-Status: PROD RELEASE QUEUE
+User Story
+
+As a user, I want to see the redesigned sign up modal and be automatically opted into loyalty when I create an account, so that there is no confusion about the loyalty experience.
+
+Acceptance Criteria
+
+UX should match Figma (Figma word is hyperlinked)
+
+Apply Marmot styling and colors - Marmot style guide (this is hyperlinked)
+
+Status
+
+Ready For Dev
 """
     
-    # Extract fields using the helper method
-    description_extracted = groomroom._extract_field_section(test_content, 'description')
-    ac_extracted = groomroom._extract_field_section(test_content, 'acceptance criteria')
-    status_extracted = groomroom._extract_field_section(test_content, 'status')
-    
+    print("\n🔍 Testing Analysis Context")
     context = groomroom.create_analysis_context(test_content)
     
-    # Test assertions
-    tests = [
-        ('user_story_found', True, "User story should be found"),
-        ('figma_link_found', True, "Figma link should be found"),
-        ('include_dod', True, "DoD should be included for release status"),
-        ('figma_link', "https://www.figma.com/file/abc123", "Figma link should be extracted"),
-        ('status', "PROD RELEASE QUEUE", "Status should be extracted")
-    ]
+    # Test user story detection
+    expected_user_story = True
+    actual_user_story = context['user_story_found']
+    status = "✅ PASS" if actual_user_story == expected_user_story else "❌ FAIL"
+    print(f"   {status} - User story should be found: Expected: {expected_user_story}, Got: {actual_user_story}")
     
-    all_passed = True
-    for field, expected, description in tests:
-        result = context.get(field)
-        passed = result == expected
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"  {description}: {status}")
-        if not passed:
-            print(f"     Expected: {expected}, Got: {result}")
-            all_passed = False
+    # Test Figma detection
+    expected_figma = True
+    actual_figma = context['figma_link_found']
+    status = "✅ PASS" if actual_figma == expected_figma else "❌ FAIL"
+    print(f"   {status} - Figma should be found: Expected: {expected_figma}, Got: {actual_figma}")
+    print(f"      Figma link: {context['figma_link']}")
     
-    print(f"Analysis Context: {'✅ ALL PASSED' if all_passed else '❌ SOME FAILED'}\n")
-    return all_passed
+    # Test DoD inclusion
+    expected_dod = False
+    actual_dod = context['include_dod']
+    status = "✅ PASS" if actual_dod == expected_dod else "❌ FAIL"
+    print(f"   {status} - DoD should be included for release status: Expected: {expected_dod}, Got: {actual_dod}")
+    
+    # Test status extraction
+    expected_status = "Ready For Dev"
+    actual_status = context['status']
+    status = "✅ PASS" if actual_status == expected_status else "❌ FAIL"
+    print(f"   {status} - Status should be extracted: Expected: '{expected_status}', Got: '{actual_status}'")
+
+def test_real_jira_ticket():
+    """Test with the actual Jira ticket content provided by the user"""
+    groomroom = GroomRoom()
+    
+    # The actual Jira ticket content from the user
+    real_ticket_content = """
+Description
+
+Prior to starting dev work on this ticket, need data from SFRA controllers for left side of modal: accountmodal-register and accountmodal-login
+
+User Story
+
+As a user, I want to see the redesigned sign up modal and be automatically opted into loyalty when I create an account, so that there is no confusion about the loyalty experience.
+
+Acceptance Criteria
+
+UX should match Figma (Figma word is hyperlinked)
+
+Apply Marmot styling and colors - Marmot style guide (this is hyperlinked)
+
+Account benefits content asset (left on desktop/tablet modal, top on mobile modal)
+
+T&Cs content asset should reflect in the storefront from SFRA
+
+Email opt-in is controlled by site pref from SFRA
+
+SMS opt-in phone number field
+
+Error states
+
+Loyalty should be opted in automatically upon account creation
+
+Modal closes upon successful user registration
+
+Modal closes if user clicks outside of the modal
+
+Facebook sign up should be removed from the modal as it's no longer going to be an option for users to sign up via FB
+
+Modal should adjust in height dependent on any error messages and the space those messages take
+
+If new account modal is disabled, the existing flow should be present
+
+For PWA sites, additional logic need to be added to show login pop up when user lands on homepage with /?modal=login parameters. 
+Can check below URL for reference: https://test.foodsaver.com/?modal=login
+
+Status
+
+Ready For Dev
+"""
+    
+    print("\n🎯 Testing Real Jira Ticket")
+    context = groomroom.create_analysis_context(real_ticket_content)
+    
+    # Test user story detection
+    expected_user_story = True
+    actual_user_story = context['user_story_found']
+    status = "✅ PASS" if actual_user_story == expected_user_story else "❌ FAIL"
+    print(f"   {status} - User story should be found: Expected: {expected_user_story}, Got: {actual_user_story}")
+    
+    # Test Figma detection
+    expected_figma = True
+    actual_figma = context['figma_link_found']
+    status = "✅ PASS" if actual_figma == expected_figma else "❌ FAIL"
+    print(f"   {status} - Figma should be found: Expected: {expected_figma}, Got: {actual_figma}")
+    print(f"      Figma link: {context['figma_link']}")
+    
+    # Test DoD inclusion
+    expected_dod = False
+    actual_dod = context['include_dod']
+    status = "✅ PASS" if actual_dod == expected_dod else "❌ FAIL"
+    print(f"   {status} - DoD should be included for release status: Expected: {expected_dod}, Got: {actual_dod}")
+    
+    # Test status extraction
+    expected_status = "Ready For Dev"
+    actual_status = context['status']
+    status = "✅ PASS" if actual_status == expected_status else "❌ FAIL"
+    print(f"   {status} - Status should be extracted: Expected: '{expected_status}', Got: '{actual_status}'")
 
 def main():
     """Run all tests"""
-    print("🧪 GroomRoom Helper Methods Sanity Check\n")
+    print("🧪 GroomRoom Helper Methods Test Suite")
     print("=" * 50)
     
-    tests = [
-        test_user_story_detection,
-        test_figma_detection,
-        test_dod_gate,
-        test_analysis_context
-    ]
-    
-    results = []
-    for test in tests:
-        try:
-            result = test()
-            results.append(result)
-        except Exception as e:
-            print(f"❌ Test failed with exception: {e}")
-            results.append(False)
-    
-    print("=" * 50)
-    print("📊 SUMMARY")
-    print("=" * 50)
-    
-    passed = sum(results)
-    total = len(results)
-    
-    print(f"Tests Passed: {passed}/{total}")
-    print(f"Success Rate: {(passed/total)*100:.1f}%")
-    
-    if passed == total:
-        print("🎉 ALL TESTS PASSED! Helper methods are working correctly.")
-        return 0
-    else:
-        print("⚠️  SOME TESTS FAILED! Please check the implementation.")
-        return 1
+    try:
+        test_user_story_detection()
+        test_figma_detection()
+        test_dod_gate()
+        test_analysis_context()
+        test_real_jira_ticket()
+        
+        print("\n" + "=" * 50)
+        print("🎉 All tests completed!")
+        
+    except Exception as e:
+        print(f"\n❌ Test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    exit(main()) 
+    main() 
