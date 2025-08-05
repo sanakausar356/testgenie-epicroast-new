@@ -3923,13 +3923,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 return self.get_fallback_groom_analysis()
             
             response = self.client.chat.completions.create(
-                model=self.client.deployment_name,
+                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
                 messages=[
                     {"role": "system", "content": "You are a professional Jira ticket analyst with expertise in agile methodologies and Definition of Ready requirements."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=4000
+                max_completion_tokens=4000
             )
             
             return response.choices[0].message.content.strip()
