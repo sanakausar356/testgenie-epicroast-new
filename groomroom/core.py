@@ -324,13 +324,13 @@ class GroomRoom:
 You must read and analyze ALL available Jira fields in the ticket content, including:
 - **Summary**: Main ticket title and key information
 - **Description**: Detailed ticket content and context
-- **Acceptance Criteria**: Specific requirements and success criteria
-- **Test Scenarios**: Custom field for testing coverage (Happy Path, Negative, RBT, Cross-browser)
+- **Acceptance Criteria**: Specific requirements and success criteria (with enhanced validation for intent, conditions, expected results, and pass/fail logic)
+- **Test Scenarios**: Custom field for testing coverage (Happy Path, Negative, RBT, Cross-browser) - must be separate from AC
 - **Agile Team**: Assigned development team
 - **Story Points**: Effort estimation
 - **Components**: Affected system components
 - **Brands**: Target brand(s) for the feature
-- **Figma/Attachments**: Design references and supporting files
+- **Figma/Attachments**: Design references and supporting files (with enhanced Figma link analysis)
 - **Comments**: Team discussions and additional context
 - **Labels**: Categorization and metadata
 - **Epic Link**: Parent epic relationship
@@ -340,7 +340,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 
 **AI Understanding Requirements:**
 - Use natural language understanding to detect vague vs specific acceptance criteria
+- Validate AC structure for intent, conditions, expected results, and pass/fail logic
+- Detect Figma links in AC and evaluate their context and behavioral expectations
 - Check if test scenarios cover required dimensions (happy path, edge cases, RBT, cross-browser)
+- Ensure test scenarios are in dedicated field, not embedded in AC
 - Identify if user story follows agile template or is just high-level description
 - Spot missing or mismatched fields (brand/component/story points)
 - Infer PO/design sign-off likelihood from ticket language and comments
@@ -1555,7 +1558,8 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
             cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
             test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
-            enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios(ticket_content)
+            enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios_v2(ticket_content)
+            enhanced_ac_analysis = self.analyze_enhanced_acceptance_criteria(ticket_content)
             additional_jira_fields_analysis = self.analyze_additional_jira_fields(ticket_content)
             
             # Create visual checklist
@@ -1580,6 +1584,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             cross_functional_summary = self._create_cross_functional_summary(cross_functional_analysis)
             test_scenarios_summary = self._create_test_scenarios_summary(test_scenarios_analysis)
             enhanced_test_scenarios_summary = self._create_enhanced_test_scenarios_summary(enhanced_test_scenarios_analysis)
+            enhanced_ac_summary = self._create_enhanced_acceptance_criteria_summary(enhanced_ac_analysis)
             additional_jira_fields_summary = self._create_additional_jira_fields_summary(additional_jira_fields_analysis)
             checklist_summary = self._create_checklist_summary(visual_checklist)
             
@@ -1624,6 +1629,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 
 **Enhanced Test Scenarios Analysis:**
 {enhanced_test_scenarios_summary}
+
+**Enhanced Acceptance Criteria Analysis:**
+{enhanced_ac_summary}
 
 **Additional Jira Fields Analysis:**
 {additional_jira_fields_summary}
@@ -1795,8 +1803,14 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 ## 🎯 Framework Coverage:
 [Summary of framework analysis with specific findings]
 
+## ✅ Acceptance Criteria Review:
+[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC and Figma links]
+
 ## 🧪 Test Scenario Breakdown:
-[Deep dive into Test Scenarios field - validates Happy Path, Negative, RBT, Cross-browser coverage]
+[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse]
+
+## 🎨 Figma Design Reference:
+[Figma link analysis - evaluates context, behavioral expectations, and placement recommendations]
 
 ## 🏗 Technical Detail Feedback:
 [Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
@@ -2400,6 +2414,30 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 'coverage': [],
                 'missing': [],
                 'recommendations': []
+            },
+            'story_points': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'agile_team': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'components': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'brands': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
             }
         }
         
@@ -2490,6 +2528,91 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         else:
             analysis['linked_issues']['missing'].append('Linked issues/dependencies')
             analysis['linked_issues']['recommendations'].append('Check if upstream/downstream linkage is noted')
+        
+        # Analyze Story Points (from custom fields)
+        story_points_indicators = ['story points', 'points', 'estimate', 'effort', 'story point']
+        if any(indicator in content_lower for indicator in story_points_indicators):
+            analysis['story_points']['status'] = 'found'
+            analysis['story_points']['coverage'].append('Story points/effort estimation mentioned')
+            
+            # Check for numeric values
+            import re
+            points_match = re.search(r'(\d+)\s*(?:story\s*)?points?', content_lower)
+            if points_match:
+                analysis['story_points']['coverage'].append(f'Story points value: {points_match.group(1)}')
+            else:
+                analysis['story_points']['missing'].append('Specific story points value')
+                analysis['story_points']['recommendations'].append('Add specific story points value (e.g., "5 story points")')
+        else:
+            analysis['story_points']['missing'].append('Story points estimation')
+            analysis['story_points']['recommendations'].append('Add story points for effort estimation')
+        
+        # Analyze Agile Team
+        agile_team_indicators = ['agile team', 'team', 'squad', 'scrum team', 'development team']
+        if any(indicator in content_lower for indicator in agile_team_indicators):
+            analysis['agile_team']['status'] = 'found'
+            analysis['agile_team']['coverage'].append('Agile team assignment mentioned')
+            
+            # Check for specific team names
+            team_names = ['everest', 'silver surfers', 'batman', 'pwa kit', 'odcd']
+            found_team = None
+            for team in team_names:
+                if team in content_lower:
+                    found_team = team
+                    break
+            
+            if found_team:
+                analysis['agile_team']['coverage'].append(f'Specific team identified: {found_team}')
+            else:
+                analysis['agile_team']['missing'].append('Specific team identification')
+                analysis['agile_team']['recommendations'].append('Specify the agile team (e.g., "ODCD Everest", "Silver Surfers")')
+        else:
+            analysis['agile_team']['missing'].append('Agile team assignment')
+            analysis['agile_team']['recommendations'].append('Specify the agile team assignment')
+        
+        # Analyze Components
+        components_indicators = ['components', 'component', 'module', 'feature', 'area']
+        if any(indicator in content_lower for indicator in components_indicators):
+            analysis['components']['status'] = 'found'
+            analysis['components']['coverage'].append('Component/module information mentioned')
+            
+            # Check for specific component types
+            component_types = ['auth', 'payment', 'checkout', 'pdp', 'plp', 'homepage', 'cart', 'search']
+            found_components = []
+            for comp_type in component_types:
+                if comp_type in content_lower:
+                    found_components.append(comp_type)
+            
+            if found_components:
+                analysis['components']['coverage'].append(f'Specific components: {", ".join(found_components)}')
+            else:
+                analysis['components']['missing'].append('Specific component identification')
+                analysis['components']['recommendations'].append('Specify affected components (e.g., "Auth modal", "Checkout flow")')
+        else:
+            analysis['components']['missing'].append('Component information')
+            analysis['components']['recommendations'].append('Specify affected components or modules')
+        
+        # Analyze Brands
+        brands_indicators = ['brands', 'brand', 'mmt', 'exo', 'ycc', 'elf', 'emea']
+        if any(indicator in content_lower for indicator in brands_indicators):
+            analysis['brands']['status'] = 'found'
+            analysis['brands']['coverage'].append('Brand information mentioned')
+            
+            # Check for specific brand abbreviations
+            brand_abbreviations = ['mmt', 'exo', 'ycc', 'elf', 'emea']
+            found_brands = []
+            for brand in brand_abbreviations:
+                if brand in content_lower:
+                    found_brands.append(brand.upper())
+            
+            if found_brands:
+                analysis['brands']['coverage'].append(f'Specific brands: {", ".join(found_brands)}')
+            else:
+                analysis['brands']['missing'].append('Specific brand identification')
+                analysis['brands']['recommendations'].append('Specify target brands (e.g., "MMT", "YCC", "ELF")')
+        else:
+            analysis['brands']['missing'].append('Brand information')
+            analysis['brands']['recommendations'].append('Specify target brands for the feature')
         
         return analysis
 
@@ -2683,7 +2806,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'ada_acceptance_criteria': 'ADA Acceptance Criteria',
             'architectural_solution': 'Architectural Solution',
             'performance_impact': 'Performance Impact',
-            'linked_issues': 'Linked Issues'
+            'linked_issues': 'Linked Issues',
+            'story_points': 'Story Points',
+            'agile_team': 'Agile Team',
+            'components': 'Components',
+            'brands': 'Brands'
         }
         
         summary.append("**Additional Jira Fields Analysis:**")
@@ -2713,50 +2840,512 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         return '\n'.join(summary)
 
     def _create_enhanced_test_scenarios_summary(self, enhanced_test_scenarios_analysis: Dict) -> str:
-        """Create a summary of enhanced test scenarios analysis"""
+        """Create summary for enhanced test scenarios analysis"""
+        if not enhanced_test_scenarios_analysis:
+            return "Enhanced Test Scenarios Analysis: No data available"
+        
         summary = []
+        summary.append("**Enhanced Test Scenarios Analysis:**")
         
-        summary.append("**🧪 Test Scenario Breakdown**")
-        
-        # Add coverage status for each category
-        categories = ['happy_path', 'negative', 'rbt', 'cross_browser']
-        category_names = {
-            'happy_path': 'Positive (Happy Path)',
-            'negative': 'Negative/Error Handling',
-            'rbt': 'RBT',
-            'cross_browser': 'Cross-browser/device'
-        }
-        
-        for category in categories:
-            category_data = enhanced_test_scenarios_analysis.get(category, {})
-            status = category_data.get('status', 'not_found')
-            
-            if status == 'found':
-                coverage = category_data.get('coverage', [])
-                summary.append(f"- {category_names[category]}: {coverage[0] if coverage else '✅ Documented'}")
-            else:
-                missing = category_data.get('missing', [])
-                summary.append(f"- {category_names[category]}: {missing[0] if missing else '❌ Missing'}")
-        
-        # Add overall coverage status
-        overall_coverage = enhanced_test_scenarios_analysis.get('overall_coverage', 'incomplete')
-        if overall_coverage == 'complete':
-            summary.append("\n**Overall Coverage**: ✅ Complete")
-        elif overall_coverage == 'partial':
-            summary.append("\n**Overall Coverage**: 🟡 Partial")
+        # Field presence
+        if enhanced_test_scenarios_analysis.get('test_scenarios_field_present'):
+            summary.append("- Test Scenarios field: ✅ Present")
         else:
-            summary.append("\n**Overall Coverage**: ❌ Incomplete")
+            summary.append("- Test Scenarios field: ❌ Missing")
+            summary.append("  - Add comprehensive test scenarios including Positive, Negative, RBT, and Cross-browser coverage")
+            return '\n'.join(summary)
         
-        # Add detailed feedback
-        detailed_feedback = enhanced_test_scenarios_analysis.get('detailed_feedback', [])
-        if detailed_feedback:
-            summary.append("\n**Detailed Feedback:**")
-            for feedback in detailed_feedback[:3]:  # Limit to 3 feedback items
-                summary.append(f"  • {feedback}")
+        # Coverage analysis
+        coverage = enhanced_test_scenarios_analysis.get('coverage_analysis', {})
+        summary.append("\n**Coverage Breakdown:**")
         
-        # Add recommendations
+        for category, data in coverage.items():
+            if data.get('status') == 'found':
+                summary.append(f"- {category.replace('_', ' ').title()}: ✅ {data.get('coverage', ['Mentioned'])[0]}")
+            else:
+                summary.append(f"- {category.replace('_', ' ').title()}: ❌ {data.get('missing', ['Missing'])[0]}")
+        
+        # Field quality
+        quality = enhanced_test_scenarios_analysis.get('field_quality', 'poor')
+        summary.append(f"\n**Field Quality:** {quality.title()}")
+        
+        # Misuse detection
+        if enhanced_test_scenarios_analysis.get('misuse_detected'):
+            summary.append("\n**⚠️ Field Misuse Detected:**")
+            for detail in enhanced_test_scenarios_analysis.get('misuse_details', []):
+                summary.append(f"- {detail}")
+        
+        # Recommendations
         recommendations = enhanced_test_scenarios_analysis.get('recommendations', [])
         if recommendations:
-            summary.append("\n**Recommendation**: " + recommendations[0])
+            summary.append("\n**Recommendations:**")
+            for rec in recommendations:
+                summary.append(f"- {rec}")
         
         return '\n'.join(summary)
+    
+    def _create_enhanced_acceptance_criteria_summary(self, enhanced_ac_analysis: Dict) -> str:
+        """Create summary for enhanced acceptance criteria analysis"""
+        if not enhanced_ac_analysis:
+            return "Enhanced Acceptance Criteria Analysis: No data available"
+        
+        summary = []
+        summary.append("**Enhanced Acceptance Criteria Analysis:**")
+        
+        # AC presence
+        if enhanced_ac_analysis.get('ac_present'):
+            summary.append("- AC present: ✅")
+        else:
+            summary.append("- AC present: ❌")
+            summary.append("  - Add specific requirements and success criteria")
+            return '\n'.join(summary)
+        
+        # Overall quality
+        quality = enhanced_ac_analysis.get('overall_quality', 'poor')
+        summary.append(f"- Overall quality: {quality.title()}")
+        
+        # Validation results
+        validation = enhanced_ac_analysis.get('validation_results', {})
+        summary.append("\n**Validation Results:**")
+        
+        for validation_type, data in validation.items():
+            if data.get('status'):
+                summary.append(f"- {validation_type.replace('_', ' ').title()}: ✅ {data.get('details', 'Valid')}")
+            else:
+                summary.append(f"- {validation_type.replace('_', ' ').title()}: ❌ Missing")
+        
+        # Vague AC detection
+        vague_ac = enhanced_ac_analysis.get('vague_ac_detected', [])
+        if vague_ac:
+            summary.append("\n**⚠️ Vague AC Detected:**")
+            for vague_item in vague_ac:
+                summary.append(f"- {vague_item.get('issue', 'Vague AC found')}")
+        
+        # Figma links
+        figma_links = enhanced_ac_analysis.get('figma_links', [])
+        if figma_links:
+            summary.append("\n**🎨 Figma Design Reference:**")
+            for link in figma_links:
+                summary.append(f"- Figma link detected: ✅ {link.get('url', 'URL')}")
+                if link.get('is_generic'):
+                    summary.append(f"  - Design frame or state references: ❌ Not specified")
+                    summary.append(f"  - Contextual guidance: ❌ AC just says 'match Figma'")
+                else:
+                    summary.append(f"  - Design frame or state references: ✅ Specified")
+                    summary.append(f"  - Contextual guidance: ✅ Behavioral expectations included")
+                summary.append(f"  - Recommendation: {link.get('recommendation', 'Consider moving to Design field')}")
+        
+        # Test scenarios in AC
+        if enhanced_ac_analysis.get('test_scenarios_in_ac'):
+            summary.append("\n**⚠️ Test Scenarios in AC:**")
+            summary.append("- Test scenarios were found inside Acceptance Criteria. Please move them to the dedicated 'Test Scenarios' field for clarity.")
+        
+        # Recommendations
+        recommendations = enhanced_ac_analysis.get('recommendations', [])
+        if recommendations:
+            summary.append("\n**Recommendations:**")
+            for rec in recommendations:
+                summary.append(f"- {rec}")
+        
+        return '\n'.join(summary)
+
+    def analyze_enhanced_acceptance_criteria(self, content: str) -> Dict[str, Dict]:
+        """Enhanced analysis of Acceptance Criteria field with detailed validation"""
+        analysis = {
+            'ac_present': False,
+            'ac_content': '',
+            'validation_results': {
+                'intent_defined': {'status': False, 'details': '', 'issues': []},
+                'conditions_specified': {'status': False, 'details': '', 'issues': []},
+                'expected_results': {'status': False, 'details': '', 'issues': []},
+                'pass_fail_logic': {'status': False, 'details': '', 'issues': []}
+            },
+            'vague_ac_detected': [],
+            'figma_links': [],
+            'test_scenarios_in_ac': False,
+            'overall_quality': 'poor',
+            'recommendations': []
+        }
+        
+        # Extract Acceptance Criteria section
+        ac_section = self._extract_acceptance_criteria_section(content)
+        
+        if ac_section:
+            analysis['ac_present'] = True
+            analysis['ac_content'] = ac_section
+            
+            # Check for Figma links in AC
+            figma_links = self._detect_figma_links(ac_section)
+            if figma_links:
+                analysis['figma_links'] = figma_links
+                analysis['recommendations'].append('Figma links detected in AC - consider moving to dedicated Design/Attachments field')
+            
+            # Check if test scenarios are embedded in AC (grooming issue)
+            if self._detect_test_scenarios_in_ac(ac_section):
+                analysis['test_scenarios_in_ac'] = True
+                analysis['recommendations'].append('Test scenarios found in AC - move to dedicated "Test Scenarios" field for clarity')
+            
+            # Validate each AC line
+            ac_lines = [line.strip() for line in ac_section.split('\n') if line.strip()]
+            
+            for line in ac_lines:
+                # Skip empty lines and section headers
+                if not line or line.lower().startswith(('acceptance criteria', 'ac:', 'criteria:')):
+                    continue
+                
+                # Check for vague AC patterns
+                vague_patterns = [
+                    r'should match figma',
+                    r'works like current version',
+                    r'fixes the bug',
+                    r'as expected',
+                    r'properly',
+                    r'correctly',
+                    r'as designed'
+                ]
+                
+                for pattern in vague_patterns:
+                    if re.search(pattern, line.lower()):
+                        analysis['vague_ac_detected'].append({
+                            'line': line,
+                            'issue': f"Vague AC: '{pattern}' lacks specific behavior or edge case handling"
+                        })
+                        break
+                
+                # Validate AC structure
+                self._validate_ac_line(line, analysis)
+            
+            # Determine overall quality
+            valid_count = sum(1 for validation in analysis['validation_results'].values() 
+                            if validation['status'])
+            
+            if valid_count == 4:
+                analysis['overall_quality'] = 'excellent'
+            elif valid_count >= 3:
+                analysis['overall_quality'] = 'good'
+            elif valid_count >= 2:
+                analysis['overall_quality'] = 'fair'
+            else:
+                analysis['overall_quality'] = 'poor'
+            
+            # Generate recommendations
+            if analysis['vague_ac_detected']:
+                analysis['recommendations'].append('Rewrite vague AC to define conditions and outcomes clearly. Follow: "When [condition], then [expected result]"')
+            
+            missing_validations = [key for key, validation in analysis['validation_results'].items() 
+                                 if not validation['status']]
+            if missing_validations:
+                analysis['recommendations'].append(f'Add missing AC elements: {", ".join(missing_validations)}')
+        
+        else:
+            analysis['recommendations'].append('No Acceptance Criteria field found - add specific requirements and success criteria')
+        
+        return analysis
+    
+    def _extract_acceptance_criteria_section(self, content: str) -> str:
+        """Extract Acceptance Criteria section from content"""
+        
+        # Look for Acceptance Criteria section
+        ac_patterns = [
+            r'acceptance criteria[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'ac:[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'criteria[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        for pattern in ac_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                return match.group(1).strip()
+        
+        return ""
+    
+    def _detect_figma_links(self, content: str) -> List[Dict]:
+        """Detect and analyze Figma links in content"""
+        figma_links = []
+        
+        # Regex pattern for Figma links
+        figma_pattern = r'https?://(?:www\.)?figma\.com/file/[a-zA-Z0-9_-]+'
+        
+        matches = re.finditer(figma_pattern, content, re.IGNORECASE)
+        
+        for match in matches:
+            figma_url = match.group(0)
+            
+            # Check if link has context/references
+            context_indicators = [
+                'frame', 'screen', 'design', 'mockup', 'wireframe', 'prototype',
+                'modal', 'button', 'form', 'layout', 'component'
+            ]
+            
+            has_context = any(indicator in content.lower() for indicator in context_indicators)
+            has_behavioral_expectation = any(term in content.lower() for term in [
+                'should', 'must', 'expected', 'when', 'then', 'user', 'click', 'see'
+            ])
+            
+            figma_links.append({
+                'url': figma_url,
+                'has_context': has_context,
+                'has_behavioral_expectation': has_behavioral_expectation,
+                'is_generic': not has_context and not has_behavioral_expectation,
+                'recommendation': self._generate_figma_recommendation(has_context, has_behavioral_expectation)
+            })
+        
+        return figma_links
+    
+    def _generate_figma_recommendation(self, has_context: bool, has_behavioral_expectation: bool) -> str:
+        """Generate recommendation for Figma link usage"""
+        if not has_context and not has_behavioral_expectation:
+            return "Replace vague instruction 'match Figma' with specific expectations: layout, states, validations, animations"
+        elif not has_context:
+            return "Specify what part of the Figma file the ticket refers to (e.g., 'Sign-Up Modal v3 – Frame #2')"
+        elif not has_behavioral_expectation:
+            return "Include behavioral expectations alongside Figma reference"
+        else:
+            return "Consider moving Figma link to dedicated Design/Attachments field for better visibility"
+    
+    def _detect_test_scenarios_in_ac(self, ac_content: str) -> bool:
+        """Detect if test scenarios are embedded in Acceptance Criteria"""
+        test_scenario_indicators = [
+            'test scenario', 'test case', 'positive test', 'negative test', 
+            'rbt', 'risk-based', 'happy path', 'edge case', 'error handling'
+        ]
+        
+        ac_lower = ac_content.lower()
+        return any(indicator in ac_lower for indicator in test_scenario_indicators)
+    
+    def _validate_ac_line(self, line: str, analysis: Dict):
+        """Validate a single AC line for required elements"""
+        line_lower = line.lower()
+        
+        # Check for Intent (what the user should experience or trigger)
+        intent_indicators = ['user', 'customer', 'visitor', 'should', 'must', 'will', 'can', 'able to']
+        if any(indicator in line_lower for indicator in intent_indicators):
+            analysis['validation_results']['intent_defined']['status'] = True
+            analysis['validation_results']['intent_defined']['details'] = 'User intent clearly defined'
+        else:
+            analysis['validation_results']['intent_defined']['issues'].append(f'Line lacks user intent: "{line}"')
+        
+        # Check for Conditions (input or state required)
+        condition_indicators = ['when', 'if', 'given', 'upon', 'after', 'before', 'while', 'during']
+        if any(indicator in line_lower for indicator in condition_indicators):
+            analysis['validation_results']['conditions_specified']['status'] = True
+            analysis['validation_results']['conditions_specified']['details'] = 'Conditions specified'
+        else:
+            analysis['validation_results']['conditions_specified']['issues'].append(f'Line lacks conditions: "{line}"')
+        
+        # Check for Expected Result (clear outcome)
+        result_indicators = ['then', 'result', 'outcome', 'see', 'display', 'show', 'appear', 'receive']
+        if any(indicator in line_lower for indicator in result_indicators):
+            analysis['validation_results']['expected_results']['status'] = True
+            analysis['validation_results']['expected_results']['details'] = 'Expected results defined'
+        else:
+            analysis['validation_results']['expected_results']['issues'].append(f'Line lacks expected result: "{line}"')
+        
+        # Check for Pass/Fail Logic
+        pass_fail_indicators = ['success', 'failure', 'error', 'invalid', 'correct', 'incorrect', 'pass', 'fail']
+        if any(indicator in line_lower for indicator in pass_fail_indicators):
+            analysis['validation_results']['pass_fail_logic']['status'] = True
+            analysis['validation_results']['pass_fail_logic']['details'] = 'Pass/fail logic present'
+        else:
+            analysis['validation_results']['pass_fail_logic']['issues'].append(f'Line lacks pass/fail logic: "{line}"')
+    
+    def analyze_enhanced_test_scenarios_v2(self, content: str) -> Dict[str, Dict]:
+        """Enhanced Test Scenarios analysis with NLP-based detection and detailed breakdown"""
+        analysis = {
+            'test_scenarios_field_present': False,
+            'test_scenarios_content': '',
+            'coverage_analysis': {
+                'positive': {'status': 'not_found', 'coverage': [], 'missing': [], 'details': ''},
+                'negative': {'status': 'not_found', 'coverage': [], 'missing': [], 'details': ''},
+                'rbt': {'status': 'not_found', 'coverage': [], 'missing': [], 'details': ''},
+                'cross_browser': {'status': 'not_found', 'coverage': [], 'missing': [], 'details': ''}
+            },
+            'field_quality': 'poor',
+            'misuse_detected': False,
+            'misuse_details': [],
+            'recommendations': []
+        }
+        
+        # Extract Test Scenarios field
+        test_scenarios_section = self._extract_test_scenarios_field(content)
+        
+        if test_scenarios_section:
+            analysis['test_scenarios_field_present'] = True
+            analysis['test_scenarios_content'] = test_scenarios_section
+            
+            # Check for field misuse
+            misuse_indicators = self._detect_test_scenarios_misuse(test_scenarios_section)
+            if misuse_indicators:
+                analysis['misuse_detected'] = True
+                analysis['misuse_details'] = misuse_indicators
+                analysis['recommendations'].append('Test Scenarios field appears to be misused - ensure it contains actual test scenarios, not copied AC or irrelevant notes')
+            
+            # Analyze coverage using enhanced NLP patterns
+            self._analyze_test_scenario_coverage(test_scenarios_section, analysis)
+            
+            # Determine field quality
+            found_categories = sum(1 for category in analysis['coverage_analysis'].values() 
+                                 if category['status'] == 'found')
+            
+            if found_categories == 4:
+                analysis['field_quality'] = 'excellent'
+            elif found_categories >= 3:
+                analysis['field_quality'] = 'good'
+            elif found_categories >= 2:
+                analysis['field_quality'] = 'fair'
+            else:
+                analysis['field_quality'] = 'poor'
+            
+            # Generate recommendations
+            missing_categories = []
+            for category_name, category_data in analysis['coverage_analysis'].items():
+                if category_data['status'] == 'not_found':
+                    missing_categories.append(category_name.replace('_', ' ').title())
+            
+            if missing_categories:
+                analysis['recommendations'].append(f'Add missing test types: {", ".join(missing_categories)}')
+                analysis['recommendations'].append('Include device/browser matrix if applicable')
+        
+        else:
+            analysis['recommendations'].append('No Test Scenarios field found - add comprehensive test coverage')
+        
+        return analysis
+    
+    def _extract_test_scenarios_field(self, content: str) -> str:
+        """Extract Test Scenarios field specifically (not embedded in AC)"""
+        
+        # Look for dedicated Test Scenarios field
+        test_scenarios_patterns = [
+            r'test scenarios[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'test scenarios field[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'scenarios[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'testing[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        for pattern in test_scenarios_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                return match.group(1).strip()
+        
+        return ""
+    
+    def _detect_test_scenarios_misuse(self, content: str) -> List[str]:
+        """Detect if Test Scenarios field is being misused"""
+        misuse_indicators = []
+        
+        content_lower = content.lower()
+        
+        # Check if it's just copied AC
+        ac_indicators = ['acceptance criteria', 'user story', 'as a', 'i want', 'so that']
+        if any(indicator in content_lower for indicator in ac_indicators):
+            misuse_indicators.append('Contains Acceptance Criteria content instead of test scenarios')
+        
+        # Check if it's empty or irrelevant
+        if len(content.strip()) < 20:
+            misuse_indicators.append('Field appears to be empty or contains minimal content')
+        
+        # Check for irrelevant notes
+        irrelevant_indicators = ['todo', 'tbd', 'to be determined', 'pending', 'notes:', 'comments:']
+        if any(indicator in content_lower for indicator in irrelevant_indicators):
+            misuse_indicators.append('Contains irrelevant notes or placeholders instead of test scenarios')
+        
+        return misuse_indicators
+    
+    def _analyze_test_scenario_coverage(self, content: str, analysis: Dict):
+        """Analyze test scenario coverage using enhanced NLP patterns"""
+        content_lower = content.lower()
+        
+        # Enhanced Positive (Happy Path) detection
+        positive_patterns = [
+            r'positive[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'happy path[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'success[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'valid[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'expected[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        positive_indicators = ['happy path', 'positive', 'success', 'valid', 'correct', 'expected', 'normal flow']
+        if any(indicator in content_lower for indicator in positive_indicators):
+            analysis['coverage_analysis']['positive']['status'] = 'found'
+            analysis['coverage_analysis']['positive']['coverage'].append('Positive (Happy Path): ✅ Mentioned')
+            
+            # Extract specific details
+            for pattern in positive_patterns:
+                match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    analysis['coverage_analysis']['positive']['details'] = match.group(1).strip()
+                    break
+        else:
+            analysis['coverage_analysis']['positive']['status'] = 'missing'
+            analysis['coverage_analysis']['positive']['missing'].append('Positive (Happy Path): ❌ Missing')
+        
+        # Enhanced Negative (Error/Edge Handling) detection
+        negative_patterns = [
+            r'negative[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'error[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'edge case[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'exception[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'invalid[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        negative_indicators = ['negative', 'error', 'edge case', 'exception', 'invalid', 'failed', 'unauthorized', 'forbidden', 'denied', 'timeout', 'broken']
+        if any(indicator in content_lower for indicator in negative_indicators):
+            analysis['coverage_analysis']['negative']['status'] = 'found'
+            analysis['coverage_analysis']['negative']['coverage'].append('Negative (Error/Edge Handling): ✅ Mentioned')
+            
+            # Extract specific details
+            for pattern in negative_patterns:
+                match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    analysis['coverage_analysis']['negative']['details'] = match.group(1).strip()
+                    break
+        else:
+            analysis['coverage_analysis']['negative']['status'] = 'missing'
+            analysis['coverage_analysis']['negative']['missing'].append('Negative (Error/Edge Handling): ❌ Missing')
+        
+        # Enhanced RBT (Risk-Based Testing) detection
+        rbt_patterns = [
+            r'rbt[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'risk-based[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'risk based[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'risk assessment[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        rbt_indicators = ['rbt', 'risk-based', 'risk based', 'risk assessment', 'risk analysis', 'critical path', 'high impact', 'data corruption', 'edge', 'performance', 'integration']
+        if any(indicator in content_lower for indicator in rbt_indicators):
+            analysis['coverage_analysis']['rbt']['status'] = 'found'
+            analysis['coverage_analysis']['rbt']['coverage'].append('RBT: 🟡 Mentioned but may need clarification')
+            
+            # Extract specific details
+            for pattern in rbt_patterns:
+                match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    analysis['coverage_analysis']['rbt']['details'] = match.group(1).strip()
+                    break
+        else:
+            analysis['coverage_analysis']['rbt']['status'] = 'missing'
+            analysis['coverage_analysis']['rbt']['missing'].append('RBT: ❌ Missing')
+        
+        # Enhanced Cross-browser/Device testing detection
+        cross_browser_patterns = [
+            r'cross-browser[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'cross browser[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'device[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'mobile[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'responsive[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        cross_browser_indicators = ['cross-browser', 'cross browser', 'device', 'mobile', 'responsive', 'browser compatibility', 'ios', 'android', 'chrome', 'safari', 'firefox', 'edge']
+        if any(indicator in content_lower for indicator in cross_browser_indicators):
+            analysis['coverage_analysis']['cross_browser']['status'] = 'found'
+            analysis['coverage_analysis']['cross_browser']['coverage'].append('Cross-browser/device: ✅ Mentioned')
+            
+            # Extract specific details
+            for pattern in cross_browser_patterns:
+                match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    analysis['coverage_analysis']['cross_browser']['details'] = match.group(1).strip()
+                    break
+        else:
+            analysis['coverage_analysis']['cross_browser']['status'] = 'missing'
+            analysis['coverage_analysis']['cross_browser']['missing'].append('Cross-browser/device: ❌ Not defined')

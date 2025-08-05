@@ -6,7 +6,7 @@ import os
 import sys
 import base64
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 from rich.console import Console
 import requests
@@ -23,6 +23,7 @@ class JiraIntegration:
     def __init__(self):
         self.base_url = None
         self.auth_header = None
+        self.field_mappings = {}  # Cache for custom field mappings
         self.setup_jira_client()
     
     def setup_jira_client(self):
@@ -53,10 +54,110 @@ class JiraIntegration:
             self._test_connection()
             console.print("[green]✅ Jira connection successful[/green]")
             
+            # Fetch field mappings
+            self._fetch_field_mappings()
+            
         except Exception as e:
             console.print(f"[red]Error setting up Jira client: {e}[/red]")
             self.base_url = None
             self.auth_header = None
+    
+    def _fetch_field_mappings(self):
+        """Fetch all field mappings from Jira API"""
+        if not self.is_available():
+            return
+        
+        try:
+            console.print("[blue]Fetching Jira field mappings...[/blue]")
+            
+            endpoint = "/rest/api/3/field"
+            fields_data = self._make_request(endpoint)
+            
+            if fields_data:
+                # Clear existing mappings
+                self.field_mappings = {}
+                
+                # Process each field
+                for field in fields_data:
+                    field_id = field.get('id')
+                    field_name = field.get('name')
+                    field_schema = field.get('schema', {})
+                    
+                    if field_id and field_name:
+                        # Store mapping by name for easy lookup
+                        self.field_mappings[field_name] = {
+                            'id': field_id,
+                            'schema': field_schema,
+                            'custom': field_id.startswith('customfield_')
+                        }
+                
+                console.print(f"[green]✅ Successfully mapped {len(self.field_mappings)} fields[/green]")
+                
+                # Log key custom fields for debugging
+                key_fields = [
+                    'Test Scenarios', 'Story Points', 'Acceptance Criteria', 
+                    'Agile Team', 'Architectural Solution', 'ADA Acceptance Criteria',
+                    'Performance Impact', 'Components', 'Brands'
+                ]
+                
+                for field_name in key_fields:
+                    if field_name in self.field_mappings:
+                        field_info = self.field_mappings[field_name]
+                        console.print(f"[blue]Field '{field_name}' → {field_info['id']} ({'custom' if field_info['custom'] else 'standard'})[/blue]")
+                    else:
+                        console.print(f"[yellow]Field '{field_name}' not found in Jira instance[/yellow]")
+            else:
+                console.print("[red]Failed to fetch field mappings[/red]")
+                
+        except Exception as e:
+            console.print(f"[red]Error fetching field mappings: {e}[/red]")
+    
+    def get_field_id_by_name(self, field_name: str) -> Optional[str]:
+        """Get field ID by field name"""
+        if field_name in self.field_mappings:
+            return self.field_mappings[field_name]['id']
+        return None
+    
+    def refresh_field_mappings(self):
+        """Refresh field mappings from Jira API"""
+        console.print("[blue]Refreshing Jira field mappings...[/blue]")
+        self._fetch_field_mappings()
+    
+    def get_field_mapping_info(self) -> Dict[str, Any]:
+        """Get information about current field mappings"""
+        return {
+            'total_fields': len(self.field_mappings),
+            'custom_fields': len([f for f in self.field_mappings.values() if f['custom']]),
+            'standard_fields': len([f for f in self.field_mappings.values() if not f['custom']]),
+            'mappings': self.field_mappings
+        }
+    
+    def get_required_field_ids(self) -> List[str]:
+        """Get list of required field IDs for comprehensive ticket analysis"""
+        required_fields = [
+            'summary', 'description', 'status', 'priority', 'assignee', 
+            'reporter', 'issuetype', 'project', 'labels', 'components',
+            'created', 'updated', 'comments'
+        ]
+        
+        # Add custom fields by name
+        custom_field_names = [
+            'Test Scenarios', 'Story Points', 'Acceptance Criteria',
+            'Agile Team', 'Architectural Solution', 'ADA Acceptance Criteria',
+            'Performance Impact', 'Components', 'Brands', 'Figma Reference Status',
+            'Cross-browser/Device Testing Scope'
+        ]
+        
+        # Map custom field names to IDs
+        for field_name in custom_field_names:
+            field_id = self.get_field_id_by_name(field_name)
+            if field_id:
+                required_fields.append(field_id)
+                console.print(f"[blue]Including custom field: {field_name} → {field_id}[/blue]")
+            else:
+                console.print(f"[yellow]Custom field not found: {field_name}[/yellow]")
+        
+        return required_fields
     
     def _test_connection(self):
         """Test Jira connection"""
@@ -88,10 +189,10 @@ class JiraIntegration:
             
             # Check if response is successful
             if response.status_code == 404:
-                console.print(f"[red]Ticket not found (404)[/red]")
+                console.print(f"[red]Resource not found (404)[/red]")
                 return None
             elif response.status_code == 403:
-                console.print(f"[red]Access denied (403) - Check ticket permissions[/red]")
+                console.print(f"[red]Access denied (403) - Check permissions[/red]")
                 return None
             elif response.status_code != 200:
                 console.print(f"[red]API request failed with status {response.status_code}[/red]")
@@ -113,7 +214,7 @@ class JiraIntegration:
             return None
     
     def get_ticket_info(self, ticket_number: str) -> Optional[Dict[str, Any]]:
-        """Fetch ticket information by ticket number"""
+        """Fetch ticket information by ticket number with dynamic field mapping"""
         if not self.is_available():
             console.print("[red]Jira integration is not available[/red]")
             return None
@@ -123,8 +224,14 @@ class JiraIntegration:
             clean_ticket = ticket_number.upper().strip()
             console.print(f"[blue]Fetching ticket {clean_ticket}...[/blue]")
             
-            # Fetch the issue
-            endpoint = f"/rest/api/3/issue/{clean_ticket}"
+            # Get required field IDs dynamically
+            required_fields = self.get_required_field_ids()
+            fields_param = ','.join(required_fields)
+            
+            console.print(f"[blue]Requesting fields: {fields_param}[/blue]")
+            
+            # Fetch the issue with dynamic field selection
+            endpoint = f"/rest/api/3/issue/{clean_ticket}?fields={fields_param}"
             issue_data = self._make_request(endpoint)
             
             console.print(f"[blue]API response received: {issue_data is not None}[/blue]")
@@ -173,6 +280,16 @@ class JiraIntegration:
             else:
                 description = str(raw_description)
             
+            # Extract custom fields dynamically
+            custom_fields = {}
+            for field_name, field_info in self.field_mappings.items():
+                if field_info['custom']:
+                    field_id = field_info['id']
+                    field_value = fields.get(field_id)
+                    if field_value is not None:
+                        custom_fields[field_name] = field_value
+                        console.print(f"[blue]Found custom field: {field_name} = {field_value}[/blue]")
+            
             ticket_info = {
                 'key': issue_data.get('key', ''),
                 'summary': fields.get('summary', ''),
@@ -187,7 +304,8 @@ class JiraIntegration:
                 'project': project_obj.get('name', 'Unknown') if project_obj else 'Unknown',
                 'labels': fields.get('labels', []),
                 'components': [c.get('name', '') for c in fields.get('components', [])],
-                'comments': []
+                'comments': [],
+                'custom_fields': custom_fields  # Add custom fields to ticket info
             }
             
             console.print(f"[blue]Ticket info created successfully[/blue]")
@@ -258,6 +376,28 @@ class JiraIntegration:
 ## Components
 {', '.join(ticket_info['components']) if ticket_info['components'] else 'None'}
 
+## Custom Fields
+"""
+        
+        # Add custom fields to the display
+        custom_fields = ticket_info.get('custom_fields', {})
+        if custom_fields:
+            for field_name, field_value in custom_fields.items():
+                # Handle different field value types
+                if isinstance(field_value, dict):
+                    # Handle complex field values (like user objects, etc.)
+                    if 'displayName' in field_value:
+                        formatted += f"- **{field_name}**: {field_value['displayName']}\n"
+                    elif 'value' in field_value:
+                        formatted += f"- **{field_name}**: {field_value['value']}\n"
+                    else:
+                        formatted += f"- **{field_name}**: {str(field_value)}\n"
+                else:
+                    formatted += f"- **{field_name}**: {field_value}\n"
+        else:
+            formatted += "No custom fields found\n"
+        
+        formatted += f"""
 ## Comments ({len(ticket_info['comments'])})
 """
         
@@ -308,6 +448,28 @@ Description:
 Labels: {', '.join(ticket_info['labels']) if ticket_info['labels'] else 'None'}
 Components: {', '.join(ticket_info['components']) if ticket_info['components'] else 'None'}
 
+Custom Fields:
+"""
+        
+        # Add custom fields to the formatted output
+        custom_fields = ticket_info.get('custom_fields', {})
+        if custom_fields:
+            for field_name, field_value in custom_fields.items():
+                # Handle different field value types
+                if isinstance(field_value, dict):
+                    # Handle complex field values (like user objects, etc.)
+                    if 'displayName' in field_value:
+                        formatted += f"{field_name}: {field_value['displayName']}\n"
+                    elif 'value' in field_value:
+                        formatted += f"{field_name}: {field_value['value']}\n"
+                    else:
+                        formatted += f"{field_name}: {str(field_value)}\n"
+                else:
+                    formatted += f"{field_name}: {field_value}\n"
+        else:
+            formatted += "No custom fields found\n"
+        
+        formatted += f"""
 Comments ({len(ticket_info['comments'])}):
 """
         
@@ -396,11 +558,29 @@ Comment {i} by {comment['author']}:
             
             console.print(f"[blue]Using JQL: {jql}[/blue]")
             
+            # Get required field IDs dynamically for dashboard cards
+            dashboard_fields = [
+                'summary', 'status', 'priority', 'assignee', 'issuetype', 
+                'created', 'description', 'project', 'labels'
+            ]
+            
+            # Add custom fields that might be useful for dashboard display
+            dashboard_custom_fields = [
+                'Story Points', 'Agile Team', 'Components', 'Brands'
+            ]
+            
+            for field_name in dashboard_custom_fields:
+                field_id = self.get_field_id_by_name(field_name)
+                if field_id:
+                    dashboard_fields.append(field_id)
+            
+            fields_param = ','.join(dashboard_fields)
+            
             endpoint = f"/rest/api/3/search"
             params = {
                 'jql': jql,
                 'maxResults': 50,
-                'fields': 'summary,status,priority,assignee,issuetype,created,description,project,labels'
+                'fields': fields_param
             }
             
             headers = {
@@ -503,6 +683,24 @@ Comment {i} by {comment['author']}:
                 else:
                     description = str(raw_description)
                 
+                # Extract custom fields for dashboard cards
+                custom_fields = {}
+                for field_name, field_info in self.field_mappings.items():
+                    if field_info['custom']:
+                        field_id = field_info['id']
+                        field_value = fields.get(field_id)
+                        if field_value is not None:
+                            # Handle different field value types
+                            if isinstance(field_value, dict):
+                                if 'displayName' in field_value:
+                                    custom_fields[field_name] = field_value['displayName']
+                                elif 'value' in field_value:
+                                    custom_fields[field_name] = field_value['value']
+                                else:
+                                    custom_fields[field_name] = str(field_value)
+                            else:
+                                custom_fields[field_name] = field_value
+                
                 card = {
                     'key': issue.get('key', ''),
                     'summary': fields.get('summary', ''),
@@ -513,7 +711,8 @@ Comment {i} by {comment['author']}:
                     'issueType': issue_type_obj.get('name', 'Story') if issue_type_obj else 'Story',
                     'created': fields.get('created', ''),
                     'description': description,
-                    'team': team
+                    'team': team,
+                    'custom_fields': custom_fields
                 }
                 cards.append(card)
             
