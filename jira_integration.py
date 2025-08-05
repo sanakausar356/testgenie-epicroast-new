@@ -172,7 +172,55 @@ class JiraIntegration:
     def is_available(self) -> bool:
         """Check if Jira integration is available"""
         return self.base_url is not None and self.auth_header is not None
-    
+
+    def _extract_adf_content(self, adf_doc: Dict[str, Any]) -> str:
+        """Extract text content from Atlassian Document Format (ADF)"""
+        if not adf_doc or 'content' not in adf_doc:
+            return "No content"
+        
+        content_parts = []
+        
+        def extract_from_content(content_list):
+            for item in content_list:
+                if item.get('type') == 'paragraph':
+                    # Extract text from paragraph
+                    for text_item in item.get('content', []):
+                        if text_item.get('type') == 'text':
+                            content_parts.append(text_item.get('text', ''))
+                elif item.get('type') == 'orderedList':
+                    # Extract text from ordered list
+                    for list_item in item.get('content', []):
+                        if list_item.get('type') == 'listItem':
+                            for list_content in list_item.get('content', []):
+                                if list_content.get('type') == 'paragraph':
+                                    for text_item in list_content.get('content', []):
+                                        if text_item.get('type') == 'text':
+                                            content_parts.append(f"• {text_item.get('text', '')}")
+                elif item.get('type') == 'bulletList':
+                    # Extract text from bullet list
+                    for list_item in item.get('content', []):
+                        if list_item.get('type') == 'listItem':
+                            for list_content in list_item.get('content', []):
+                                if list_content.get('type') == 'paragraph':
+                                    for text_item in list_content.get('content', []):
+                                        if text_item.get('type') == 'text':
+                                            content_parts.append(f"• {text_item.get('text', '')}")
+                elif item.get('type') == 'heading':
+                    # Extract text from heading
+                    level = item.get('attrs', {}).get('level', 1)
+                    heading_text = ""
+                    for text_item in item.get('content', []):
+                        if text_item.get('type') == 'text':
+                            heading_text += text_item.get('text', '')
+                    if heading_text:
+                        content_parts.append(f"{'#' * level} {heading_text}")
+                elif 'content' in item:
+                    # Recursively process nested content
+                    extract_from_content(item['content'])
+        
+        extract_from_content(adf_doc['content'])
+        return '\n'.join(content_parts) if content_parts else "No content"
+
     def _make_request(self, endpoint: str) -> Optional[Dict[str, Any]]:
         """Make a request to Jira REST API"""
         if not self.is_available():
@@ -266,15 +314,8 @@ class JiraIntegration:
                 description = ''
             elif isinstance(raw_description, dict):
                 # Handle Atlassian Document Format
-                if 'content' in raw_description:
-                    # Extract text from ADF content
-                    content_parts = []
-                    for content_item in raw_description.get('content', []):
-                        if content_item.get('type') == 'paragraph':
-                            for text_item in content_item.get('content', []):
-                                if text_item.get('type') == 'text':
-                                    content_parts.append(text_item.get('text', ''))
-                    description = ' '.join(content_parts) if content_parts else ''
+                if raw_description.get('type') == 'doc':
+                    description = self._extract_adf_content(raw_description)
                 else:
                     description = str(raw_description)
             else:
@@ -316,9 +357,15 @@ class JiraIntegration:
             
             if comments_data:
                 for comment in comments_data.get('comments', []):
+                    # Handle comment body (could be ADF or plain text)
+                    body = comment.get('body', '')
+                    if isinstance(body, dict) and body.get('type') == 'doc':
+                        # Extract text from ADF comment
+                        body = self._extract_adf_content(body)
+                    
                     ticket_info['comments'].append({
                         'author': comment.get('author', {}).get('displayName', 'Unknown'),
-                        'body': comment.get('body', ''),
+                        'body': body,
                         'created': comment.get('created', '')
                     })
             
@@ -339,15 +386,8 @@ class JiraIntegration:
             description = 'No description provided'
         elif isinstance(description, dict):
             # Handle Atlassian Document Format
-            if 'content' in description:
-                # Extract text from ADF content
-                content_parts = []
-                for content_item in description.get('content', []):
-                    if content_item.get('type') == 'paragraph':
-                        for text_item in content_item.get('content', []):
-                            if text_item.get('type') == 'text':
-                                content_parts.append(text_item.get('text', ''))
-                description = ' '.join(content_parts) if content_parts else 'No description provided'
+            if description.get('type') == 'doc':
+                description = self._extract_adf_content(description)
             else:
                 description = str(description)
         
@@ -390,6 +430,10 @@ class JiraIntegration:
                         formatted += f"- **{field_name}**: {field_value['displayName']}\n"
                     elif 'value' in field_value:
                         formatted += f"- **{field_name}**: {field_value['value']}\n"
+                    elif 'type' in field_value and field_value.get('type') == 'doc':
+                        # Handle Atlassian Document Format (ADF)
+                        adf_content = self._extract_adf_content(field_value)
+                        formatted += f"- **{field_name}**:\n{adf_content}\n"
                     else:
                         formatted += f"- **{field_name}**: {str(field_value)}\n"
                 else:
@@ -420,15 +464,8 @@ class JiraIntegration:
             description = 'No description provided'
         elif isinstance(description, dict):
             # Handle Atlassian Document Format
-            if 'content' in description:
-                # Extract text from ADF content
-                content_parts = []
-                for content_item in description.get('content', []):
-                    if content_item.get('type') == 'paragraph':
-                        for text_item in content_item.get('content', []):
-                            if text_item.get('type') == 'text':
-                                content_parts.append(text_item.get('text', ''))
-                description = ' '.join(content_parts) if content_parts else 'No description provided'
+            if description.get('type') == 'doc':
+                description = self._extract_adf_content(description)
             else:
                 description = str(description)
         
@@ -462,6 +499,10 @@ Custom Fields:
                         formatted += f"{field_name}: {field_value['displayName']}\n"
                     elif 'value' in field_value:
                         formatted += f"{field_name}: {field_value['value']}\n"
+                    elif 'type' in field_value and field_value.get('type') == 'doc':
+                        # Handle Atlassian Document Format (ADF)
+                        adf_content = self._extract_adf_content(field_value)
+                        formatted += f"{field_name}:\n{adf_content}\n"
                     else:
                         formatted += f"{field_name}: {str(field_value)}\n"
                 else:
