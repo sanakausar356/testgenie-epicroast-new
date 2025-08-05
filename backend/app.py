@@ -25,29 +25,47 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Initialize core services with error handling
+testgenie = None
+epicroast = None
+groomroom = None
+jira_integration = None
+
+# Initialize services one by one with detailed error handling
 try:
+    print("Initializing TestGenie...")
     testgenie = TestGenie()
+    print("✅ TestGenie initialized successfully")
 except Exception as e:
-    print(f"Warning: TestGenie initialization failed: {e}")
-    testgenie = None
+    print(f"❌ TestGenie initialization failed: {e}")
+    import traceback
+    traceback.print_exc()
 
 try:
+    print("Initializing EpicRoast...")
     epicroast = EpicRoast()
+    print("✅ EpicRoast initialized successfully")
 except Exception as e:
-    print(f"Warning: EpicRoast initialization failed: {e}")
-    epicroast = None
+    print(f"❌ EpicRoast initialization failed: {e}")
+    import traceback
+    traceback.print_exc()
 
 try:
+    print("Initializing GroomRoom...")
     groomroom = GroomRoom()
+    print("✅ GroomRoom initialized successfully")
 except Exception as e:
-    print(f"Warning: GroomRoom initialization failed: {e}")
-    groomroom = None
+    print(f"❌ GroomRoom initialization failed: {e}")
+    import traceback
+    traceback.print_exc()
 
 try:
+    print("Initializing JiraIntegration...")
     jira_integration = JiraIntegration()
+    print("✅ JiraIntegration initialized successfully")
 except Exception as e:
-    print(f"Warning: Jira integration initialization failed: {e}")
-    jira_integration = None
+    print(f"❌ Jira integration initialization failed: {e}")
+    import traceback
+    traceback.print_exc()
 
 @app.route('/', methods=['GET'])
 def root():

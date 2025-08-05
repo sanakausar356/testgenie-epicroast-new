@@ -317,10 +317,114 @@ class GroomRoom:
         
         return '\n'.join(lines)
     
+    def get_comprehensive_jira_analysis_instructions(self) -> str:
+        """Get comprehensive Jira field analysis instructions"""
+        return """
+**CRITICAL: Comprehensive Jira Field Analysis:**
+You must read and analyze ALL available Jira fields in the ticket content, including:
+- **Summary**: Main ticket title and key information
+- **Description**: Detailed ticket content and context
+- **Acceptance Criteria**: Specific requirements and success criteria
+- **Test Scenarios**: Custom field for testing coverage (Happy Path, Negative, RBT, Cross-browser)
+- **Agile Team**: Assigned development team
+- **Story Points**: Effort estimation
+- **Components**: Affected system components
+- **Brands**: Target brand(s) for the feature
+- **Figma/Attachments**: Design references and supporting files
+- **Comments**: Team discussions and additional context
+- **Labels**: Categorization and metadata
+- **Epic Link**: Parent epic relationship
+- **Priority**: Business priority level
+- **Linked Issues**: Related tickets and dependencies
+- **Custom Fields**: Platform, Locale, Device Testing, etc.
+
+**AI Understanding Requirements:**
+- Use natural language understanding to detect vague vs specific acceptance criteria
+- Check if test scenarios cover required dimensions (happy path, edge cases, RBT, cross-browser)
+- Identify if user story follows agile template or is just high-level description
+- Spot missing or mismatched fields (brand/component/story points)
+- Infer PO/design sign-off likelihood from ticket language and comments
+- Interpret labels/comments for blockers (e.g., "needs design", "blocked by backend")
+- Generate meaningful output explaining why missing fields matter and affect sprint readiness"""
+
     def get_groom_level_prompt(self, level: str) -> str:
         """Get the groom prompt based on level"""
+        comprehensive_instructions = self.get_comprehensive_jira_analysis_instructions()
+        
         level_prompts = {
-            "default": """You are a professional Jira ticket analyst. For the 'Default' level, provide a balanced mix of feedback and gentle tone. Analyze the ticket against the specified frameworks and provide constructive feedback.
+            "strict": f"""You are a rigorous Jira ticket analyst conducting strict grooming analysis. For the 'Strict' level, enforce ALL Definition of Ready requirements with zero tolerance for missing elements. Flag every gap, missing field, and potential risk. Be uncompromising in your assessment.
+
+**CRITICAL: Brand Abbreviations & Payment Rules:**
+- **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
+- **PWA (ELF) Flows**: Only apply to YCC (PLP, PDP, Homepage) or MMT (Homepage, PDP, PLP, Minicart)
+- **EMEA Payment**: Use ClearPay instead of AfterPay/Klarna for EMEA brands
+- **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
+
+**CRITICAL: Definition of Ready (DOR) Requirements - STRICT ENFORCEMENT:**
+- **User Story**: MUST define business value goal, MUST follow "As a [persona], I want [do something], so that [realize reward]" template exactly
+- **Acceptance Criteria**: MUST state intent (what), not solution (how), MUST have actionable results, MUST include edge cases beyond happy path
+- **Test Scenarios**: MUST include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing) - ALL THREE REQUIRED
+- **Additional Fields**: MUST include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope - ALL FIELDS REQUIRED
+
+**CRITICAL: Card Type Validation - STRICT:**
+- **User Story**: MUST be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
+- **Bug**: MUST include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements - STRICT:**
+- **Dependencies & Blockers**: MUST identify ALL upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: MUST ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: MUST confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: MUST assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: MUST consider accessibility, performance, security, and UX validation requirements
+
+**STRICT ANALYSIS APPROACH:**
+- Flag ANY missing field as a critical blocker
+- Require ALL test scenario types (Happy Path, Negative, RBT, Cross-browser)
+- Demand complete stakeholder sign-off evidence
+- Reject tickets with vague acceptance criteria
+- Require specific performance metrics and accessibility requirements
+- Flag any potential security or compliance risks
+
+{comprehensive_instructions}""",
+
+            "light": f"""You are a flexible Jira ticket analyst conducting light grooming analysis. For the 'Light' level, focus on the most critical elements and provide constructive guidance without being overly strict. Allow for reasonable flexibility while maintaining quality standards.
+
+**CRITICAL: Brand Abbreviations & Payment Rules:**
+- **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
+- **PWA (ELF) Flows**: Only apply to YCC (PLP, PDP, Homepage) or MMT (Homepage, PDP, PLP, Minicart)
+- **EMEA Payment**: Use ClearPay instead of AfterPay/Klarna for EMEA brands
+- **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
+
+**CRITICAL: Definition of Ready (DOR) Requirements - LIGHT APPROACH:**
+- **User Story**: Should define business value goal, preferably follow "As a [persona], I want [do something], so that [realize reward]" template
+- **Acceptance Criteria**: Should state intent (what), not solution (how), should have actionable results, consider including edge cases
+- **Test Scenarios**: Should include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing) - at least 2 of 3
+- **Additional Fields**: Should include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope - most fields
+
+**CRITICAL: Card Type Validation - LIGHT:**
+- **User Story**: Should be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
+- **Bug**: Should include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
+- **Task**: For enabling/disabling configs or documentation creation
+
+**CRITICAL: Additional Analysis Requirements - LIGHT:**
+- **Dependencies & Blockers**: Check for major upstream/downstream dependencies, integration points, and blockers
+- **Definition of Done (DoD)**: Consider QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
+- **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
+- **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements
+
+**LIGHT ANALYSIS APPROACH:**
+- Focus on major gaps and critical blockers only
+- Allow flexibility in test scenario coverage (2 of 3 types acceptable)
+- Accept reasonable stakeholder sign-off indicators
+- Provide guidance for vague acceptance criteria rather than rejecting
+- Suggest performance and accessibility considerations
+- Note potential risks without blocking
+
+{comprehensive_instructions}""",
+
+            "default": f"""You are a professional Jira ticket analyst. For the 'Default' level, provide a balanced mix of feedback and gentle tone. Analyze the ticket against the specified frameworks and provide constructive feedback.
 
 **CRITICAL: Brand Abbreviations & Payment Rules:**
 - **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
@@ -344,9 +448,11 @@ class GroomRoom:
 - **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
 - **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
 - **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
-- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements
+
+{comprehensive_instructions}""",
             
-            "insight": """You are a focused analyst examining Jira tickets. For the 'Insight' level, provide focused analysis that calls out missing details and implied risks. Use concise bullet points and highlight specific gaps.
+            "insight": f"""You are a focused analyst examining Jira tickets. For the 'Insight' level, provide focused analysis that calls out missing details and implied risks. Use concise bullet points and highlight specific gaps.
 
 **CRITICAL: Brand Abbreviations & Payment Rules:**
 - **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
@@ -370,9 +476,11 @@ class GroomRoom:
 - **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
 - **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
 - **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
-- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements
+
+{comprehensive_instructions}""",
             
-            "deep_dive": """You are a thorough analyst conducting deep analysis of Jira tickets. For the 'Deep Dive' level, provide comprehensive analysis including edge-case checks, data validations, and compliance notes. Be thorough and detailed.
+            "deep_dive": f"""You are a thorough analyst conducting deep analysis of Jira tickets. For the 'Deep Dive' level, provide comprehensive analysis including edge-case checks, data validations, and compliance notes. Be thorough and detailed.
 
 **CRITICAL: Brand Abbreviations & Payment Rules:**
 - **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
@@ -396,9 +504,11 @@ class GroomRoom:
 - **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
 - **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
 - **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
-- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements
+
+{comprehensive_instructions}""",
             
-            "actionable": """You are a practical analyst focused on actionable feedback. For the 'Actionable' level, highlight only items that directly map to user stories or acceptance criteria. Provide 'next steps' phrased as Jira tasks.
+            "actionable": f"""You are a practical analyst focused on actionable feedback. For the 'Actionable' level, highlight only items that directly map to user stories or acceptance criteria. Provide 'next steps' phrased as Jira tasks.
 
 **CRITICAL: Brand Abbreviations & Payment Rules:**
 - **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
@@ -422,9 +532,11 @@ class GroomRoom:
 - **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
 - **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
 - **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
-- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements""",
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements
+
+{comprehensive_instructions}""",
             
-            "summary": """You are a concise analyst providing ultra-brief summaries. For the 'Summary' level, provide exactly 3 key gaps and 2 critical suggestions. Keep it brief and focused for quick scans.
+            "summary": f"""You are a concise analyst providing ultra-brief summaries. For the 'Summary' level, provide exactly 3 key gaps and 2 critical suggestions. Keep it brief and focused for quick scans.
 
 **CRITICAL: Brand Abbreviations & Payment Rules:**
 - **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
@@ -448,7 +560,9 @@ class GroomRoom:
 - **Definition of Done (DoD)**: Ensure QA sign-off, accessibility compliance, UAT scenarios, and documentation requirements
 - **Stakeholder Validation**: Confirm PO approval, design validation, and stakeholder alignment
 - **Sprint Readiness**: Assess if story is ready for current/next sprint or needs refinement
-- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements"""
+- **Cross-Functional Concerns**: Consider accessibility, performance, security, and UX validation requirements
+
+{comprehensive_instructions}"""
         }
         
         return level_prompts.get(level, level_prompts["default"])
@@ -1130,6 +1244,108 @@ class GroomRoom:
             analysis['general_recommendation'] = 'Ensure accessibility, performance, and security expectations are documented if applicable.'
         
         return analysis
+
+    def analyze_test_scenarios(self, content: str) -> Dict[str, Dict]:
+        """Analyze test scenarios field for comprehensive coverage"""
+        analysis = {
+            'happy_path': {'status': 'not_found', 'coverage': [], 'missing': []},
+            'negative': {'status': 'not_found', 'coverage': [], 'missing': []},
+            'rbt': {'status': 'not_found', 'coverage': [], 'missing': []},
+            'cross_browser': {'status': 'not_found', 'coverage': [], 'missing': []},
+            'overall_coverage': 'incomplete',
+            'recommendations': []
+        }
+        
+        content_lower = content.lower()
+        
+        # Check for Test Scenarios field or section
+        test_scenarios_section = self._extract_test_scenarios_section(content)
+        
+        if test_scenarios_section:
+            # Analyze Happy Path coverage
+            if any(term in test_scenarios_section.lower() for term in ['happy path', 'positive', 'success', 'normal flow', 'expected behavior']):
+                analysis['happy_path']['status'] = 'found'
+                analysis['happy_path']['coverage'].append('Basic happy path scenarios identified')
+            else:
+                analysis['happy_path']['missing'].append('No happy path scenarios defined')
+                analysis['recommendations'].append('Add positive test scenarios for normal user flows')
+            
+            # Analyze Negative/Edge case coverage
+            if any(term in test_scenarios_section.lower() for term in ['negative', 'error', 'edge case', 'exception', 'invalid', 'failure']):
+                analysis['negative']['status'] = 'found'
+                analysis['negative']['coverage'].append('Error handling scenarios identified')
+            else:
+                analysis['negative']['missing'].append('No negative test scenarios defined')
+                analysis['recommendations'].append('Add negative test scenarios for error conditions and edge cases')
+            
+            # Analyze RBT (Risk-Based Testing) coverage
+            if any(term in test_scenarios_section.lower() for term in ['rbt', 'risk-based', 'risk', 'critical path', 'high impact']):
+                analysis['rbt']['status'] = 'found'
+                analysis['rbt']['coverage'].append('Risk-based testing scenarios identified')
+            else:
+                analysis['rbt']['missing'].append('No RBT scenarios defined')
+                analysis['recommendations'].append('Add risk-based testing scenarios for critical user paths')
+            
+            # Analyze Cross-browser/Device testing coverage
+            if any(term in test_scenarios_section.lower() for term in ['cross-browser', 'cross browser', 'device', 'mobile', 'responsive', 'browser compatibility']):
+                analysis['cross_browser']['status'] = 'found'
+                analysis['cross_browser']['coverage'].append('Cross-browser/device testing identified')
+            else:
+                analysis['cross_browser']['missing'].append('No cross-browser/device testing defined')
+                analysis['recommendations'].append('Specify cross-browser and device testing requirements')
+        else:
+            # No test scenarios section found
+            analysis['happy_path']['missing'].append('No test scenarios section found')
+            analysis['negative']['missing'].append('No test scenarios section found')
+            analysis['rbt']['missing'].append('No test scenarios section found')
+            analysis['cross_browser']['missing'].append('No test scenarios section found')
+            analysis['recommendations'].append('Add comprehensive test scenarios section with Happy Path, Negative, RBT, and Cross-browser coverage')
+        
+        # Determine overall coverage
+        found_count = sum(1 for category in ['happy_path', 'negative', 'rbt', 'cross_browser'] 
+                         if analysis[category]['status'] == 'found')
+        
+        if found_count == 4:
+            analysis['overall_coverage'] = 'complete'
+        elif found_count >= 2:
+            analysis['overall_coverage'] = 'partial'
+        else:
+            analysis['overall_coverage'] = 'incomplete'
+        
+        return analysis
+
+    def _extract_test_scenarios_section(self, content: str) -> str:
+        """Extract test scenarios section from content"""
+        
+        # First try to find the entire test scenarios section
+        # Look for "Test Scenarios:" and capture everything until the next major section
+        test_scenarios_match = re.search(
+            r'test scenarios?[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)', 
+            content, 
+            re.IGNORECASE | re.DOTALL
+        )
+        if test_scenarios_match:
+            return test_scenarios_match.group(1).strip()
+        
+        # If not found, look for individual patterns and combine them
+        patterns = [
+            r'positive[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'negative[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'rbt[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'cross-browser[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'cross browser[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        sections = []
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                sections.append(match.group(1).strip())
+        
+        if sections:
+            return '\n'.join(sections)
+        
+        return ""
     
     def calculate_groom_readiness_score(self, all_analyses: Dict) -> Dict[str, any]:
         """Calculate groom readiness score as a percentage"""
@@ -1187,9 +1403,26 @@ class GroomRoom:
             'percentage': (stakeholder_score / stakeholder_total * 100) if stakeholder_total > 0 else 0
         }
         
+        # Analyze test scenarios
+        test_scenarios_analysis = all_analyses.get('test_scenarios_analysis', {})
+        test_scenarios_score = 0
+        test_scenarios_total = 400  # 100 points each for happy_path, negative, rbt, cross_browser
+        
+        categories = ['happy_path', 'negative', 'rbt', 'cross_browser']
+        for category in categories:
+            category_data = test_scenarios_analysis.get(category, {})
+            if category_data.get('status') == 'found':
+                test_scenarios_score += 100
+        
+        score_data['score_breakdown']['test_scenarios'] = {
+            'score': test_scenarios_score,
+            'total': test_scenarios_total,
+            'percentage': (test_scenarios_score / test_scenarios_total * 100) if test_scenarios_total > 0 else 0
+        }
+        
         # Calculate overall score
-        total_score = dor_score + dep_score + stakeholder_score
-        total_possible = dor_total + 100 + stakeholder_total  # 100 for dependencies
+        total_score = dor_score + dep_score + stakeholder_score + test_scenarios_score
+        total_possible = dor_total + 100 + stakeholder_total + test_scenarios_total  # 100 for dependencies
         
         score_data['overall_score'] = total_score
         score_data['total_possible'] = total_possible
@@ -1262,6 +1495,30 @@ class GroomRoom:
             'percentage': (stakeholder_completed / stakeholder_total * 100) if stakeholder_total > 0 else 0
         }
         
+        # Analyze test scenarios
+        test_scenarios_analysis = all_analyses.get('test_scenarios_analysis', {})
+        test_scenarios_completed = 0
+        test_scenarios_total = 4  # happy_path, negative, rbt, cross_browser
+        
+        categories = ['happy_path', 'negative', 'rbt', 'cross_browser']
+        for category in categories:
+            category_data = test_scenarios_analysis.get(category, {})
+            if category_data.get('status') == 'found':
+                test_scenarios_completed += 1
+        
+        test_scenarios_status = 'green' if test_scenarios_completed == test_scenarios_total else 'yellow' if test_scenarios_completed >= 2 else 'red'
+        
+        if test_scenarios_completed < 2:
+            checklist['summary']['critical_gaps'].append(f"Test Scenarios: Only {test_scenarios_completed}/4 categories covered")
+        
+        checklist['sections']['test_scenarios'] = {
+            'name': 'Test Scenarios',
+            'status': test_scenarios_status,
+            'completed': test_scenarios_completed,
+            'total': test_scenarios_total,
+            'percentage': (test_scenarios_completed / test_scenarios_total * 100) if test_scenarios_total > 0 else 0
+        }
+        
         # Calculate overall status
         total_sections = len(checklist['sections'])
         green_sections = sum(1 for section in checklist['sections'].values() if section['status'] == 'green')
@@ -1287,6 +1544,7 @@ class GroomRoom:
             level_prompt = self.get_groom_level_prompt(level)
             
             # Analyze content for all aspects
+            ticket_summary_analysis = self.analyze_ticket_summary(ticket_content)
             brand_analysis = self.analyze_brand_abbreviations(ticket_content)
             framework_analysis = self.analyze_frameworks(ticket_content)
             dor_analysis = self.analyze_dor_requirements(ticket_content)
@@ -1296,16 +1554,21 @@ class GroomRoom:
             stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content)
             sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
             cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
+            test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
+            enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios(ticket_content)
+            additional_jira_fields_analysis = self.analyze_additional_jira_fields(ticket_content)
             
             # Create visual checklist
             all_analyses = {
                 'dor_analysis': dor_analysis,
                 'dependencies_analysis': dependencies_analysis,
-                'stakeholder_analysis': stakeholder_analysis
+                'stakeholder_analysis': stakeholder_analysis,
+                'test_scenarios_analysis': test_scenarios_analysis
             }
             visual_checklist = self.create_visual_checklist(all_analyses)
             
             # Create summaries
+            ticket_summary_summary = self._create_ticket_summary_summary(ticket_summary_analysis)
             framework_summary = self._create_framework_summary(framework_analysis)
             brand_summary = self._create_brand_summary(brand_analysis)
             dor_summary = self._create_dor_summary(dor_analysis)
@@ -1315,6 +1578,9 @@ class GroomRoom:
             stakeholder_summary = self._create_stakeholder_summary(stakeholder_analysis)
             sprint_readiness_summary = self._create_sprint_readiness_summary(sprint_readiness_analysis)
             cross_functional_summary = self._create_cross_functional_summary(cross_functional_analysis)
+            test_scenarios_summary = self._create_test_scenarios_summary(test_scenarios_analysis)
+            enhanced_test_scenarios_summary = self._create_enhanced_test_scenarios_summary(enhanced_test_scenarios_analysis)
+            additional_jira_fields_summary = self._create_additional_jira_fields_summary(additional_jira_fields_analysis)
             checklist_summary = self._create_checklist_summary(visual_checklist)
             
             prompt = f"""
@@ -1322,6 +1588,9 @@ class GroomRoom:
 
 **Jira Ticket Content:**
 {ticket_content}
+
+**Ticket Summary Analysis:**
+{ticket_summary_summary}
 
 **Brand Analysis:**
 {brand_summary}
@@ -1350,6 +1619,15 @@ class GroomRoom:
 **Cross-Functional Concerns Analysis:**
 {cross_functional_summary}
 
+**Test Scenarios Analysis:**
+{test_scenarios_summary}
+
+**Enhanced Test Scenarios Analysis:**
+{enhanced_test_scenarios_summary}
+
+**Additional Jira Fields Analysis:**
+{additional_jira_fields_summary}
+
 **Visual Checklist Summary:**
 {checklist_summary}
 
@@ -1369,11 +1647,124 @@ class GroomRoom:
 5. Reference the brand analysis if relevant
 6. Use ONLY markdown formatting - **bold** for emphasis, *italic* for emphasis, # for headings
 7. NEVER use HTML tags in your response
+8. **AVOID REPETITIVE FEEDBACK**: If a missing element (e.g., test scenarios or Figma link) has already been mentioned in one section, do not repeat it verbatim in other sections. Refer to it briefly if needed (e.g., "See Key Findings" or "As noted above"). Each issue should only be fully explained once or twice.
+
+**Output Format for Strict Level:**
+# 🔒 Strict Groom Analysis
+
+[Zero-tolerance comprehensive review - enforcing ALL Definition of Ready requirements]
+
+## 📋 Ticket Summary:
+[1-3 sentence summary of what the ticket is about, derived from Summary, Description, and Card Type fields]
+
+## 🚨 Critical Blockers:
+- **Blocker 1** - MUST be resolved before sprint inclusion
+- **Blocker 2** - MUST be resolved before sprint inclusion
+- **Blocker 3** - MUST be resolved before sprint inclusion
+
+## ❌ Missing Required Fields:
+- **Missing field 1** - CRITICAL: Required for Definition of Ready
+- **Missing field 2** - CRITICAL: Required for Definition of Ready
+- **Missing field 3** - CRITICAL: Required for Definition of Ready
+
+## ⚠️ Definition of Ready Violations:
+- **DOR violation 1** - Must be corrected
+- **DOR violation 2** - Must be corrected
+- **DOR violation 3** - Must be corrected
+
+## 🔗 Dependencies & Blockers:
+- **Dependency status** - MUST be resolved
+- **Blocker assessment** - MUST be addressed
+
+## ✅ Definition of Done Alignment:
+- **DoD coverage** - MUST meet all requirements
+- **QA and accessibility** - MUST be specified
+
+## 👥 Stakeholder Validation:
+- **PO approval status** - MUST be confirmed
+- **Design validation** - MUST be completed
+
+## 🚀 Sprint Readiness:
+- **Readiness assessment** - NOT READY until all blockers resolved
+- **Sprint context** - Cannot proceed until requirements met
+
+## 🎯 Framework Coverage:
+[Strict framework analysis - ALL elements required]
+
+## 🧪 Test Scenario Breakdown:
+[ALL test scenario types required: Happy Path, Negative, RBT, Cross-browser]
+
+## 🏗 Technical Detail Feedback:
+[Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
+
+## 📊 Groom Readiness Score:
+[AI-estimated % readiness - likely low due to strict requirements]
+
+## 🧾 Grooming Checklist:
+[Visual reference - ALL items must be completed]
+
+## 🎯 Summary:
+[Strict assessment - ticket NOT ready for sprint until all issues resolved]
+
+**Output Format for Light Level:**
+# 💡 Light Groom Analysis
+
+[Flexible approach focusing on critical elements with reasonable flexibility]
+
+## 📋 Ticket Summary:
+[1-3 sentence summary of what the ticket is about, derived from Summary, Description, and Card Type fields]
+
+## 🔍 Key Areas for Improvement:
+- **Area 1** - Consider addressing for better quality
+- **Area 2** - Consider addressing for better quality
+- **Area 3** - Consider addressing for better quality
+
+## 💡 Suggestions for Enhancement:
+- **Suggestion 1** - Optional improvement
+- **Suggestion 2** - Optional improvement
+- **Suggestion 3** - Optional improvement
+
+## 🔗 Dependencies & Blockers:
+- **Dependency status** - Check if major blockers exist
+- **Blocker assessment** - Note any significant issues
+
+## ✅ Definition of Done Alignment:
+- **DoD coverage** - Consider key requirements
+- **QA and accessibility** - Consider important aspects
+
+## 👥 Stakeholder Validation:
+- **PO approval status** - Confirm if reasonable indicators present
+- **Design validation** - Check if design considerations noted
+
+## 🚀 Sprint Readiness:
+- **Readiness assessment** - Likely ready with minor improvements
+- **Sprint context** - Consider for inclusion with noted areas
+
+## 🎯 Framework Coverage:
+[Flexible framework analysis - focus on key elements]
+
+## 🧪 Test Scenario Breakdown:
+[Test scenario review - 2 of 3 types acceptable]
+
+## 🏗 Technical Detail Feedback:
+[Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
+
+## 📊 Groom Readiness Score:
+[AI-estimated % readiness - likely moderate to high]
+
+## 🧾 Grooming Checklist:
+[Visual reference - focus on major items]
+
+## 🎯 Summary:
+[Light assessment - ticket likely ready with minor improvements]
 
 **Output Format for Default Level:**
-# 📊 Professional Analysis
+# 📋 Groom Analysis
 
-[Balanced analysis with constructive feedback]
+[AI-powered comprehensive review of Jira ticket fields - analyzing all available data for sprint readiness]
+
+## 📋 Ticket Summary:
+[1-3 sentence summary of what the ticket is about, derived from Summary, Description, and Card Type fields]
 
 ## 🔍 Key Findings:
 - **Finding 1** with relevant context
@@ -1403,6 +1794,18 @@ class GroomRoom:
 
 ## 🎯 Framework Coverage:
 [Summary of framework analysis with specific findings]
+
+## 🧪 Test Scenario Breakdown:
+[Deep dive into Test Scenarios field - validates Happy Path, Negative, RBT, Cross-browser coverage]
+
+## 🏗 Technical Detail Feedback:
+[Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
+
+## 📊 Groom Readiness Score:
+[AI-estimated % readiness based on all analyzed fields]
+
+## 🧾 Grooming Checklist:
+[Visual reference for sprint team alignment on missing items]
 
 ## 🎯 Summary:
 [Professional summary of key areas needing attention]
@@ -1726,6 +2129,49 @@ class GroomRoom:
             summary.append(f"**General**: {cross_functional_analysis['general_recommendation']}")
         
         return '\n'.join(summary)
+
+    def _create_test_scenarios_summary(self, test_scenarios_analysis: Dict) -> str:
+        """Create summary for test scenarios analysis"""
+        summary = []
+        
+        # Overall coverage status
+        coverage_status = test_scenarios_analysis.get('overall_coverage', 'incomplete')
+        if coverage_status == 'complete':
+            summary.append("✅ **Test Scenarios**: Complete coverage (Happy Path, Negative, RBT, Cross-browser)")
+        elif coverage_status == 'partial':
+            summary.append("⚠️ **Test Scenarios**: Partial coverage - some areas missing")
+        else:
+            summary.append("🔴 **Test Scenarios**: Incomplete coverage - major gaps identified")
+        
+        # Individual category analysis
+        categories = ['happy_path', 'negative', 'rbt', 'cross_browser']
+        category_names = {
+            'happy_path': 'Happy Path',
+            'negative': 'Negative/Edge Cases',
+            'rbt': 'RBT (Risk-Based Testing)',
+            'cross_browser': 'Cross-browser/Device'
+        }
+        
+        for category in categories:
+            category_data = test_scenarios_analysis.get(category, {})
+            status = category_data.get('status', 'not_found')
+            category_name = category_names.get(category, category.replace('_', ' ').title())
+            
+            if status == 'found':
+                coverage = category_data.get('coverage', [])
+                summary.append(f"  ✅ **{category_name}**: {coverage[0] if coverage else 'Covered'}")
+            else:
+                missing = category_data.get('missing', [])
+                summary.append(f"  🔴 **{category_name}**: {missing[0] if missing else 'Missing'}")
+        
+        # Recommendations
+        recommendations = test_scenarios_analysis.get('recommendations', [])
+        if recommendations:
+            summary.append("\n**Recommendations:**")
+            for rec in recommendations[:3]:  # Limit to 3 recommendations
+                summary.append(f"  • {rec}")
+        
+        return '\n'.join(summary)
     
     def _create_checklist_summary(self, visual_checklist: Dict) -> str:
         """Create a summary of visual checklist"""
@@ -1770,7 +2216,7 @@ class GroomRoom:
     def get_fallback_groom_analysis(self) -> str:
         """Return a fallback groom analysis if API fails"""
         return """
-# 📊 Professional Analysis
+# 📋 Groom Analysis
 
 *The groom analysis generator is temporarily unavailable! 🔧*
 
@@ -1795,6 +2241,8 @@ class GroomRoom:
 2. Identify missing elements from each framework
 3. Add specific acceptance criteria
 4. Ensure brand context is clear and accurate
+5. Add comprehensive test scenarios (Happy Path, Negative, RBT, Cross-browser)
+6. Calculate groom readiness score based on all field coverage
 
 ## 🔧 Technical Information:
 - **Service Status**: Azure OpenAI API temporarily unavailable
@@ -1864,3 +2312,451 @@ class GroomRoom:
     ╚══════════════════════════════════════════════════════════════╝
         """
         console.print(art, style="blue") 
+
+    def analyze_ticket_summary(self, content: str) -> Dict[str, any]:
+        """Generate a concise summary of the Jira ticket"""
+        analysis = {
+            'summary': '',
+            'card_type': 'unknown',
+            'purpose': '',
+            'confidence': 0
+        }
+        
+        content_lower = content.lower()
+        
+        # Detect card type
+        if any(indicator in content_lower for indicator in ['bug', 'broken', 'not working', 'error', 'issue']):
+            analysis['card_type'] = 'Bug'
+        elif any(indicator in content_lower for indicator in ['user story', 'as a', 'i want', 'so that']):
+            analysis['card_type'] = 'Story'
+        elif any(indicator in content_lower for indicator in ['task', 'enable', 'disable', 'documentation']):
+            analysis['card_type'] = 'Task'
+        elif any(indicator in content_lower for indicator in ['spike', 'research', 'investigation']):
+            analysis['card_type'] = 'Spike'
+        
+        # Extract key information for summary
+        lines = content.split('\n')
+        summary_line = ''
+        description_lines = []
+        
+        for line in lines:
+            line_lower = line.lower()
+            if 'summary:' in line_lower or 'title:' in line_lower:
+                summary_line = line.split(':', 1)[1].strip() if ':' in line else line.strip()
+            elif 'description:' in line_lower:
+                # Start collecting description
+                continue
+            elif summary_line and not line.strip():
+                # Empty line after summary, likely end of description
+                break
+            elif summary_line:
+                description_lines.append(line.strip())
+        
+        # Generate summary
+        if summary_line:
+            analysis['summary'] = summary_line
+            analysis['purpose'] = f"This {analysis['card_type']} introduces {summary_line.lower()}"
+            analysis['confidence'] = 0.8
+        else:
+            # Fallback: use first meaningful line
+            for line in lines:
+                if line.strip() and not line.strip().startswith('#'):
+                    analysis['summary'] = line.strip()
+                    analysis['purpose'] = f"This {analysis['card_type']} addresses {line.strip().lower()}"
+                    analysis['confidence'] = 0.6
+                    break
+        
+        return analysis
+
+    def analyze_additional_jira_fields(self, content: str) -> Dict[str, Dict]:
+        """Analyze additional Jira fields for comprehensive feedback"""
+        analysis = {
+            'implementation_details': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'ada_acceptance_criteria': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'architectural_solution': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'performance_impact': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            },
+            'linked_issues': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'recommendations': []
+            }
+        }
+        
+        content_lower = content.lower()
+        
+        # Analyze Implementation Details
+        implementation_indicators = ['implementation', 'technical approach', 'component', 'module', 'code ownership']
+        if any(indicator in content_lower for indicator in implementation_indicators):
+            analysis['implementation_details']['status'] = 'found'
+            analysis['implementation_details']['coverage'].append('Technical approach mentioned')
+            
+            # Check for specific details
+            if 'component' in content_lower or 'module' in content_lower:
+                analysis['implementation_details']['coverage'].append('Component/module scope defined')
+            else:
+                analysis['implementation_details']['missing'].append('Component/module scope')
+                analysis['implementation_details']['recommendations'].append('Add specific component/module information (e.g., "impacts Auth modal on PWA-MMT")')
+        else:
+            analysis['implementation_details']['missing'].append('Implementation details')
+            analysis['implementation_details']['recommendations'].append('Add technical approach, component scope, or code ownership information')
+        
+        # Analyze ADA Acceptance Criteria
+        ada_indicators = ['ada', 'accessibility', 'wcag', 'screen reader', 'keyboard navigation', 'aria', 'contrast']
+        if any(indicator in content_lower for indicator in ada_indicators):
+            analysis['ada_acceptance_criteria']['status'] = 'found'
+            analysis['ada_acceptance_criteria']['coverage'].append('Accessibility requirements mentioned')
+            
+            # Check for specific ADA requirements
+            if 'screen reader' in content_lower or 'aria' in content_lower:
+                analysis['ada_acceptance_criteria']['coverage'].append('Screen reader support defined')
+            else:
+                analysis['ada_acceptance_criteria']['missing'].append('Screen reader support')
+                analysis['ada_acceptance_criteria']['recommendations'].append('Add checks for screen-reader support and ARIA labels')
+            
+            if 'keyboard' in content_lower:
+                analysis['ada_acceptance_criteria']['coverage'].append('Keyboard navigation defined')
+            else:
+                analysis['ada_acceptance_criteria']['missing'].append('Keyboard navigation')
+                analysis['ada_acceptance_criteria']['recommendations'].append('Add keyboard navigation requirements')
+        else:
+            analysis['ada_acceptance_criteria']['missing'].append('ADA acceptance criteria')
+            analysis['ada_acceptance_criteria']['recommendations'].append('Add checks for screen-reader support and ARIA labels')
+        
+        # Analyze Architectural Solution
+        architecture_indicators = ['architecture', 'backend', 'integration', 'api', 'service', 'database', 'infrastructure']
+        if any(indicator in content_lower for indicator in architecture_indicators):
+            analysis['architectural_solution']['status'] = 'found'
+            analysis['architectural_solution']['coverage'].append('Architecture/integration points mentioned')
+            
+            # Check for specific architectural details
+            if 'backend' in content_lower or 'api' in content_lower:
+                analysis['architectural_solution']['coverage'].append('Backend/API integration defined')
+            else:
+                analysis['architectural_solution']['missing'].append('Backend integration details')
+                analysis['architectural_solution']['recommendations'].append('Clarify if it requires backend auth or service integration')
+        else:
+            analysis['architectural_solution']['missing'].append('Architectural solution')
+            analysis['architectural_solution']['recommendations'].append('Clarify if it requires backend auth or loyalty service integration')
+        
+        # Analyze Performance Impact
+        performance_indicators = ['performance', 'load', 'response time', 'async', 'optimization', 'threshold', 'nfr']
+        if any(indicator in content_lower for indicator in performance_indicators):
+            analysis['performance_impact']['status'] = 'found'
+            analysis['performance_impact']['coverage'].append('Performance considerations mentioned')
+            
+            # Check for specific performance metrics
+            if 'response time' in content_lower or 'threshold' in content_lower:
+                analysis['performance_impact']['coverage'].append('Performance thresholds defined')
+            else:
+                analysis['performance_impact']['missing'].append('Performance thresholds')
+                analysis['performance_impact']['recommendations'].append('Consider load thresholds, async loading, modal response time goals')
+        else:
+            analysis['performance_impact']['missing'].append('Performance impact evaluation')
+            analysis['performance_impact']['recommendations'].append('Consider load thresholds, async loading, modal response time goals')
+        
+        # Analyze Linked Issues
+        linked_indicators = ['linked', 'dependency', 'blocked by', 'depends on', 'related', 'upstream', 'downstream']
+        if any(indicator in content_lower for indicator in linked_indicators):
+            analysis['linked_issues']['status'] = 'found'
+            analysis['linked_issues']['coverage'].append('Dependencies/related issues mentioned')
+            
+            # Check for specific linkage types
+            if 'upstream' in content_lower or 'downstream' in content_lower:
+                analysis['linked_issues']['coverage'].append('Upstream/downstream linkage noted')
+            else:
+                analysis['linked_issues']['missing'].append('Upstream/downstream linkage')
+                analysis['linked_issues']['recommendations'].append('Check if upstream/downstream linkage is noted')
+        else:
+            analysis['linked_issues']['missing'].append('Linked issues/dependencies')
+            analysis['linked_issues']['recommendations'].append('Check if upstream/downstream linkage is noted')
+        
+        return analysis
+
+    def analyze_enhanced_test_scenarios(self, content: str) -> Dict[str, Dict]:
+        """Enhanced analysis of Test Scenarios field with detailed breakdown"""
+        analysis = {
+            'happy_path': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'details': ''
+            },
+            'negative': {
+                'status': 'not_found', 
+                'coverage': [],
+                'missing': [],
+                'details': ''
+            },
+            'rbt': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'details': ''
+            },
+            'cross_browser': {
+                'status': 'not_found',
+                'coverage': [],
+                'missing': [],
+                'details': ''
+            },
+            'overall_coverage': 'incomplete',
+            'detailed_feedback': [],
+            'recommendations': []
+        }
+        
+        # Extract test scenarios section
+        test_scenarios_section = self._extract_test_scenarios_section(content)
+        
+        if test_scenarios_section:
+            # Analyze Happy Path (Positive) scenarios
+            happy_path_indicators = ['happy path', 'positive', 'success', 'normal flow', 'expected behavior', 'valid input']
+            if any(indicator in test_scenarios_section.lower() for indicator in happy_path_indicators):
+                analysis['happy_path']['status'] = 'found'
+                analysis['happy_path']['coverage'].append('Positive (Happy Path): ✅ Documented')
+                
+                # Extract specific details
+                lines = test_scenarios_section.split('\n')
+                for line in lines:
+                    if any(indicator in line.lower() for indicator in happy_path_indicators):
+                        analysis['happy_path']['details'] = line.strip()
+                        break
+            else:
+                analysis['happy_path']['status'] = 'missing'
+                analysis['happy_path']['missing'].append('Positive (Happy Path): ❌ Missing')
+                analysis['detailed_feedback'].append('Happy Path scenarios not found - add normal user flow testing')
+            
+            # Analyze Negative/Error scenarios
+            negative_indicators = ['negative', 'error', 'edge case', 'exception', 'invalid', 'failure', 'unauthorized', 'forbidden']
+            if any(indicator in test_scenarios_section.lower() for indicator in negative_indicators):
+                analysis['negative']['status'] = 'found'
+                analysis['negative']['coverage'].append('Negative/Error Handling: ✅ Documented')
+                
+                # Extract specific details
+                lines = test_scenarios_section.split('\n')
+                for line in lines:
+                    if any(indicator in line.lower() for indicator in negative_indicators):
+                        analysis['negative']['details'] = line.strip()
+                        break
+            else:
+                analysis['negative']['status'] = 'missing'
+                analysis['negative']['missing'].append('Negative/Error Handling: ❌ Missing')
+                analysis['detailed_feedback'].append('Error handling scenarios not found - add edge case and exception testing')
+            
+            # Analyze RBT (Risk-Based Testing) scenarios
+            rbt_indicators = ['rbt', 'risk-based', 'risk based', 'risk assessment', 'risk analysis', 'critical path', 'high impact']
+            if any(indicator in test_scenarios_section.lower() for indicator in rbt_indicators):
+                analysis['rbt']['status'] = 'found'
+                analysis['rbt']['coverage'].append('RBT: ✅ Documented')
+                
+                # Extract specific details
+                lines = test_scenarios_section.split('\n')
+                for line in lines:
+                    if any(indicator in line.lower() for indicator in rbt_indicators):
+                        analysis['rbt']['details'] = line.strip()
+                        break
+            else:
+                analysis['rbt']['status'] = 'missing'
+                analysis['rbt']['missing'].append('RBT: ❌ Missing')
+                analysis['detailed_feedback'].append('Risk-based testing not found - add critical path and high-impact scenario testing')
+            
+            # Analyze Cross-browser/Device testing
+            cross_browser_indicators = ['cross-browser', 'cross browser', 'device', 'mobile', 'responsive', 'browser compatibility', 'platform']
+            if any(indicator in test_scenarios_section.lower() for indicator in cross_browser_indicators):
+                analysis['cross_browser']['status'] = 'found'
+                analysis['cross_browser']['coverage'].append('Cross-browser/device: ✅ Documented')
+                
+                # Extract specific details
+                lines = test_scenarios_section.split('\n')
+                for line in lines:
+                    if any(indicator in line.lower() for indicator in cross_browser_indicators):
+                        analysis['cross_browser']['details'] = line.strip()
+                        break
+            else:
+                analysis['cross_browser']['status'] = 'missing'
+                analysis['cross_browser']['missing'].append('Cross-browser/device: ❌ Not mentioned')
+                analysis['detailed_feedback'].append('Cross-browser/device testing not mentioned - specify device/browser scope')
+        else:
+            # Also check the full content for test scenario indicators
+            content_lower = content.lower()
+            
+            # Check for Happy Path
+            if any(indicator in content_lower for indicator in ['happy path', 'positive', 'success']):
+                analysis['happy_path']['status'] = 'found'
+                analysis['happy_path']['coverage'].append('Positive (Happy Path): ✅ Documented')
+            else:
+                analysis['happy_path']['status'] = 'missing'
+                analysis['happy_path']['missing'].append('Positive (Happy Path): ❌ Missing')
+            
+            # Check for Negative/Error
+            if any(indicator in content_lower for indicator in ['negative', 'error', 'edge case']):
+                analysis['negative']['status'] = 'found'
+                analysis['negative']['coverage'].append('Negative/Error Handling: ✅ Documented')
+            else:
+                analysis['negative']['status'] = 'missing'
+                analysis['negative']['missing'].append('Negative/Error Handling: ❌ Missing')
+            
+            # Check for RBT
+            if any(indicator in content_lower for indicator in ['rbt', 'risk-based', 'risk based']):
+                analysis['rbt']['status'] = 'found'
+                analysis['rbt']['coverage'].append('RBT: ✅ Documented')
+            else:
+                analysis['rbt']['status'] = 'missing'
+                analysis['rbt']['missing'].append('RBT: ❌ Missing')
+            
+            # Check for Cross-browser
+            if any(indicator in content_lower for indicator in ['cross-browser', 'cross browser', 'device']):
+                analysis['cross_browser']['status'] = 'found'
+                analysis['cross_browser']['coverage'].append('Cross-browser/device: ✅ Documented')
+            else:
+                analysis['cross_browser']['status'] = 'missing'
+                analysis['cross_browser']['missing'].append('Cross-browser/device: ❌ Not mentioned')
+            
+            # Add feedback for missing test scenarios section
+            analysis['detailed_feedback'].append('No Test Scenarios field found - add comprehensive testing coverage')
+        
+        # Determine overall coverage
+        found_count = sum(1 for category in ['happy_path', 'negative', 'rbt', 'cross_browser'] 
+                         if analysis[category]['status'] == 'found')
+        
+        if found_count == 4:
+            analysis['overall_coverage'] = 'complete'
+        elif found_count >= 2:
+            analysis['overall_coverage'] = 'partial'
+        else:
+            analysis['overall_coverage'] = 'incomplete'
+        
+        # Generate recommendations
+        if analysis['overall_coverage'] != 'complete':
+            missing_categories = []
+            for category in ['happy_path', 'negative', 'rbt', 'cross_browser']:
+                if analysis[category]['status'] == 'missing':
+                    missing_categories.append(category.replace('_', ' ').title())
+            
+            if missing_categories:
+                analysis['recommendations'].append(f"Expand coverage to include: {', '.join(missing_categories)}")
+        
+        return analysis
+
+    def _create_ticket_summary_summary(self, ticket_summary_analysis: Dict) -> str:
+        """Create a summary of ticket summary analysis"""
+        summary = []
+        
+        if ticket_summary_analysis['summary']:
+            summary.append(f"**Ticket Summary**: {ticket_summary_analysis['summary']}")
+            summary.append(f"**Card Type**: {ticket_summary_analysis['card_type']}")
+            summary.append(f"**Purpose**: {ticket_summary_analysis['purpose']}")
+            summary.append(f"**Confidence**: {ticket_summary_analysis['confidence']:.1f}")
+        else:
+            summary.append("**Ticket Summary**: Unable to extract summary")
+            summary.append("**Card Type**: Unknown")
+            summary.append("**Purpose**: Not determined")
+        
+        return '\n'.join(summary)
+
+    def _create_additional_jira_fields_summary(self, additional_fields_analysis: Dict) -> str:
+        """Create a summary of additional Jira fields analysis"""
+        summary = []
+        
+        field_names = {
+            'implementation_details': 'Implementation Details',
+            'ada_acceptance_criteria': 'ADA Acceptance Criteria',
+            'architectural_solution': 'Architectural Solution',
+            'performance_impact': 'Performance Impact',
+            'linked_issues': 'Linked Issues'
+        }
+        
+        summary.append("**Additional Jira Fields Analysis:**")
+        
+        for field_key, field_name in field_names.items():
+            field_data = additional_fields_analysis.get(field_key, {})
+            status = field_data.get('status', 'not_found')
+            
+            if status == 'found':
+                coverage = field_data.get('coverage', [])
+                summary.append(f"  ✅ **{field_name}**: {coverage[0] if coverage else 'Present'}")
+            else:
+                missing = field_data.get('missing', [])
+                summary.append(f"  ❌ **{field_name}**: {missing[0] if missing else 'Missing'}")
+        
+        # Add recommendations
+        all_recommendations = []
+        for field_data in additional_fields_analysis.values():
+            recommendations = field_data.get('recommendations', [])
+            all_recommendations.extend(recommendations)
+        
+        if all_recommendations:
+            summary.append("\n**Recommendations:**")
+            for rec in all_recommendations[:5]:  # Limit to 5 recommendations
+                summary.append(f"  • {rec}")
+        
+        return '\n'.join(summary)
+
+    def _create_enhanced_test_scenarios_summary(self, enhanced_test_scenarios_analysis: Dict) -> str:
+        """Create a summary of enhanced test scenarios analysis"""
+        summary = []
+        
+        summary.append("**🧪 Test Scenario Breakdown**")
+        
+        # Add coverage status for each category
+        categories = ['happy_path', 'negative', 'rbt', 'cross_browser']
+        category_names = {
+            'happy_path': 'Positive (Happy Path)',
+            'negative': 'Negative/Error Handling',
+            'rbt': 'RBT',
+            'cross_browser': 'Cross-browser/device'
+        }
+        
+        for category in categories:
+            category_data = enhanced_test_scenarios_analysis.get(category, {})
+            status = category_data.get('status', 'not_found')
+            
+            if status == 'found':
+                coverage = category_data.get('coverage', [])
+                summary.append(f"- {category_names[category]}: {coverage[0] if coverage else '✅ Documented'}")
+            else:
+                missing = category_data.get('missing', [])
+                summary.append(f"- {category_names[category]}: {missing[0] if missing else '❌ Missing'}")
+        
+        # Add overall coverage status
+        overall_coverage = enhanced_test_scenarios_analysis.get('overall_coverage', 'incomplete')
+        if overall_coverage == 'complete':
+            summary.append("\n**Overall Coverage**: ✅ Complete")
+        elif overall_coverage == 'partial':
+            summary.append("\n**Overall Coverage**: 🟡 Partial")
+        else:
+            summary.append("\n**Overall Coverage**: ❌ Incomplete")
+        
+        # Add detailed feedback
+        detailed_feedback = enhanced_test_scenarios_analysis.get('detailed_feedback', [])
+        if detailed_feedback:
+            summary.append("\n**Detailed Feedback:**")
+            for feedback in detailed_feedback[:3]:  # Limit to 3 feedback items
+                summary.append(f"  • {feedback}")
+        
+        # Add recommendations
+        recommendations = enhanced_test_scenarios_analysis.get('recommendations', [])
+        if recommendations:
+            summary.append("\n**Recommendation**: " + recommendations[0])
+        
+        return '\n'.join(summary)

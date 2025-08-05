@@ -213,7 +213,7 @@ At the end, suggest 3-5 actionable gaps to fill. Use markdown headings (# for ma
 **Output Format for Very Light Level:**
 # 📊 GAP ANALYSIS
 
-[Professional analysis highlighting missing information and gaps in the ticket]
+[Groom analysis highlighting missing information and gaps in the ticket]
 
 ## 🔍 Gaps Found:
 - **Missing acceptance criteria** for [specific scenario]
@@ -300,7 +300,7 @@ Make this roast legendary! 🚀
         
         if found_humor:
             console.print(f"[yellow]Warning: Found humor keywords in Very Light content: {found_humor}[/yellow]")
-            console.print("[yellow]Re-prompting for professional analysis...[/yellow]")
+            console.print("[yellow]Re-prompting for groom analysis...[/yellow]")
             
             # Re-prompt with stricter instructions
             re_prompt = f"""
@@ -319,7 +319,7 @@ You are an analytical assistant. This is for the 'Very Light' roast level - NO h
 **Output Format:**
 # 📊 GAP ANALYSIS
 
-[Professional analysis of missing information]
+[Groom analysis of missing information]
 
 ## 🔍 Gaps Found:
 - **Missing acceptance criteria** for [specific scenario]
@@ -334,7 +334,7 @@ You are an analytical assistant. This is for the 'Very Light' roast level - NO h
 ## 🎯 Summary:
 [Professional summary of key areas needing attention]
 
-**REMEMBER: This is Very Light level - NO humor, only professional analysis!**
+**REMEMBER: This is Very Light level - NO humor, only groom analysis!**
 """
             
             try:

@@ -99,6 +99,8 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
 
   const getLevelIcon = (level: string) => {
     switch (level) {
+      case 'strict': return '🔒'
+      case 'light': return '💡'
       case 'default': return '📊'
       case 'insight': return '🔍'
       case 'deep_dive': return '🔬'
@@ -191,7 +193,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
       <div className="flex items-center space-x-2 mb-6">
         <span className="text-2xl">🧹</span>
         <h2 className="text-xl font-semibold text-gray-900">Groom Room</h2>
-        <span className="text-sm text-gray-500">Professional Analysis</span>
+        <span className="text-sm text-gray-500">Groom Analysis</span>
       </div>
 
       {/* Input Section */}
@@ -254,6 +256,8 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             onChange={(e) => setLevel(e.target.value)}
             className="beach-input w-full"
           >
+            <option value="strict">🔒 Strict</option>
+            <option value="light">💡 Light</option>
             <option value="default">📊 Default</option>
             <option value="insight">🔍 Insight</option>
             <option value="deep_dive">🔬 Deep Dive</option>
@@ -261,6 +265,8 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             <option value="summary">📝 Summary</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">
+            {level === 'strict' && 'Zero tolerance: enforce ALL Definition of Ready requirements'}
+            {level === 'light' && 'Flexible approach: focus on critical elements with reasonable flexibility'}
             {level === 'default' && 'Balanced mix of feedback and gentle tone'}
             {level === 'insight' && 'Focused analysis: missing details and implied risks'}
             {level === 'deep_dive' && 'Thorough analysis: edge cases, validations, compliance'}
