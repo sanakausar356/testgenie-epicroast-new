@@ -742,7 +742,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return framework_analysis
     
-    def analyze_dor_requirements(self, content: str) -> Dict[str, Dict]:
+    def analyze_dor_requirements(self, content: str, user_story_found: bool = False) -> Dict[str, Dict]:
         """Analyze content against Definition of Ready (DOR) requirements"""
         dor_analysis = {}
         
@@ -759,21 +759,27 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             content_lower = content.lower()
             
             if requirement_key == 'user_story':
-                # Check for user story template and questions
-                template_found = re.search(r'as\s+a\s+.*?i\s+want\s+.*?so\s+that\s+.*?', content_lower)
-                if template_found:
-                    analysis['coverage_score'] += 1
+                # Use enhanced detection result if provided, otherwise fall back to basic detection
+                if user_story_found:
+                    analysis['coverage_score'] = 2  # Full credit for both template and business value
+                    analysis['coverage_percentage'] = 100.0
+                    # Skip the rest of the user story analysis since we already have full credit
                 else:
-                    analysis['missing_elements'].append('User Story Template')
-                    analysis['suggestions'].append(f'Follow template: "{requirement_info["template"]}"')
-                
-                # Check for business value indicators
-                business_value_indicators = ['business value', 'goal', 'benefit', 'reward', 'value']
-                if any(indicator in content_lower for indicator in business_value_indicators):
-                    analysis['coverage_score'] += 1
-                else:
-                    analysis['missing_elements'].append('Business Value Goal')
-                    analysis['suggestions'].append('Clearly define the business value this card will deliver')
+                    # Check for user story template and questions
+                    template_found = re.search(r'as\s+a\s+.*?i\s+want\s+.*?so\s+that\s+.*?', content_lower)
+                    if template_found:
+                        analysis['coverage_score'] += 1
+                    else:
+                        analysis['missing_elements'].append('User Story Template')
+                        analysis['suggestions'].append(f'Follow template: "{requirement_info["template"]}"')
+                    
+                    # Check for business value indicators
+                    business_value_indicators = ['business value', 'goal', 'benefit', 'reward', 'value']
+                    if any(indicator in content_lower for indicator in business_value_indicators):
+                        analysis['coverage_score'] += 1
+                    else:
+                        analysis['missing_elements'].append('Business Value Goal')
+                        analysis['suggestions'].append('Clearly define the business value this card will deliver')
             
             elif requirement_key == 'acceptance_criteria':
                 # Check for acceptance criteria characteristics
@@ -951,9 +957,13 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                             analysis['missing_elements'].append('Cross-browser/Device Testing Scope')
                             analysis['suggestions'].append('Confirm mobile responsiveness and cross-browser/device testing scope is defined')
             
-            # Calculate percentage coverage
-            total_possible = 6  # Updated for additional fields (Brand, Component, Team, Story Points, Figma, Cross-browser)
-            analysis['coverage_percentage'] = (analysis['coverage_score'] / total_possible) * 100 if total_possible > 0 else 0
+            # Calculate percentage coverage - handle user story special case
+            if requirement_key == 'user_story' and user_story_found:
+                # User story is already set to 100% coverage above
+                pass
+            else:
+                total_possible = 6  # Updated for additional fields (Brand, Component, Team, Story Points, Figma, Cross-browser)
+                analysis['coverage_percentage'] = (analysis['coverage_score'] / total_possible) * 100 if total_possible > 0 else 0
             
             dor_analysis[requirement_key] = analysis
         
@@ -1119,7 +1129,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return dod_analysis
     
-    def analyze_stakeholder_validation(self, content: str) -> Dict[str, Dict]:
+    def analyze_stakeholder_validation(self, content: str, figma_link_found: bool = False) -> Dict[str, Dict]:
         """Analyze content for stakeholder and PO validation"""
         analysis = {
             'stakeholder_validation': {
@@ -1172,12 +1182,17 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         else:
             analysis['po_approval']['visibility_issue'] = True
         
-        # Check for design validation indicators
-        design_indicators = ['figma', 'design', 'mockup', 'wireframe', 'prototype', 'design review']
-        if any(indicator in content_lower for indicator in design_indicators):
+        # Check for design validation indicators - respect enhanced Figma detection
+        if figma_link_found:
             analysis['design_validation']['found'] = True
             analysis['design_validation']['missing'] = False
-            analysis['design_validation']['indicators'].append('Design validation mentioned')
+            analysis['design_validation']['indicators'].append('Figma design link detected via enhanced analysis')
+        else:
+            design_indicators = ['figma', 'design', 'mockup', 'wireframe', 'prototype', 'design review']
+            if any(indicator in content_lower for indicator in design_indicators):
+                analysis['design_validation']['found'] = True
+                analysis['design_validation']['missing'] = False
+                analysis['design_validation']['indicators'].append('Design validation mentioned')
         
         return analysis
     
@@ -1542,24 +1557,27 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         return checklist
     
     def generate_groom_analysis(self, ticket_content: str, level: str = "default") -> str:
-        """Generate professional groom analysis using Azure OpenAI"""
+        """Generate professional groom analysis using Azure OpenAI with centralized helper methods"""
         try:
+            # Create shared analysis context using helper methods
+            context = self.create_analysis_context(ticket_content)
+            
             level_prompt = self.get_groom_level_prompt(level)
             
-            # Analyze content for all aspects
+            # Analyze content for all aspects with enhanced detection flags
             ticket_summary_analysis = self.analyze_ticket_summary(ticket_content)
             brand_analysis = self.analyze_brand_abbreviations(ticket_content)
             framework_analysis = self.analyze_frameworks(ticket_content)
-            dor_analysis = self.analyze_dor_requirements(ticket_content)
+            dor_analysis = self.analyze_dor_requirements(ticket_content, context['user_story_found'])
             card_analysis = self.analyze_card_type(ticket_content)
             dependencies_analysis = self.analyze_dependencies_and_blockers(ticket_content)
-            dod_analysis = self.analyze_dod_alignment(ticket_content)
-            stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content)
+            dod_analysis = self.analyze_dod_alignment(ticket_content) if context['include_dod'] else {}
+            stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content, context['figma_link_found'])
             sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
             cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
             test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
             enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios_v2(ticket_content)
-            enhanced_ac_analysis = self.analyze_enhanced_acceptance_criteria(ticket_content)
+            enhanced_ac_analysis = self.analyze_enhanced_acceptance_criteria(ticket_content, context['figma_link_found'])
             additional_jira_fields_analysis = self.analyze_additional_jira_fields(ticket_content)
             
             # Create visual checklist
@@ -2921,19 +2939,23 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             for vague_item in vague_ac:
                 summary.append(f"- {vague_item.get('issue', 'Vague AC found')}")
         
-        # Figma links
+        # Figma links - respect enhanced detection
         figma_links = enhanced_ac_analysis.get('figma_links', [])
         if figma_links:
             summary.append("\n**🎨 Figma Design Reference:**")
             for link in figma_links:
-                summary.append(f"- Figma link detected: ✅ {link.get('url', 'URL')}")
-                if link.get('is_generic'):
-                    summary.append(f"  - Design frame or state references: ❌ Not specified")
-                    summary.append(f"  - Contextual guidance: ❌ AC just says 'match Figma'")
+                if link.get('url') == 'Enhanced detection confirmed Figma link presence':
+                    summary.append(f"- Figma link detected: ✅ (Confirmed via enhanced analysis)")
+                    summary.append(f"  - Recommendation: Consider moving Figma link to dedicated Design field for better organization")
                 else:
-                    summary.append(f"  - Design frame or state references: ✅ Specified")
-                    summary.append(f"  - Contextual guidance: ✅ Behavioral expectations included")
-                summary.append(f"  - Recommendation: {link.get('recommendation', 'Consider moving to Design field')}")
+                    summary.append(f"- Figma link detected: ✅ {link.get('url', 'URL')}")
+                    if link.get('is_generic'):
+                        summary.append(f"  - Design frame or state references: ❌ Not specified")
+                        summary.append(f"  - Contextual guidance: ❌ AC just says 'match Figma'")
+                    else:
+                        summary.append(f"  - Design frame or state references: ✅ Specified")
+                        summary.append(f"  - Contextual guidance: ✅ Behavioral expectations included")
+                    summary.append(f"  - Recommendation: {link.get('recommendation', 'Consider moving to Design field')}")
         
         # Test scenarios in AC
         if enhanced_ac_analysis.get('test_scenarios_in_ac'):
@@ -2949,7 +2971,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return '\n'.join(summary)
 
-    def analyze_enhanced_acceptance_criteria(self, content: str) -> Dict[str, Dict]:
+    def analyze_enhanced_acceptance_criteria(self, content: str, figma_link_found: bool = False) -> Dict[str, Dict]:
         """Enhanced analysis of Acceptance Criteria field with detailed validation"""
         analysis = {
             'ac_present': False,
@@ -2974,11 +2996,16 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             analysis['ac_present'] = True
             analysis['ac_content'] = ac_section
             
-            # Check for Figma links in AC
-            figma_links = self._detect_figma_links(ac_section)
-            if figma_links:
-                analysis['figma_links'] = figma_links
-                analysis['recommendations'].append('Figma links detected in AC - consider moving to dedicated Design/Attachments field')
+            # Check for Figma links in AC - respect enhanced detection
+            if figma_link_found:
+                # Use enhanced detection result instead of re-scanning
+                analysis['figma_links'] = [{'url': 'Enhanced detection confirmed Figma link presence'}]
+            else:
+                # Fall back to local detection if enhanced detection didn't find anything
+                figma_links = self._detect_figma_links(ac_section)
+                if figma_links:
+                    analysis['figma_links'] = figma_links
+                    analysis['recommendations'].append('Figma links detected in AC - consider moving to dedicated Design/Attachments field')
             
             # Check if test scenarios are embedded in AC (grooming issue)
             if self._detect_test_scenarios_in_ac(ac_section):
@@ -3531,10 +3558,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         status_section = self._extract_field_section(content, 'status')
         status_category_section = self._extract_field_section(content, 'status category')
         
-        # Check for release-ready statuses
+        # Check for release-ready statuses - match exact status values from Jira
         release_statuses = [
-            'release', 'ready for release', 'prod release queue', 'production release',
-            'ready for production', 'prod ready', 'release ready'
+            'prod release queue', 'ready for release', 'uat complete', 'in production',
+            'release', 'production release', 'ready for production', 'prod ready', 'release ready'
         ]
         
         content_lower = content.lower()
@@ -3687,54 +3714,83 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         """
         Extract content from a specific Jira field section
         """
-        # Common field patterns
-        field_patterns = [
-            rf'{field_name}[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
-            rf'{field_name.replace(" ", "_")}[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
-            rf'{field_name.replace(" ", "")}[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
-        ]
+        # Simple, robust approach: split by lines and find the field
+        lines = content.split('\n')
         
-        for pattern in field_patterns:
-            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
-            if match:
-                return match.group(1).strip()
+        # Find the line that starts with the field name
+        field_line_index = None
+        for i, line in enumerate(lines):
+            if line.strip().lower().startswith(field_name.lower() + ':'):
+                field_line_index = i
+                break
         
-        return ""
+        if field_line_index is None:
+            return ""
+        
+        # Get the field line and extract content after the colon
+        field_line = lines[field_line_index].strip()
+        colon_index = field_line.find(':')
+        if colon_index != -1:
+            # Extract content from the same line after the colon
+            same_line_content = field_line[colon_index + 1:].strip()
+            if same_line_content:
+                content_lines = [same_line_content]
+            else:
+                content_lines = []
+        else:
+            content_lines = []
+        
+        # Extract content from the next lines until we hit another field or end
+        for i in range(field_line_index + 1, len(lines)):
+            line = lines[i].strip()
+            
+            # Stop if we hit another field (line starts with capital letter followed by colon)
+            if line and re.match(r'^[A-Z][a-zA-Z\s]*:', line):
+                break
+            
+            # Stop if we hit an empty line followed by another field
+            if line == "" and i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if next_line and re.match(r'^[A-Z][a-zA-Z\s]*:', next_line):
+                    break
+            
+            content_lines.append(line)
+        
+        return '\n'.join(content_lines).strip()
 
     def generate_groom_analysis_enhanced(self, ticket_content: str, level: str = "default", debug_mode: bool = False) -> str:
         """
         Enhanced groom analysis that incorporates the new field reading accuracy fixes
+        Now uses centralized helper methods and shared context
         """
         try:
-            # Run enhanced detection methods
-            user_story_analysis = self.detect_user_story_enhanced(ticket_content)
-            figma_analysis = self.detect_figma_links_enhanced(ticket_content)
-            dod_evaluation = self.should_evaluate_dod(ticket_content)
+            # Create shared analysis context using helper methods
+            context = self.create_analysis_context(ticket_content)
             
             # Log debug information if enabled
             if debug_mode:
                 console.print(f"[blue]Enhanced Analysis Debug:[/blue]")
-                console.print(f"[blue]User Story Found: {user_story_analysis['user_story_found']} (Location: {user_story_analysis['location']})[/blue]")
-                console.print(f"[blue]Figma Link Found: {figma_analysis['figma_link_found']} (Locations: {figma_analysis['locations']})[/blue]")
-                console.print(f"[blue]DoD Evaluation: {dod_evaluation['should_evaluate']} (Reason: {dod_evaluation['reason']})[/blue]")
+                console.print(f"[blue]User Story Found: {context['user_story_found']}[/blue]")
+                console.print(f"[blue]Figma Link Found: {context['figma_link_found']} (Link: {context['figma_link']})[/blue]")
+                console.print(f"[blue]DoD Evaluation: {context['include_dod']} (Status: {context['status']})[/blue]")
             
-            # Run original analysis methods
+            # Run original analysis methods with enhanced detection flags
             level_prompt = self.get_groom_level_prompt(level)
             
-            # Analyze content for all aspects
+            # Analyze content for all aspects with enhanced detection results
             ticket_summary_analysis = self.analyze_ticket_summary(ticket_content)
             brand_analysis = self.analyze_brand_abbreviations(ticket_content)
             framework_analysis = self.analyze_frameworks(ticket_content)
-            dor_analysis = self.analyze_dor_requirements(ticket_content)
+            dor_analysis = self.analyze_dor_requirements(ticket_content, context['user_story_found'])
             card_analysis = self.analyze_card_type(ticket_content)
             dependencies_analysis = self.analyze_dependencies_and_blockers(ticket_content)
-            dod_analysis = self.analyze_dod_alignment(ticket_content) if dod_evaluation['should_evaluate'] else {}
-            stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content)
+            dod_analysis = self.analyze_dod_alignment(ticket_content) if context['include_dod'] else {}
+            stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content, context['figma_link_found'])
             sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
             cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
             test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
             enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios_v2(ticket_content)
-            enhanced_ac_analysis = self.analyze_enhanced_acceptance_criteria(ticket_content)
+            enhanced_ac_analysis = self.analyze_enhanced_acceptance_criteria(ticket_content, context['figma_link_found'])
             additional_jira_fields_analysis = self.analyze_additional_jira_fields(ticket_content)
             
             # Create visual checklist with enhanced scoring
@@ -3749,19 +3805,19 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             # Apply enhanced scoring
             enhanced_score_data = self.calculate_groom_readiness_score_enhanced(
                 all_analyses, 
-                user_story_analysis['user_story_found'], 
-                figma_analysis['figma_link_found']
+                context['user_story_found'], 
+                context['figma_link_found']
             )
             
             # Create summaries with enhanced information
             ticket_summary_summary = self._create_ticket_summary_summary(ticket_summary_analysis)
             framework_summary = self._create_framework_summary(framework_analysis)
             brand_summary = self._create_brand_summary(brand_analysis)
-            dor_summary = self._create_dor_summary_enhanced(dor_analysis, user_story_analysis)
+            dor_summary = self._create_dor_summary_enhanced(dor_analysis, {'user_story_found': context['user_story_found'], 'location': 'description' if context['user_story_found'] else None})
             card_summary = self._create_card_summary(card_analysis)
             dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
-            dod_summary = self._create_dod_summary_enhanced(dod_analysis, dod_evaluation)
-            stakeholder_summary = self._create_stakeholder_summary_enhanced(stakeholder_analysis, figma_analysis)
+            dod_summary = self._create_dod_summary_enhanced(dod_analysis, {'should_evaluate': context['include_dod'], 'reason': f"Status: {context['status']}" if context['status'] else 'No status found'})
+            stakeholder_summary = self._create_stakeholder_summary_enhanced(stakeholder_analysis, {'figma_link_found': context['figma_link_found'], 'locations': ['description', 'acceptance_criteria'] if context['figma_link_found'] else []})
             sprint_readiness_summary = self._create_sprint_readiness_summary(sprint_readiness_analysis)
             cross_functional_summary = self._create_cross_functional_summary(cross_functional_analysis)
             test_scenarios_summary = self._create_test_scenarios_summary(test_scenarios_analysis)
@@ -3772,10 +3828,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             
             # Add enhanced analysis information to the prompt
             enhanced_analysis_info = f"""
-**Enhanced Field Analysis Results:**
-- User Story Detection: {'✅ Found' if user_story_analysis['user_story_found'] else '❌ Not Found'} (Location: {user_story_analysis['location'] or 'None'})
-- Figma Link Detection: {'✅ Found' if figma_analysis['figma_link_found'] else '❌ Not Found'} (Locations: {', '.join(figma_analysis['locations']) if figma_analysis['locations'] else 'None'})
-- DoD Evaluation: {'✅ Enabled' if dod_evaluation['should_evaluate'] else '❌ Suppressed'} (Reason: {dod_evaluation['reason']})
+**Enhanced Field Analysis Results (Using Centralized Helpers):**
+- User Story Detection: {'✅ Found' if context['user_story_found'] else '❌ Not Found'} (Using: has_user_story helper)
+- Figma Link Detection: {'✅ Found' if context['figma_link_found'] else '❌ Not Found'} (Link: {context['figma_link'] or 'None'}) (Using: find_figma_link helper)
+- DoD Evaluation: {'✅ Enabled' if context['include_dod'] else '❌ Suppressed'} (Status: {context['status'] or 'None'}) (Using: should_include_dod helper)
 
 **Enhanced Scoring Corrections:**
 {chr(10).join(enhanced_score_data['enhanced_scoring']['corrections_made']) if enhanced_score_data['enhanced_scoring']['corrections_made'] else 'No corrections needed'}
@@ -4050,3 +4106,107 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         summary += f"\n**Enhanced Groom Readiness Score**: {enhanced_percentage:.1f}% ({enhanced_score}/{enhanced_total})\n"
         
         return summary
+
+    def has_user_story(self, description: str, ac: str) -> bool:
+        """
+        Centralized user story detection helper method
+        Returns True if a user story pattern is found in description or acceptance criteria
+        """
+        # Enhanced regex patterns to catch variations
+        user_story_patterns = [
+            r"As a .*?, I want .*?, so that .*?\.",
+            r"As a .*? I want .*? so that .*?\.",
+            r"As a .*?, I want .*? so I can .*?\.",
+            r"As a .*? I want to .*? so that .*?\.",
+            r"As a .*?, I want to .*? so I can .*?\.",
+            r"As a .*? I want .*? so I can .*?\.",
+            r"As a .*?, I want .*? so that .*?",
+            r"As a .*? I want .*? so that .*?",
+            r"As a .*?, I want .*? so I can .*?",
+            r"As a .*? I want to .*? so that .*?",
+            r"As a .*?, I want to .*? so I can .*?",
+            r"As a .*? I want .*? so I can .*?",
+            # Additional patterns for variations
+            r"As a .*?, I want .*?, so I can .*?\.",
+            r"As a .*? I want .*?, so I can .*?\.",
+            r"As a .*?, I want to .*?, so that .*?\.",
+            r"As a .*? I want to .*?, so that .*?\.",
+            r"As a .*?, I want to .*?, so I can .*?\.",
+            r"As a .*? I want to .*?, so I can .*?\."
+        ]
+        
+        # Combine description and AC for searching
+        combined_content = f"{description or ''} {ac or ''}"
+        
+        # Check each pattern
+        for pattern in user_story_patterns:
+            if re.search(pattern, combined_content, re.IGNORECASE | re.DOTALL):
+                return True
+        
+        return False
+
+    def find_figma_link(self, *fields) -> Optional[str]:
+        """
+        Centralized Figma link detection helper method
+        Returns the first Figma link found in any of the provided fields, or None
+        """
+        # Enhanced Figma link regex pattern - more specific to avoid partial matches
+        figma_pattern = r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9]+(?:\/.*)?"
+        
+        for field in fields:
+            if field:
+                match = re.search(figma_pattern, field, re.IGNORECASE)
+                if match:
+                    return match.group(0)
+        return None
+
+    def should_include_dod(self, status: str) -> bool:
+        """
+        Centralized DoD evaluation helper method
+        Returns True if the ticket status indicates it should include DoD analysis
+        """
+        # Check for release-ready statuses - match exact status values from Jira
+        release_statuses = [
+            'prod release queue', 'ready for release', 'uat complete', 'in production',
+            'release', 'production release', 'ready for production', 'prod ready', 'release ready'
+        ]
+        
+        status_lower = status.lower() if status else ""
+        
+        # Check if any release status is mentioned
+        for release_status in release_statuses:
+            if release_status in status_lower:
+                return True
+        
+        return False
+
+    def create_analysis_context(self, content: str) -> Dict[str, any]:
+        """
+        Create a shared context dictionary with detection flags for use across all analysis methods
+        """
+        # Extract key fields for analysis
+        description_section = self._extract_field_section(content, 'description')
+        ac_section = self._extract_field_section(content, 'acceptance criteria')
+        status_section = self._extract_field_section(content, 'status')
+        
+        # Run detection using helper methods
+        user_story_found = self.has_user_story(description_section or "", ac_section or "")
+        figma_link = self.find_figma_link(description_section, ac_section)
+        include_dod = self.should_include_dod(status_section or "")
+        
+        context = {
+            'user_story_found': user_story_found,
+            'figma_link_found': bool(figma_link),
+            'figma_link': figma_link,
+            'include_dod': include_dod,
+            'status': status_section,
+            'description': description_section,
+            'acceptance_criteria': ac_section
+        }
+        
+        # Add assertions for verification
+        assert user_story_found in [True, False], "User story flag must be boolean"
+        assert include_dod in [True, False], "DoD flag must be boolean"
+        assert isinstance(context['figma_link_found'], bool), "Figma link found flag must be boolean"
+        
+        return context
