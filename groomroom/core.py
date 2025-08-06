@@ -1335,6 +1335,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
     def _extract_test_scenarios_section(self, content: str) -> str:
         """Extract test scenarios section from content"""
         
+        # First try the enhanced field extraction method
+        test_scenarios_section = self._extract_field_section(content, 'test scenarios')
+        if test_scenarios_section:
+            return test_scenarios_section
+        
+        # Fallback to regex patterns for backward compatibility
         # First try to find the entire test scenarios section
         # Look for "Test Scenarios:" and capture everything until the next major section
         test_scenarios_match = re.search(
@@ -3072,7 +3078,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
     def _extract_acceptance_criteria_section(self, content: str) -> str:
         """Extract Acceptance Criteria section from content"""
         
-        # Look for Acceptance Criteria section
+        # First try the enhanced field extraction method
+        ac_section = self._extract_field_section(content, 'acceptance criteria')
+        if ac_section:
+            return ac_section
+        
+        # Fallback to regex patterns for backward compatibility
         ac_patterns = [
             r'acceptance criteria[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
             r'ac:[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
@@ -3241,7 +3252,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
     def _extract_test_scenarios_field(self, content: str) -> str:
         """Extract Test Scenarios field specifically (not embedded in AC)"""
         
-        # Look for dedicated Test Scenarios field
+        # First try the enhanced field extraction method
+        test_scenarios_section = self._extract_field_section(content, 'test scenarios')
+        if test_scenarios_section:
+            return test_scenarios_section
+        
+        # Fallback to regex patterns for backward compatibility
         test_scenarios_patterns = [
             r'test scenarios[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
             r'test scenarios field[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
@@ -3417,27 +3433,25 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             r"As a .*? I want to .*?, so I can .*?\."
         ]
         
-        # Search in description field
-        description_section = self._extract_field_section(content, 'description')
-        if description_section:
+        # Search in User Story field first (highest priority)
+        user_story_section = self._extract_field_section(content, 'user story')
+        if user_story_section:
             for pattern in user_story_patterns:
-                match = re.search(pattern, description_section, re.IGNORECASE | re.DOTALL)
+                match = re.search(pattern, user_story_section, re.IGNORECASE | re.DOTALL)
                 if match:
                     analysis['user_story_found'] = True
-                    analysis['location'] = 'description'
+                    analysis['location'] = 'user_story'
                     analysis['pattern_matched'] = pattern
-                    analysis['confidence'] = 0.9
-                    analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
+                    analysis['confidence'] = 1.0
+                    analysis['debug_info'].append(f"User story found in User Story field with pattern: {pattern}")
                     break
         
-        # Also search in the entire content for description-like patterns if not found in specific field
+        # Search in description field if not found in User Story field
         if not analysis['user_story_found']:
-            # Look for description-like content after "Description:" in the main content
-            description_match = re.search(r'Description:\s*(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)', content, re.IGNORECASE | re.DOTALL)
-            if description_match:
-                description_text = description_match.group(1).strip()
+            description_section = self._extract_field_section(content, 'description')
+            if description_section:
                 for pattern in user_story_patterns:
-                    match = re.search(pattern, description_text, re.IGNORECASE | re.DOTALL)
+                    match = re.search(pattern, description_section, re.IGNORECASE | re.DOTALL)
                     if match:
                         analysis['user_story_found'] = True
                         analysis['location'] = 'description'
@@ -3445,6 +3459,22 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                         analysis['confidence'] = 0.9
                         analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
                         break
+            
+            # Also search in the entire content for description-like patterns if not found in specific field
+            if not analysis['user_story_found']:
+                # Look for description-like content after "Description:" in the main content
+                description_match = re.search(r'Description:\s*(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)', content, re.IGNORECASE | re.DOTALL)
+                if description_match:
+                    description_text = description_match.group(1).strip()
+                    for pattern in user_story_patterns:
+                        match = re.search(pattern, description_text, re.IGNORECASE | re.DOTALL)
+                        if match:
+                            analysis['user_story_found'] = True
+                            analysis['location'] = 'description'
+                            analysis['pattern_matched'] = pattern
+                            analysis['confidence'] = 0.9
+                            analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
+                            break
         
         # Search in Acceptance Criteria field if not found in description
         if not analysis['user_story_found']:
@@ -3713,6 +3743,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
     def _extract_field_section(self, content: str, field_name: str) -> str:
         """
         Extract content from a specific Jira field section
+        Handles both formats:
+        1. "Field Name: content" (with colon)
+        2. "Field Name\ncontent" (without colon, content on next line)
         """
         # Simple, robust approach: split by lines and find the field
         lines = content.split('\n')
@@ -3720,14 +3753,17 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         # Find the line that starts with the field name
         field_line_index = None
         for i, line in enumerate(lines):
-            if line.strip().lower().startswith(field_name.lower() + ':'):
+            line_stripped = line.strip()
+            # Check for both formats: "Field Name:" and "Field Name" (exact match)
+            if (line_stripped.lower().startswith(field_name.lower() + ':') or 
+                line_stripped.lower() == field_name.lower()):
                 field_line_index = i
                 break
         
         if field_line_index is None:
             return ""
         
-        # Get the field line and extract content after the colon
+        # Get the field line and extract content after the colon (if present)
         field_line = lines[field_line_index].strip()
         colon_index = field_line.find(':')
         if colon_index != -1:
@@ -3748,11 +3784,27 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             if line and re.match(r'^[A-Z][a-zA-Z\s]*:', line):
                 break
             
+            # Stop if we hit another field (line is exactly a field name without colon)
+            if line and re.match(r'^[A-Z][a-zA-Z\s]*$', line):
+                # Check if this looks like a field name (not just any capitalized text)
+                field_names = ['description', 'user story', 'acceptance criteria', 'status', 'priority', 
+                              'assignee', 'reporter', 'labels', 'components', 'comments', 'test scenarios',
+                              'story points', 'agile team', 'brands', 'figma reference status']
+                if line.lower() in field_names:
+                    break
+            
             # Stop if we hit an empty line followed by another field
             if line == "" and i + 1 < len(lines):
                 next_line = lines[i + 1].strip()
                 if next_line and re.match(r'^[A-Z][a-zA-Z\s]*:', next_line):
                     break
+                if next_line and re.match(r'^[A-Z][a-zA-Z\s]*$', next_line):
+                    # Check if next line looks like a field name
+                    field_names = ['description', 'user story', 'acceptance criteria', 'status', 'priority', 
+                                  'assignee', 'reporter', 'labels', 'components', 'comments', 'test scenarios',
+                                  'story points', 'agile team', 'brands', 'figma reference status']
+                    if next_line.lower() in field_names:
+                        break
             
             content_lines.append(line)
         
@@ -4196,8 +4248,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         ac_section = self._extract_field_section(content, 'acceptance criteria')
         status_section = self._extract_field_section(content, 'status')
         
-        # Run detection using helper methods
-        user_story_found = self.has_user_story(description_section or "", ac_section or "")
+        # Run detection using enhanced methods
+        user_story_analysis = self.detect_user_story_enhanced(content)
+        user_story_found = user_story_analysis['user_story_found']
         figma_link = self.find_figma_link(description_section, ac_section)
         include_dod = self.should_include_dod(status_section or "")
         
@@ -4208,7 +4261,8 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'include_dod': include_dod,
             'status': status_section,
             'description': description_section,
-            'acceptance_criteria': ac_section
+            'acceptance_criteria': ac_section,
+            'user_story_analysis': user_story_analysis  # Include full analysis for debugging
         }
         
         # Add assertions for verification

@@ -44,7 +44,7 @@ def test_figma_detection():
         # Figma mention without URL
         ("UX should match Figma", True),
         # Figma in acceptance criteria
-        ("", "UX should match Figma (Figma word is hyperlinked)", True),
+        ("UX should match Figma (Figma word is hyperlinked)", True),
         # No Figma reference
         ("This has no Figma reference", False),
         # Figma in description
