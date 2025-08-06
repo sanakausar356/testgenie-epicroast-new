@@ -3430,8 +3430,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'debug_info': []
         }
         
-        # Enhanced regex patterns to catch variations
+        # Enhanced regex patterns to catch variations - more flexible
         user_story_patterns = [
+            # Standard patterns
             r"As a .*?, I want .*?, so that .*?\.",
             r"As a .*? I want .*? so that .*?\.",
             r"As a .*?, I want .*? so I can .*?\.",
@@ -3453,10 +3454,31 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             r"As a .*? I want to .*?, so I can .*?\."
         ]
         
+        # More flexible patterns for various user story formats
+        flexible_patterns = [
+            r"As a .*? I want .*? so that .*?",      # Basic format without punctuation
+            r"As a .*? I want to .*? so that .*?",   # "I want to" without punctuation
+            r"As a .*? I want .*? so I can .*?",     # "so I can" without punctuation
+            r"As a .*? I want to .*? so I can .*?",  # "I want to" + "so I can" without punctuation
+            r"As a .*? I want .*? in order to .*?",  # "in order to" variation
+            r"As a .*? I want to .*? in order to .*?", # "I want to" + "in order to"
+            r"As a .*? I need .*? so that .*?",      # "I need" variation
+            r"As a .*? I need to .*? so that .*?",   # "I need to" variation
+            r"As a .*? I would like .*? so that .*?", # "I would like" variation
+            r"As a .*? I would like to .*? so that .*?", # "I would like to" variation
+            # Even more flexible patterns
+            r"As a .*? I .*? so that .*?",           # Any "I" action
+            r"As a .*? I .*? so I can .*?",          # Any "I" action with "so I can"
+            r"As a .*? I .*? in order to .*?",       # Any "I" action with "in order to"
+        ]
+        
+        # Combine all patterns
+        all_patterns = user_story_patterns + flexible_patterns
+        
         # Search in User Story field first (highest priority)
         user_story_section = self._extract_field_section(content, 'user story')
         if user_story_section:
-            for pattern in user_story_patterns:
+            for pattern in all_patterns:
                 match = re.search(pattern, user_story_section, re.IGNORECASE | re.DOTALL)
                 if match:
                     analysis['user_story_found'] = True
@@ -3470,7 +3492,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         if not analysis['user_story_found']:
             description_section = self._extract_field_section(content, 'description')
             if description_section:
-                for pattern in user_story_patterns:
+                for pattern in all_patterns:
                     match = re.search(pattern, description_section, re.IGNORECASE | re.DOTALL)
                     if match:
                         analysis['user_story_found'] = True
@@ -3486,7 +3508,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 description_match = re.search(r'Description:\s*(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)', content, re.IGNORECASE | re.DOTALL)
                 if description_match:
                     description_text = description_match.group(1).strip()
-                    for pattern in user_story_patterns:
+                    for pattern in all_patterns:
                         match = re.search(pattern, description_text, re.IGNORECASE | re.DOTALL)
                         if match:
                             analysis['user_story_found'] = True
@@ -3500,7 +3522,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         if not analysis['user_story_found']:
             ac_section = self._extract_field_section(content, 'acceptance criteria')
             if ac_section:
-                for pattern in user_story_patterns:
+                for pattern in all_patterns:
                     match = re.search(pattern, ac_section, re.IGNORECASE | re.DOTALL)
                     if match:
                         analysis['user_story_found'] = True
@@ -3514,7 +3536,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         if not analysis['user_story_found']:
             comments_section = self._extract_field_section(content, 'comments')
             if comments_section:
-                for pattern in user_story_patterns:
+                for pattern in all_patterns:
                     match = re.search(pattern, comments_section, re.IGNORECASE | re.DOTALL)
                     if match:
                         analysis['user_story_found'] = True
@@ -4225,8 +4247,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         Centralized user story detection helper method
         Returns True if a user story pattern is found in any of the provided fields
         """
-        # Enhanced regex patterns to catch variations
+        # Enhanced regex patterns to catch variations - more flexible
         user_story_patterns = [
+            # Standard patterns
             r"As a .*?, I want .*?, so that .*?\.",  # Standard format with punctuation
             r"As a .*? I want .*? so that .*?\.",    # Standard format without comma
             r"As a .*?, I want .*? so I can .*?\.",  # "so I can" variation
@@ -4248,11 +4271,32 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             r"As a .*? I want to .*?, so I can .*?\."  # Combined with comma no first comma
         ]
         
+        # More flexible patterns for various user story formats
+        flexible_patterns = [
+            r"As a .*? I want .*? so that .*?",      # Basic format without punctuation
+            r"As a .*? I want to .*? so that .*?",   # "I want to" without punctuation
+            r"As a .*? I want .*? so I can .*?",     # "so I can" without punctuation
+            r"As a .*? I want to .*? so I can .*?",  # "I want to" + "so I can" without punctuation
+            r"As a .*? I want .*? in order to .*?",  # "in order to" variation
+            r"As a .*? I want to .*? in order to .*?", # "I want to" + "in order to"
+            r"As a .*? I need .*? so that .*?",      # "I need" variation
+            r"As a .*? I need to .*? so that .*?",   # "I need to" variation
+            r"As a .*? I would like .*? so that .*?", # "I would like" variation
+            r"As a .*? I would like to .*? so that .*?", # "I would like to" variation
+            # Even more flexible patterns
+            r"As a .*? I .*? so that .*?",           # Any "I" action
+            r"As a .*? I .*? so I can .*?",          # Any "I" action with "so I can"
+            r"As a .*? I .*? in order to .*?",       # Any "I" action with "in order to"
+        ]
+        
+        # Combine all patterns
+        all_patterns = user_story_patterns + flexible_patterns
+        
         # Combine all fields for searching
         combined_content = " ".join(fields)
         
         # Check each pattern
-        for pattern in user_story_patterns:
+        for pattern in all_patterns:
             if re.search(pattern, combined_content, re.IGNORECASE | re.DOTALL):
                 return True
         
