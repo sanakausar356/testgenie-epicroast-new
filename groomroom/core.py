@@ -3430,6 +3430,8 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'debug_info': []
         }
         
+
+        
         # Enhanced regex patterns to catch variations - more flexible
         user_story_patterns = [
             # Standard patterns
@@ -4113,13 +4115,21 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             if not self.client:
                 return self.get_fallback_groom_analysis()
             
+            # Add timestamp to prevent caching issues
+            import time
+            timestamp = int(time.time())
+            
+            # Add unique identifier to prompt to prevent caching
+            unique_prompt = f"{prompt}\n\n[Analysis Request ID: {timestamp}]"
+            
             response = self.client.chat.completions.create(
                 model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
                 messages=[
                     {"role": "system", "content": "You are a professional Jira ticket analyst with expertise in agile methodologies and Definition of Ready requirements."},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": unique_prompt}
                 ],
                 max_completion_tokens=4000
+                # Removed temperature parameter as it's not supported by this model
             )
             
             return response.choices[0].message.content.strip()

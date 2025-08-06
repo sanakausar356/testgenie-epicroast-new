@@ -66,12 +66,22 @@ export const generateRoast = async (request: EpicRoastRequest): Promise<ApiRespo
 
 export const generateGroom = async (request: GroomRoomRequest): Promise<ApiResponse> => {
   try {
+    // Add cache-busting timestamp to prevent cached responses
+    const timestamp = Date.now()
+    const requestWithTimestamp = {
+      ...request,
+      timestamp
+    }
+    
     const response = await fetch(`${API_BASE_URL}/groomroom/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(requestWithTimestamp),
     })
     
     return await response.json()
