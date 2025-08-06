@@ -3763,9 +3763,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
     def _extract_field_section(self, content: str, field_name: str) -> str:
         """
         Extract content from a specific Jira field section
-        Handles both formats:
+        Handles multiple formats:
         1. "Field Name: content" (with colon)
         2. "Field Name\ncontent" (without colon, content on next line)
+        3. "**Field Name:** content" (markdown format)
+        4. "Field Name - content" (with dash)
+        5. "Field Name" (standalone, content on next line)
         """
         # Simple, robust approach: split by lines and find the field
         lines = content.split('\n')
@@ -3774,57 +3777,95 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         field_line_index = None
         for i, line in enumerate(lines):
             line_stripped = line.strip()
-            # Check for both formats: "Field Name:" and "Field Name" (exact match)
-            if (line_stripped.lower().startswith(field_name.lower() + ':') or 
-                line_stripped.lower() == field_name.lower()):
+            line_lower = line_stripped.lower()
+            
+            # Check for multiple formats
+            field_patterns = [
+                f"{field_name.lower()}:",  # "Description:"
+                f"{field_name.lower()}",   # "Description" (exact match)
+                f"**{field_name.lower()}:**",  # "**Description:**"
+                f"{field_name.lower()} -",  # "Description -"
+                f"{field_name.lower()}—",   # "Description—" (em dash)
+            ]
+            
+            if any(line_lower.startswith(pattern) for pattern in field_patterns):
                 field_line_index = i
                 break
         
         if field_line_index is None:
             return ""
         
-        # Get the field line and extract content after the colon (if present)
+        # Get the field line and extract content after the separator (if present)
         field_line = lines[field_line_index].strip()
-        colon_index = field_line.find(':')
-        if colon_index != -1:
-            # Extract content from the same line after the colon
-            same_line_content = field_line[colon_index + 1:].strip()
-            if same_line_content:
-                content_lines = [same_line_content]
-            else:
-                content_lines = []
-        else:
-            content_lines = []
+        
+        # Try to extract content from the same line
+        content_lines = []
+        
+        # Check for various separators
+        separators = [':', '-', '—', '**']
+        separator_found = False
+        
+        for separator in separators:
+            if separator in field_line:
+                # Handle markdown format
+                if separator == '**':
+                    # Find the closing **
+                    start_idx = field_line.find('**')
+                    if start_idx != -1:
+                        end_idx = field_line.find('**', start_idx + 2)
+                        if end_idx != -1:
+                            content_start = end_idx + 2
+                            same_line_content = field_line[content_start:].strip()
+                            if same_line_content:
+                                content_lines = [same_line_content]
+                                separator_found = True
+                                break
+                else:
+                    # Handle regular separators
+                    separator_idx = field_line.find(separator)
+                    if separator_idx != -1:
+                        content_start = separator_idx + 1
+                        same_line_content = field_line[content_start:].strip()
+                        if same_line_content:
+                            content_lines = [same_line_content]
+                            separator_found = True
+                            break
         
         # Extract content from the next lines until we hit another field or end
         for i in range(field_line_index + 1, len(lines)):
             line = lines[i].strip()
             
-            # Stop if we hit another field (line starts with capital letter followed by colon)
-            if line and re.match(r'^[A-Z][a-zA-Z\s]*:', line):
+            # Stop if we hit another field (line starts with capital letter followed by separator)
+            if line and re.match(r'^[A-Z][a-zA-Z\s]*[:\-—]', line):
                 break
             
-            # Stop if we hit another field (line is exactly a field name without colon)
+            # Stop if we hit another field (line is exactly a field name without separator)
             if line and re.match(r'^[A-Z][a-zA-Z\s]*$', line):
                 # Check if this looks like a field name (not just any capitalized text)
                 field_names = ['description', 'user story', 'acceptance criteria', 'status', 'priority', 
                               'assignee', 'reporter', 'labels', 'components', 'comments', 'test scenarios',
-                              'story points', 'agile team', 'brands', 'figma reference status']
+                              'story points', 'agile team', 'brands', 'figma reference status', 'summary']
                 if line.lower() in field_names:
                     break
+            
+            # Stop if we hit markdown field format
+            if line and re.match(r'^\*\*[A-Z][a-zA-Z\s]*\*\*:', line):
+                break
             
             # Stop if we hit an empty line followed by another field
             if line == "" and i + 1 < len(lines):
                 next_line = lines[i + 1].strip()
-                if next_line and re.match(r'^[A-Z][a-zA-Z\s]*:', next_line):
+                if next_line and re.match(r'^[A-Z][a-zA-Z\s]*[:\-—]', next_line):
                     break
                 if next_line and re.match(r'^[A-Z][a-zA-Z\s]*$', next_line):
                     # Check if next line looks like a field name
                     field_names = ['description', 'user story', 'acceptance criteria', 'status', 'priority', 
                                   'assignee', 'reporter', 'labels', 'components', 'comments', 'test scenarios',
-                                  'story points', 'agile team', 'brands', 'figma reference status']
+                                  'story points', 'agile team', 'brands', 'figma reference status', 'summary']
                     if next_line.lower() in field_names:
                         break
+                if next_line and re.match(r'^\*\*[A-Z][a-zA-Z\s]*\*\*:', next_line):
+                    break
             
             content_lines.append(line)
         
@@ -4221,16 +4262,27 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         """
         Centralized Figma link detection helper method
         Returns the first Figma link found in any of the provided fields, or None
+        Enhanced to handle various Figma link formats
         """
-        # Enhanced Figma link regex pattern - more specific to avoid partial matches
-        figma_pattern = r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9]+(?:\/.*)?"
+        # Enhanced Figma patterns to catch various formats
+        figma_patterns = [
+            r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9]+(?:\/.*)?",  # Standard Figma file links
+            r"https:\/\/(www\.)?figma\.com\/proto\/[a-zA-Z0-9]+(?:\/.*)?",  # Figma prototype links
+            r"https:\/\/(www\.)?figma\.com\/embed\?embed_host=share&url=.*",  # Figma embed links
+            r"figma\.com\/file\/[a-zA-Z0-9]+",  # Partial Figma links
+            r"figma\.com\/proto\/[a-zA-Z0-9]+",  # Partial prototype links
+        ]
         
         for field in fields:
             if field:
-                # First check for direct Figma URLs
-                match = re.search(figma_pattern, field, re.IGNORECASE)
-                if match:
-                    return match.group(0)
+                for pattern in figma_patterns:
+                    match = re.search(pattern, field, re.IGNORECASE)
+                    if match:
+                        link = match.group(0)
+                        # Ensure it's a complete URL
+                        if not link.startswith('http'):
+                            link = 'https://' + link
+                        return link
                 
                 # Also check for mentions of "Figma" (case insensitive)
                 # This handles cases where "Figma" is hyperlinked or mentioned in text
