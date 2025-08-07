@@ -314,7 +314,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - Detect Figma links in AC and evaluate their context and behavioral expectations
 - Check if test scenarios cover required dimensions (happy path, edge cases, RBT, cross-browser)
 - Ensure test scenarios are in dedicated field, not embedded in AC
-- Identify if user story follows agile template or is just high-level description
+
 - Spot missing or mismatched fields (brand/component/story points)
 - Infer PO/design sign-off likelihood from ticket language and comments
 - Interpret labels/comments for blockers (e.g., "needs design", "blocked by backend")
@@ -334,13 +334,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements - STRICT ENFORCEMENT:**
-- **User Story**: MUST define business value goal, MUST follow "As a [persona], I want [do something], so that [realize reward]" template exactly
 - **Acceptance Criteria**: MUST state intent (what), not solution (how), MUST have actionable results, MUST include edge cases beyond happy path
 - **Test Scenarios**: MUST include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing) - ALL THREE REQUIRED
 - **Additional Fields**: MUST include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope - ALL FIELDS REQUIRED
 
 **CRITICAL: Card Type Validation - STRICT:**
-- **User Story**: MUST be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: MUST include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
@@ -370,13 +368,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements - LIGHT APPROACH:**
-- **User Story**: Should define business value goal, preferably follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Should state intent (what), not solution (how), should have actionable results, consider including edge cases
 - **Test Scenarios**: Should include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing) - at least 2 of 3
 - **Additional Fields**: Should include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope - most fields
 
 **CRITICAL: Card Type Validation - LIGHT:**
-- **User Story**: Should be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Should include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
