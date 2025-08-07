@@ -106,18 +106,6 @@ class GroomRoom:
         
         # Card types and their definitions from presentation
         self.card_types = {
-            'user_story': {
-                'name': 'User Story',
-                'definition': 'always tied to Features',
-                'use_cases': [
-                    'New functionality',
-                    'Enhancement to current functionality',
-                    'Change of Scope from initial ask',
-                    'Missed Requirements from initial ask',
-                    'Technical Enhancements',
-                    'Non-Functional Requirements'
-                ]
-            },
             'bug': {
                 'name': 'Bug',
                 'definition': 'Ideally tied to feature & story that introduced',
@@ -906,13 +894,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                             analysis['missing_elements'].append('Cross-browser/Device Testing Scope')
                             analysis['suggestions'].append('Confirm mobile responsiveness and cross-browser/device testing scope is defined')
             
-            # Calculate percentage coverage - handle user story special case
-            if requirement_key == 'user_story':
-                # User story is already set to 100% coverage above
-                pass
-            else:
-                total_possible = 6  # Updated for additional fields (Brand, Component, Team, Story Points, Figma, Cross-browser)
-                analysis['coverage_percentage'] = (analysis['coverage_score'] / total_possible) * 100 if total_possible > 0 else 0
+            # Calculate percentage coverage
+            total_possible = 6  # Updated for additional fields (Brand, Component, Team, Story Points, Figma, Cross-browser)
+            analysis['coverage_percentage'] = (analysis['coverage_score'] / total_possible) * 100 if total_possible > 0 else 0
             
             dor_analysis[requirement_key] = analysis
         
@@ -933,9 +917,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         if any(indicator in content_lower for indicator in ['bug', 'broken', 'not working', 'error', 'issue']):
             card_analysis['detected_type'] = 'bug'
             card_analysis['confidence'] = 0.8
-        elif any(indicator in content_lower for indicator in ['user story', 'as a', 'i want', 'so that']):
-            card_analysis['detected_type'] = 'user_story'
-            card_analysis['confidence'] = 0.9
+
         elif any(indicator in content_lower for indicator in ['task', 'enable', 'disable', 'documentation']):
             card_analysis['detected_type'] = 'task'
             card_analysis['confidence'] = 0.7
@@ -974,13 +956,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 else:
                     card_analysis['validation']['requirements_missing'].append('Expected behavior')
             
-            elif card_analysis['detected_type'] == 'user_story':
-                # Check if tied to feature
-                feature_indicators = ['feature', 'functionality', 'enhancement', 'new']
-                if any(indicator in content_lower for indicator in feature_indicators):
-                    card_analysis['validation']['requirements_met'].append('Tied to feature')
-                else:
-                    card_analysis['validation']['requirements_missing'].append('Should be tied to feature')
+
         
         return card_analysis
     
@@ -3481,7 +3457,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'score_breakdown': {},
             'critical_gaps': [],
             'enhanced_scoring': {
-                'user_story_penalty_applied': False,
                 'figma_penalty_applied': False,
                 'corrections_made': []
             }
@@ -3732,7 +3707,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             ticket_summary_summary = self._create_ticket_summary_summary(ticket_summary_analysis)
             framework_summary = self._create_framework_summary(framework_analysis)
             brand_summary = self._create_brand_summary(brand_analysis)
-            dor_summary = self._create_dor_summary_enhanced(dor_analysis, {})
+            dor_summary = self._create_dor_summary_enhanced(dor_analysis)
             card_summary = self._create_card_summary(card_analysis)
             dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
             dod_summary = self._create_dod_summary_enhanced(dod_analysis, {'should_evaluate': context['include_dod'], 'reason': f"Status: {context['status']}" if context['status'] else 'No status found'})
@@ -3919,7 +3894,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             console.print(f"[red]Error generating enhanced groom analysis: {e}[/red]")
             return self.get_fallback_groom_analysis()
 
-    def _create_dor_summary_enhanced(self, dor_analysis: Dict, user_story_analysis: Dict) -> str:
+    def _create_dor_summary_enhanced(self, dor_analysis: Dict) -> str:
         """
         Enhanced DOR summary
         """
@@ -4094,13 +4069,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         ac_section = self._extract_field_section(content, 'acceptance criteria')
         status_section = self._extract_field_section(content, 'status')
         
-        # Set user story found to False since we removed user story detection
-        user_story_found = False
         figma_link = self.find_figma_link(description_section, ac_section)
         include_dod = self.should_include_dod(status_section or "")
         
         context = {
-            'user_story_found': user_story_found,
             'figma_link_found': bool(figma_link),
             'figma_link': figma_link,
             'include_dod': include_dod,
@@ -4110,7 +4082,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         }
         
         # Add assertions for verification
-        assert user_story_found in [True, False], "User story flag must be boolean"
         assert include_dod in [True, False], "DoD flag must be boolean"
         assert isinstance(context['figma_link_found'], bool), "Figma link found flag must be boolean"
         
