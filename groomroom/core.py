@@ -402,13 +402,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements:**
-- **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
 - **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
 - **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
-- **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
@@ -430,13 +428,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements:**
-- **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
 - **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
 - **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
-- **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
@@ -458,13 +454,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements:**
-- **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
 - **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
 - **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
-- **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
@@ -477,7 +471,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 
 {comprehensive_instructions}""",
             
-            "actionable": f"""You are a practical analyst focused on actionable feedback. For the 'Actionable' level, highlight only items that directly map to user stories or acceptance criteria. Provide 'next steps' phrased as Jira tasks.
+            "actionable": f"""You are a practical analyst focused on actionable feedback. For the 'Actionable' level, . Provide 'next steps' phrased as Jira tasks.
 
 **CRITICAL: Brand Abbreviations & Payment Rules:**
 - **Brand Abbreviations**: MMT, ExO, YCC, ELF, EMEA are valid and should NOT be flagged as missing context
@@ -486,13 +480,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements:**
-- **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
 - **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
 - **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
-- **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
@@ -514,13 +506,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Title Shortening**: Do NOT flag brand abbreviations in ticket titles as missing context
 
 **CRITICAL: Definition of Ready (DOR) Requirements:**
-- **User Story**: Must define business value goal, follow "As a [persona], I want [do something], so that [realize reward]" template
 - **Acceptance Criteria**: Must state intent (what), not solution (how), have actionable results, include edge cases beyond happy path
 - **Test Scenarios**: Must include Positive (Happy Path), Negative (Error/Edge Handling), and RBT (Risk-Based Testing)
 - **Additional Fields**: Must include Brand(s), Component(s), Agile Team, Story Points, Figma Reference Status, Cross-browser/Device Testing Scope
 
 **CRITICAL: Card Type Validation:**
-- **User Story**: Must be tied to Features (new functionality, enhancements, scope changes, technical enhancements)
 - **Bug**: Must include clear details (environment, replication steps, expected behavior), ideally tied to feature that introduced it
 - **Task**: For enabling/disabling configs or documentation creation
 
@@ -2180,7 +2170,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 *The groom analysis generator is temporarily unavailable! 🔧*
 
 ## 🔍 Key Issues to Address:
-- **Check User Story Template** - Ensure "As a [user], I want [goal], so that [benefit]" format
 - **Verify Acceptance Criteria** - Look for clear, testable criteria (separate from test scenarios)
 - **Review Test Scenarios** - Check for Positive (Happy Path), Negative (Error/Edge Handling), RBT (Risk-Based Testing)
 - **Review Framework Coverage** - Check R-O-I, I-N-V-E-S-T, A-C-C-E-P-T, and 3C Model elements
@@ -2238,7 +2227,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - [ ] **Figma Reference**: Properly attached vs just referenced
 
 ### 3C Model
-- [ ] **Card**: Well-written user story
 - [ ] **Conversation**: Team discussion points covered
 - [ ] **Confirmation**: Acceptance criteria defined
 
@@ -2286,7 +2274,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         # Detect card type
         if any(indicator in content_lower for indicator in ['bug', 'broken', 'not working', 'error', 'issue']):
             analysis['card_type'] = 'Bug'
-        elif any(indicator in content_lower for indicator in ['user story', 'as a', 'i want', 'so that']):
+        elif any(indicator in content_lower for indicator in ['as a', 'i want', 'so that']):
             analysis['card_type'] = 'Story'
         elif any(indicator in content_lower for indicator in ['task', 'enable', 'disable', 'documentation']):
             analysis['card_type'] = 'Task'
@@ -3200,7 +3188,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         content_lower = content.lower()
         
         # Check if it's just copied AC
-        ac_indicators = ['acceptance criteria', 'user story', 'as a', 'i want', 'so that']
+        ac_indicators = ['acceptance criteria', 'as a', 'i want', 'so that']
         if any(indicator in content_lower for indicator in ac_indicators):
             misuse_indicators.append('Contains Acceptance Criteria content instead of test scenarios')
         
@@ -3332,7 +3320,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         }
         
         # Enhanced Figma link regex pattern - more specific to avoid partial matches
-        figma_pattern = r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9]+(?:\/.*)?"
+        figma_pattern = r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9_-]+(?:\/.*)?"
         
         # Search in Acceptance Criteria field
         ac_section = self._extract_field_section(content, 'acceptance criteria')
@@ -3371,6 +3359,32 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 analysis['links'].extend(matches_list)
                 analysis['confidence'] = max(analysis['confidence'], 0.7)
                 analysis['debug_info'].append(f"Figma links found in comments: {len(matches_list)} links")
+        
+        # Search in Figma Reference Status field
+        figma_status_section = self._extract_field_section(content, 'figma reference status')
+        if figma_status_section:
+            matches = re.finditer(figma_pattern, figma_status_section, re.IGNORECASE)
+            matches_list = [match.group(0) for match in matches]
+            if matches_list:
+                analysis['figma_link_found'] = True
+                if 'figma_reference_status' not in analysis['locations']:
+                    analysis['locations'].append('figma_reference_status')
+                analysis['links'].extend(matches_list)
+                analysis['confidence'] = max(analysis['confidence'], 1.0)  # Highest confidence for dedicated field
+                analysis['debug_info'].append(f"Figma links found in Figma Reference Status: {len(matches_list)} links")
+        
+        # Search in attachments field
+        attachments_section = self._extract_field_section(content, 'attachments')
+        if attachments_section:
+            matches = re.finditer(figma_pattern, attachments_section, re.IGNORECASE)
+            matches_list = [match.group(0) for match in matches]
+            if matches_list:
+                analysis['figma_link_found'] = True
+                if 'attachments' not in analysis['locations']:
+                    analysis['locations'].append('attachments')
+                analysis['links'].extend(matches_list)
+                analysis['confidence'] = max(analysis['confidence'], 0.9)
+                analysis['debug_info'].append(f"Figma links found in attachments: {len(matches_list)} links")
         
         # Remove duplicates from links
         analysis['links'] = list(set(analysis['links']))
@@ -3443,7 +3457,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
     def calculate_groom_readiness_score_enhanced(self, all_analyses: Dict, figma_link_found: bool = False) -> Dict[str, any]:
         """
         Enhanced groom readiness score calculation that uses detection flags
-        Fixes scoring penalties when user story and figma are actually present
+        
         """
         score_data = {
             'overall_score': 0,
@@ -3458,7 +3472,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             }
         }
         
-        # Analyze DOR requirements with enhanced user story detection
+        
         dor_analysis = all_analyses.get('dor_analysis', {})
         dor_score = 0
         dor_total = 0
@@ -3620,7 +3634,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             # Stop if we hit another field (line is exactly a field name without separator)
             if line and re.match(r'^[A-Z][a-zA-Z\s]*$', line):
                 # Check if this looks like a field name (not just any capitalized text)
-                field_names = ['description', 'user story', 'acceptance criteria', 'status', 'priority', 
+                field_names = ['description', 'acceptance criteria', 'status', 'priority', 
                               'assignee', 'reporter', 'labels', 'components', 'comments', 'test scenarios',
                               'story points', 'agile team', 'brands', 'figma reference status', 'summary']
                 if line.lower() in field_names:
@@ -3637,7 +3651,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                     break
                 if next_line and re.match(r'^[A-Z][a-zA-Z\s]*$', next_line):
                     # Check if next line looks like a field name
-                    field_names = ['description', 'user story', 'acceptance criteria', 'status', 'priority', 
+                    field_names = ['description', 'acceptance criteria', 'status', 'priority', 
                                   'assignee', 'reporter', 'labels', 'components', 'comments', 'test scenarios',
                                   'story points', 'agile team', 'brands', 'figma reference status', 'summary']
                     if next_line.lower() in field_names:
@@ -3788,7 +3802,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - NEVER use HTML tags like <b>, </b>, <i>, </i>, etc.
 
 **ENHANCED ANALYSIS INSTRUCTIONS:**
-1. **User Story Detection**: If the enhanced analysis shows a user story was found, do NOT report it as missing in any section
 2. **Figma Link Detection**: If the enhanced analysis shows Figma links were found, do NOT report them as missing in Design Specifications, Stakeholder Validation, or Figma Design Reference sections
 3. **DoD Evaluation**: Only evaluate Definition of Done if the enhanced analysis shows it should be evaluated (release-ready status)
 4. **Avoid Duplicate Warnings**: If an issue has been addressed by enhanced detection, reference it briefly rather than repeating the full warning
@@ -4011,11 +4024,13 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         """
         # Enhanced Figma patterns to catch various formats
         figma_patterns = [
-            r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9]+(?:\/.*)?",  # Standard Figma file links
-            r"https:\/\/(www\.)?figma\.com\/proto\/[a-zA-Z0-9]+(?:\/.*)?",  # Figma prototype links
+            r"https:\/\/(www\.)?figma\.com\/file\/[a-zA-Z0-9_-]+(?:\/.*)?",  # Standard Figma file links
+            r"https:\/\/(www\.)?figma\.com\/proto\/[a-zA-Z0-9_-]+(?:\/.*)?",  # Figma prototype links
             r"https:\/\/(www\.)?figma\.com\/embed\?embed_host=share&url=.*",  # Figma embed links
-            r"figma\.com\/file\/[a-zA-Z0-9]+",  # Partial Figma links
-            r"figma\.com\/proto\/[a-zA-Z0-9]+",  # Partial prototype links
+            r"figma\.com\/file\/[a-zA-Z0-9_-]+",  # Partial Figma links
+            r"figma\.com\/proto\/[a-zA-Z0-9_-]+",  # Partial prototype links
+            r"figma\.com\/design\/[a-zA-Z0-9_-]+",  # Figma design links
+            r"figma\.com\/community\/file\/[a-zA-Z0-9_-]+",  # Figma community links
         ]
         
         for field in fields:
@@ -4064,8 +4079,18 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         description_section = self._extract_field_section(content, 'description')
         ac_section = self._extract_field_section(content, 'acceptance criteria')
         status_section = self._extract_field_section(content, 'status')
+        comments_section = self._extract_field_section(content, 'comments')
+        figma_status_section = self._extract_field_section(content, 'figma reference status')
+        attachments_section = self._extract_field_section(content, 'attachments')
         
-        figma_link = self.find_figma_link(description_section, ac_section)
+        # Search for Figma links in multiple fields
+        figma_link = self.find_figma_link(
+            description_section, 
+            ac_section, 
+            comments_section, 
+            figma_status_section, 
+            attachments_section
+        )
         include_dod = self.should_include_dod(status_section or "")
         
         context = {
