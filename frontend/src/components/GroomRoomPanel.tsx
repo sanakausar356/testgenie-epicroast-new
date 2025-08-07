@@ -156,34 +156,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
           {rawResults}
         </ReactMarkdown>
         
-        {/* Framework Analysis Section */}
-        <div className="framework-analysis mt-6">
-          <h3 className="text-lg font-bold text-blue-800 mb-3 flex items-center">
-            🎯 Framework Analysis Summary
-          </h3>
-          <div className="space-y-2">
-            <div className="framework-item">
-              <span className="text-blue-600 font-medium">R-O-I Framework</span>
-              <span className="text-gray-600">→</span>
-              <span className="text-gray-700">Role, Objective, Insight coverage</span>
-            </div>
-            <div className="framework-item">
-              <span className="text-blue-600 font-medium">I-N-V-E-S-T Framework</span>
-              <span className="text-gray-600">→</span>
-              <span className="text-gray-700">Independent, Negotiable, Valuable, Estimable, Small, Testable</span>
-            </div>
-            <div className="framework-item">
-              <span className="text-blue-600 font-medium">A-C-C-E-P-T Criteria</span>
-              <span className="text-gray-600">→</span>
-              <span className="text-gray-700">Action, Condition, Criteria, Expected Result, Pass-Fail, Traceable</span>
-            </div>
-            <div className="framework-item">
-              <span className="text-blue-600 font-medium">3C Model</span>
-              <span className="text-gray-600">→</span>
-              <span className="text-gray-700">Card → Conversation → Confirmation</span>
-            </div>
-          </div>
-        </div>
+
       </div>
     )
   }

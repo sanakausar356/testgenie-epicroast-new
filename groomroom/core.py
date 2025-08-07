@@ -1514,7 +1514,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             card_summary = self._create_card_summary(card_analysis)
             dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
             dod_summary = self._create_dod_summary(dod_analysis)
-            stakeholder_summary = self._create_stakeholder_summary(stakeholder_analysis)
+            stakeholder_summary = self._create_stakeholder_summary(stakeholder_analysis, {'figma_link_found': context['figma_link_found']})
             sprint_readiness_summary = self._create_sprint_readiness_summary(sprint_readiness_analysis)
             cross_functional_summary = self._create_cross_functional_summary(cross_functional_analysis)
             test_scenarios_summary = self._create_test_scenarios_summary(test_scenarios_analysis)
@@ -1523,8 +1523,13 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             additional_jira_fields_summary = self._create_additional_jira_fields_summary(additional_jira_fields_analysis)
             checklist_summary = self._create_checklist_summary(visual_checklist)
             
+            # Note for Sprint Readiness suppression logic
+            sprint_readiness_suppression_note = "**Note**: Sprint Readiness section may be suppressed if Summary indicates 'Not Ready' - AI will determine if section adds unique value"
+            
             prompt = f"""
 {level_prompt}
+
+{sprint_readiness_suppression_note}
 
 **Jira Ticket Content:**
 {ticket_content}
@@ -1592,6 +1597,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 7. NEVER use HTML tags in your response
 8. **AVOID REPETITIVE FEEDBACK**: If a missing element (e.g., test scenarios or Figma link) has already been mentioned in one section, do not repeat it verbatim in other sections. Refer to it briefly if needed (e.g., "See Key Findings" or "As noted above"). Each issue should only be fully explained once or twice.
 
+**CRITICAL: SINGLE SOURCE OF TRUTH RULES:**
+- **Acceptance Criteria Issues**: Keep ALL feedback about missing or vague AC under "Acceptance Criteria Review" section ONLY. Use bullet format: Intent, Conditions, Expected Result, Pass/Fail Logic. Do NOT repeat AC issues in Key Findings, Improvement Suggestions, or Summary.
+- **Figma Reference Issues**: Consolidate ALL Figma feedback under "Figma Design Reference" section ONLY. Do NOT repeat in Key Findings, Stakeholder Validation, Checklist, or Summary.
+- **Sprint Readiness**: If Summary states ticket is "Not Ready", suppress separate Sprint Readiness section unless it provides unique, non-redundant information.
+- **Checklist Items**: Only include items NOT already described verbatim in main analysis. Avoid duplicating things like "Add structured AC" if already explained above.
+
 **Output Format for Strict Level:**
 # 🔒 Strict Groom Analysis
 
@@ -1619,23 +1630,18 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Dependency status** - MUST be resolved
 - **Blocker assessment** - MUST be addressed
 
-## ✅ Definition of Done Alignment:
-- **DoD coverage** - MUST meet all requirements
-- **QA and accessibility** - MUST be specified
-
-## 👥 Stakeholder Validation:
-- **PO approval status** - MUST be confirmed
-- **Design validation** - MUST be completed
-
 ## 🚀 Sprint Readiness:
 - **Readiness assessment** - NOT READY until all blockers resolved
 - **Sprint context** - Cannot proceed until requirements met
 
-## 🎯 Framework Coverage:
-[Strict framework analysis - ALL elements required]
+## ✅ Acceptance Criteria Review:
+[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
 
 ## 🧪 Test Scenario Breakdown:
-[ALL test scenario types required: Happy Path, Negative, RBT, Cross-browser]
+[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
+
+## 👥 Stakeholder Validation & Design Reference:
+[Combined analysis of PO approval, design validation, and Figma reference status - shows approval and design reference status clearly]
 
 ## 🏗 Technical Detail Feedback:
 [Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
@@ -1644,7 +1650,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 [AI-estimated % readiness - likely low due to strict requirements]
 
 ## 🧾 Grooming Checklist:
-[Visual reference - ALL items must be completed]
+[Visual reference - only outstanding items not covered earlier]
 
 ## 🎯 Summary:
 [Strict assessment - ticket NOT ready for sprint until all issues resolved]
@@ -1671,23 +1677,18 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Dependency status** - Check if major blockers exist
 - **Blocker assessment** - Note any significant issues
 
-## ✅ Definition of Done Alignment:
-- **DoD coverage** - Consider key requirements
-- **QA and accessibility** - Consider important aspects
-
-## 👥 Stakeholder Validation:
-- **PO approval status** - Confirm if reasonable indicators present
-- **Design validation** - Check if design considerations noted
-
 ## 🚀 Sprint Readiness:
 - **Readiness assessment** - Likely ready with minor improvements
 - **Sprint context** - Consider for inclusion with noted areas
 
-## 🎯 Framework Coverage:
-[Flexible framework analysis - focus on key elements]
+## ✅ Acceptance Criteria Review:
+[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
 
 ## 🧪 Test Scenario Breakdown:
-[Test scenario review - 2 of 3 types acceptable]
+[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
+
+## 👥 Stakeholder Validation & Design Reference:
+[Combined analysis of PO approval, design validation, and Figma reference status - shows approval and design reference status clearly]
 
 ## 🏗 Technical Detail Feedback:
 [Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
@@ -1696,7 +1697,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 [AI-estimated % readiness - likely moderate to high]
 
 ## 🧾 Grooming Checklist:
-[Visual reference - focus on major items]
+[Visual reference - only outstanding items not covered earlier]
 
 ## 🎯 Summary:
 [Light assessment - ticket likely ready with minor improvements]
@@ -1714,6 +1715,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Finding 2** with relevant context
 - **Finding 3** with relevant context
 
+## 🚀 Sprint Readiness:
+- **Readiness assessment** with missing items
+- **Sprint context** and recommendations
+
 ## 💡 Improvement Suggestions:
 - **Suggestion 1** with specific guidance
 - **Suggestion 2** with specific guidance
@@ -1723,29 +1728,14 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Dependency status** with integration points
 - **Blocker assessment** with recommendations
 
-## ✅ Definition of Done Alignment:
-- **DoD coverage** with missing elements
-- **QA and accessibility** requirements
-
-## 👥 Stakeholder Validation:
-- **PO approval status** with recommendations
-- **Design validation** requirements
-
-## 🚀 Sprint Readiness:
-- **Readiness assessment** with missing items
-- **Sprint context** and recommendations
-
-## 🎯 Framework Coverage:
-[Summary of framework analysis with specific findings]
-
 ## ✅ Acceptance Criteria Review:
-[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC and Figma links]
+[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples]
 
 ## 🧪 Test Scenario Breakdown:
-[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse]
+[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
 
-## 🎨 Figma Design Reference:
-[Figma link analysis - evaluates context, behavioral expectations, and placement recommendations]
+## 👥 Stakeholder Validation & Design Reference:
+[Combined analysis of PO approval, design validation, and Figma reference status - shows approval and design reference status clearly]
 
 ## 🏗 Technical Detail Feedback:
 [Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
@@ -1754,7 +1744,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 [AI-estimated % readiness based on all analyzed fields]
 
 ## 🧾 Grooming Checklist:
-[Visual reference for sprint team alignment on missing items]
+[Visual reference - only outstanding items not covered earlier]
 
 ## 🎯 Summary:
 [Professional summary of key areas needing attention]
@@ -2001,9 +1991,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return '\n'.join(summary)
     
-    def _create_stakeholder_summary(self, stakeholder_analysis: Dict) -> str:
-        """Create a summary of stakeholder validation analysis"""
+    def _create_stakeholder_summary(self, stakeholder_analysis: Dict, figma_analysis: Dict = None) -> str:
+        """Create a summary of stakeholder validation and design reference analysis"""
         summary = []
+        summary.append("**👥 Stakeholder Validation & Design Reference:**")
         
         for section_key, section_data in stakeholder_analysis.items():
             section_name = section_key.replace('_', ' ').title()
@@ -2012,7 +2003,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             recommendation = section_data.get('recommendation', '')
             
             status = "✅ Found" if found else "❌ Missing"
-            summary.append(f"**{section_name}**: {status}")
+            summary.append(f"- **{section_name}**: {status}")
             
             if section_data.get('indicators'):
                 for indicator in section_data['indicators']:
@@ -2026,6 +2017,24 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 visibility_rec = section_data.get('visibility_recommendation', '')
                 if visibility_rec:
                     summary.append(f"  👁️ {visibility_rec}")
+        
+        # Add Figma design reference status if available
+        if figma_analysis:
+            summary.append("\n**🎨 Design Reference Status:**")
+            if figma_analysis.get('figma_links_found'):
+                summary.append("- Figma reference: ✅ Present")
+                if figma_analysis.get('has_context'):
+                    summary.append("  - Context: ✅ Specified")
+                else:
+                    summary.append("  - Context: ❌ Missing - specify frame reference")
+                
+                if figma_analysis.get('has_behavioral_expectation'):
+                    summary.append("  - Behavioral expectations: ✅ Included")
+                else:
+                    summary.append("  - Behavioral expectations: ❌ Missing - add interaction details")
+            else:
+                summary.append("- Figma reference: ❌ Missing")
+                summary.append("  💡 Add design reference for visual and interaction guidance")
         
         return '\n'.join(summary)
     
@@ -2120,6 +2129,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             for rec in recommendations[:3]:  # Limit to 3 recommendations
                 summary.append(f"  • {rec}")
         
+        # Note about AC overlap suppression
+        summary.append("\n**Note**: Test scenarios should be separate from Acceptance Criteria to avoid duplication and maintain clear separation of concerns.")
+        
         return '\n'.join(summary)
     
     def _create_checklist_summary(self, visual_checklist: Dict) -> str:
@@ -2135,16 +2147,24 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         overall_status = visual_checklist['overall_status']
         summary.append(f"**Overall Status**: {status_emoji[overall_status]} {overall_status.upper()}")
         
-        summary.append("**Section Status:**")
+        summary.append("**Outstanding Items:**")
+        outstanding_items = []
         for section_key, section_data in visual_checklist['sections'].items():
             section_name = section_data['name']
             section_status = section_data['status']
             completed = section_data['completed']
             total = section_data['total']
-            percentage = section_data['percentage']
             
-            status_icon = status_emoji[section_status]
-            summary.append(f"  {status_icon} {section_name}: {completed}/{total} ({percentage:.0f}%)")
+            # Only show sections with missing items
+            if completed < total:
+                missing_count = total - completed
+                status_icon = status_emoji[section_status]
+                outstanding_items.append(f"  {status_icon} {section_name}: {missing_count} item(s) missing")
+        
+        if outstanding_items:
+            summary.extend(outstanding_items)
+        else:
+            summary.append("  ✅ All sections complete!")
         
         checklist_summary = visual_checklist['summary']
         summary.append(f"**Summary**: {checklist_summary['completed_items']}/{checklist_summary['total_items']} items complete")
@@ -2815,6 +2835,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             for rec in recommendations:
                 summary.append(f"- {rec}")
         
+        # Note about AC overlap suppression
+        summary.append("\n**Note**: Test scenarios should be separate from Acceptance Criteria to avoid duplication and maintain clear separation of concerns.")
+        
         return '\n'.join(summary)
     
     def _create_enhanced_acceptance_criteria_summary(self, enhanced_ac_analysis: Dict) -> str:
@@ -2847,12 +2870,23 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             else:
                 summary.append(f"- {validation_type.replace('_', ' ').title()}: ❌ Missing")
         
-        # Vague AC detection
+        # Vague AC detection with enhanced suggestions using bullet format
         vague_ac = enhanced_ac_analysis.get('vague_ac_detected', [])
         if vague_ac:
-            summary.append("\n**⚠️ Vague AC Detected:**")
+            summary.append("\n**⚠️ Vague AC Detected - Rewrite Suggestions:**")
             for vague_item in vague_ac:
-                summary.append(f"- {vague_item.get('issue', 'Vague AC found')}")
+                summary.append(f"- **Original**: {vague_item.get('issue', 'Vague AC found')}")
+                if vague_item.get('suggestion'):
+                    suggestion = vague_item.get('suggestion')
+                    # Parse suggestion into bullet format if it contains structured content
+                    if 'Intent:' in suggestion or 'Conditions:' in suggestion:
+                        summary.append(f"  **Rewrite as:**")
+                        summary.append(f"  - **Intent**: {suggestion.split('Intent:')[1].split('Conditions:')[0].strip() if 'Intent:' in suggestion else 'What the user expects to happen'}")
+                        summary.append(f"  - **Conditions**: {suggestion.split('Conditions:')[1].split('Expected Result:')[0].strip() if 'Conditions:' in suggestion else 'When/what triggers it'}")
+                        summary.append(f"  - **Expected Result**: {suggestion.split('Expected Result:')[1].split('Pass/Fail Logic:')[0].strip() if 'Expected Result:' in suggestion else 'What should be visible/achieved'}")
+                        summary.append(f"  - **Pass/Fail Logic**: {suggestion.split('Pass/Fail Logic:')[1].strip() if 'Pass/Fail Logic:' in suggestion else 'QA check conditions'}")
+                    else:
+                        summary.append(f"  💡 **Suggestion**: {suggestion}")
         
         # Figma links - respect enhanced detection
         figma_links = enhanced_ac_analysis.get('figma_links', [])
@@ -2935,22 +2969,26 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 if not line or line.lower().startswith(('acceptance criteria', 'ac:', 'criteria:')):
                     continue
                 
-                # Check for vague AC patterns
+                # Check for vague AC patterns with enhanced detection
                 vague_patterns = [
-                    r'should match figma',
-                    r'works like current version',
-                    r'fixes the bug',
-                    r'as expected',
-                    r'properly',
-                    r'correctly',
-                    r'as designed'
+                    (r'should match figma', 'Vague AC: "match Figma" - specify exact behavior, interactions, and responsive states'),
+                    (r'works like current version', 'Vague AC: "works like current version" - define specific functionality and improvements'),
+                    (r'fixes the bug', 'Vague AC: "fixes the bug" - describe expected behavior and test scenarios'),
+                    (r'as expected', 'Vague AC: "as expected" - define specific expectations and success criteria'),
+                    (r'properly', 'Vague AC: "properly" - specify what "properly" means in this context'),
+                    (r'correctly', 'Vague AC: "correctly" - define correct behavior and validation criteria'),
+                    (r'as designed', 'Vague AC: "as designed" - reference specific design requirements and interactions'),
+                    (r'looks good', 'Vague AC: "looks good" - define visual requirements and acceptance criteria'),
+                    (r'functions properly', 'Vague AC: "functions properly" - specify functionality and edge cases'),
+                    (r'behaves correctly', 'Vague AC: "behaves correctly" - define expected behavior and error handling')
                 ]
                 
-                for pattern in vague_patterns:
+                for pattern, issue_description in vague_patterns:
                     if re.search(pattern, line.lower()):
                         analysis['vague_ac_detected'].append({
                             'line': line,
-                            'issue': f"Vague AC: '{pattern}' lacks specific behavior or edge case handling"
+                            'issue': issue_description,
+                            'suggestion': self._generate_vague_ac_suggestion(pattern, line)
                         })
                         break
                 
@@ -2973,6 +3011,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             # Generate recommendations
             if analysis['vague_ac_detected']:
                 analysis['recommendations'].append('Rewrite vague AC to define conditions and outcomes clearly. Follow: "When [condition], then [expected result]"')
+                analysis['recommendations'].append('Include accessibility, performance, and fallback examples in AC where applicable')
             
             missing_validations = [key for key, validation in analysis['validation_results'].items() 
                                  if not validation['status']]
@@ -3038,6 +3077,31 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             })
         
         return figma_links
+    
+    def _generate_vague_ac_suggestion(self, pattern: str, line: str) -> str:
+        """Generate specific suggestions for vague AC patterns with bullet format"""
+        pattern_lower = pattern.lower()
+        
+        if 'figma' in pattern_lower:
+            return "Intent: User expects visual and behavioral consistency with design specifications. Conditions: When user interacts with [specific component/page]. Expected Result: [Component] displays and behaves exactly as shown in Figma frame [reference] with [specific interactions, responsive states, accessibility features]. Pass/Fail Logic: QA verifies visual match, interaction behavior, responsive breakpoints, and accessibility compliance against Figma specifications."
+        elif 'works like' in pattern_lower or 'current version' in pattern_lower:
+            return "Intent: User expects functionality to work similarly to existing implementation with specific improvements. Conditions: When user performs [specific action] in [specific context]. Expected Result: [Feature] functions with [specific improvements or changes from current version] while maintaining [existing behavior]. Pass/Fail Logic: QA compares behavior with current version and verifies new improvements work as specified."
+        elif 'fixes the bug' in pattern_lower:
+            return "Intent: User expects the reported issue to be resolved with proper error handling. Conditions: When [bug condition] occurs. Expected Result: [Expected behavior] instead of [current broken behavior], with [error handling for edge cases]. Pass/Fail Logic: QA reproduces original bug scenario and verifies it's fixed, tests edge cases for regression."
+        elif 'as expected' in pattern_lower:
+            return "Intent: User expects standard behavior for the given functionality. Conditions: When user performs [specific action] under [specific conditions]. Expected Result: [Specific expected outcome] with [validation criteria and timing]. Pass/Fail Logic: QA verifies behavior matches industry standards and specified requirements."
+        elif 'properly' in pattern_lower or 'correctly' in pattern_lower:
+            return "Intent: User expects correct implementation with proper error handling and edge case management. Conditions: When [condition] occurs, including edge cases. Expected Result: [Specific correct behavior] with [error handling for edge cases] and [performance requirements]. Pass/Fail Logic: QA tests happy path, edge cases, error conditions, and performance benchmarks."
+        elif 'as designed' in pattern_lower:
+            return "Intent: User expects implementation to match approved design specifications. Conditions: When user interacts with [specific component] in [specific context]. Expected Result: [Specific design behavior] matching [design reference] with [interaction details, animations, responsive behavior]. Pass/Fail Logic: QA compares implementation against design specs and verifies all interactions work as designed."
+        elif 'looks good' in pattern_lower:
+            return "Intent: User expects visual elements to display correctly according to design specifications. Conditions: When [component] is rendered in [specific context/environment]. Expected Result: Visual elements display [specific appearance] with [color, spacing, typography, responsive behavior] matching [design reference]. Pass/Fail Logic: QA verifies visual match across browsers/devices and accessibility compliance."
+        elif 'functions properly' in pattern_lower:
+            return "Intent: User expects functionality to work reliably with proper performance and error handling. Conditions: When user performs [specific action] under [normal and stress conditions]. Expected Result: [Specific functionality] works with [performance requirements] and [error handling for various scenarios]. Pass/Fail Logic: QA tests functionality under normal load, stress conditions, and verifies error handling."
+        elif 'behaves correctly' in pattern_lower:
+            return "Intent: User expects proper behavior with accessibility compliance and cross-browser compatibility. Conditions: When user interacts with [component] across [different browsers/devices/accessibility tools]. Expected Result: [Specific behavior] with [accessibility compliance] and [cross-browser compatibility] including [specific requirements]. Pass/Fail Logic: QA tests across browsers, devices, and accessibility tools to verify compliance."
+        else:
+            return "Intent: What the user expects to happen. Conditions: When/what triggers it. Expected Result: What should be visible/achieved. Pass/Fail Logic: QA check conditions."
     
     def _generate_figma_recommendation(self, has_context: bool, has_behavioral_expectation: bool) -> str:
         """Generate recommendation for Figma link usage"""
@@ -3730,6 +3794,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             additional_jira_fields_summary = self._create_additional_jira_fields_summary(additional_jira_fields_analysis)
             checklist_summary = self._create_checklist_summary_enhanced(visual_checklist, enhanced_score_data)
             
+            # Determine if Sprint Readiness should be suppressed based on Summary content
+            # This will be evaluated by the AI based on the "Sprint Readiness" suppression rule
+            sprint_readiness_suppression_note = "**Note**: Sprint Readiness section may be suppressed if Summary indicates 'Not Ready' - AI will determine if section adds unique value"
+            
             # Add enhanced analysis information to the prompt
             enhanced_analysis_info = f"""
 **Enhanced Field Analysis Results (Using Centralized Helpers):**
@@ -3738,6 +3806,8 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 
 **Enhanced Scoring Corrections:**
 {chr(10).join(enhanced_score_data['enhanced_scoring']['corrections_made']) if enhanced_score_data['enhanced_scoring']['corrections_made'] else 'No corrections needed'}
+
+{sprint_readiness_suppression_note}
 """
             
             prompt = f"""
@@ -3804,6 +3874,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 **ENHANCED ANALYSIS INSTRUCTIONS:**
 2. **Figma Link Detection**: If the enhanced analysis shows Figma links were found, do NOT report them as missing in Design Specifications, Stakeholder Validation, or Figma Design Reference sections
 3. **DoD Evaluation**: Only evaluate Definition of Done if the enhanced analysis shows it should be evaluated (release-ready status)
+
+**CRITICAL: SINGLE SOURCE OF TRUTH RULES:**
+- **Acceptance Criteria Issues**: Keep ALL feedback about missing or vague AC under "Acceptance Criteria Review" section ONLY. Use bullet format: Intent, Conditions, Expected Result, Pass/Fail Logic. Do NOT repeat AC issues in Key Findings, Improvement Suggestions, or Summary.
+- **Figma Reference Issues**: Consolidate ALL Figma feedback under "Figma Design Reference" section ONLY. Do NOT repeat in Key Findings, Stakeholder Validation, Checklist, or Summary.
+- **Sprint Readiness**: If Summary states ticket is "Not Ready", suppress separate Sprint Readiness section unless it provides unique, non-redundant information.
+- **Checklist Items**: Only include items NOT already described verbatim in main analysis. Avoid duplicating things like "Add structured AC" if already explained above.
 4. **Avoid Duplicate Warnings**: If an issue has been addressed by enhanced detection, reference it briefly rather than repeating the full warning
 5. **Scoring Corrections**: The enhanced scoring has already corrected for detected user stories and Figma links - do not penalize again
 
@@ -3831,6 +3907,10 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Finding 2** with relevant context (respecting enhanced detection results)
 - **Finding 3** with relevant context (respecting enhanced detection results)
 
+## 🚀 Sprint Readiness:
+- **Readiness assessment** with missing items
+- **Sprint context** and recommendations
+
 ## 💡 Improvement Suggestions:
 - **Suggestion 1** with specific guidance
 - **Suggestion 2** with specific guidance
@@ -3840,29 +3920,14 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Dependency status** with integration points
 - **Blocker assessment** with recommendations
 
-## ✅ Definition of Done Alignment:
-- **DoD coverage** with missing elements (only if release-ready status)
-- **QA and accessibility** requirements (only if release-ready status)
-
-## 👥 Stakeholder Validation:
-- **PO approval status** with recommendations
-- **Design validation** requirements (respecting Figma link detection)
-
-## 🚀 Sprint Readiness:
-- **Readiness assessment** with missing items
-- **Sprint context** and recommendations
-
-## 🎯 Framework Coverage:
-[Summary of framework analysis with specific findings]
-
 ## ✅ Acceptance Criteria Review:
-[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC and Figma links]
+[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
 
 ## 🧪 Test Scenario Breakdown:
-[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse]
+[Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
 
-## 🎨 Figma Design Reference:
-[Figma link analysis - evaluates context, behavioral expectations, and placement recommendations]
+## 👥 Stakeholder Validation & Design Reference:
+[Combined analysis of PO approval, design validation, and Figma reference status - shows approval and design reference status clearly]
 
 ## 🏗 Technical Detail Feedback:
 [Analysis of Implementation Details, ADA Acceptance Criteria, Architectural Solution, Performance Impact, Linked Issues]
@@ -3871,7 +3936,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 [AI-estimated % readiness based on all analyzed fields with enhanced detection corrections]
 
 ## 🧾 Grooming Checklist:
-[Visual reference for sprint team alignment on missing items]
+[Visual reference - only outstanding items not covered earlier]
 
 ## 🎯 Summary:
 [Professional summary of key areas needing attention, respecting enhanced detection results]
@@ -4001,10 +4066,24 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         overall_status = visual_checklist['overall_status']
         summary += f"**Overall Status**: {status_emoji.get(overall_status, '⚪')} {overall_status.upper()}\n"
         
-        # Add section breakdown
+        # Add outstanding items only
+        outstanding_items = []
         for section_key, section_data in visual_checklist['sections'].items():
-            section_status = status_emoji.get(section_data['status'], '⚪')
-            summary += f"- **{section_data['name']}**: {section_status} {section_data['completed']}/{section_data['total']} ({section_data['percentage']:.1f}%)\n"
+            completed = section_data['completed']
+            total = section_data['total']
+            
+            # Only show sections with missing items
+            if completed < total:
+                missing_count = total - completed
+                section_status = status_emoji.get(section_data['status'], '⚪')
+                outstanding_items.append(f"- **{section_data['name']}**: {section_status} {missing_count} item(s) missing")
+        
+        if outstanding_items:
+            summary += "**Outstanding Items:**\n"
+            summary += '\n'.join(outstanding_items) + '\n'
+        else:
+            summary += "**Outstanding Items:**\n"
+            summary += "- ✅ All sections complete!\n"
         
         # Add enhanced score
         enhanced_score = enhanced_score_data['overall_score']
