@@ -64,29 +64,11 @@ class GroomRoom:
                 'elements': ['Card', 'Conversation', 'Confirmation'],
                 'description': 'Card → Conversation → Confirmation'
             },
-            'user_story_template': {
-                'name': 'User Story Template',
-                'elements': ['As a [user]', 'I want [goal]', 'so that [benefit]'],
-                'description': 'As a [user], I want [goal], so that [benefit]'
-            }
+
         }
         
         # Definition of Ready (DOR) requirements from presentation
         self.dor_requirements = {
-            'user_story': {
-                'name': 'User Story',
-                'description': 'defining business value goal of the card',
-                'responsibility': 'PO is responsible for creating',
-                'template': 'As a [persona], I want to [do something], so that I can [realize a reward]',
-                'questions': [
-                    'Who is this user?',
-                    'What makes them tick?', 
-                    'Who\'s an example of such a person?',
-                    'Why do they want to do this?',
-                    'What\'s the benefit/reward?',
-                    'How will we know if it\'s working?'
-                ]
-            },
             'acceptance_criteria': {
                 'name': 'Acceptance Criteria',
                 'description': 'defining what is expected to be completed and what will be validated in UAT',
@@ -627,7 +609,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                     "EMEA context detected - consider specifying ClearPay as payment method"
                 )
     
-    def analyze_frameworks(self, content: str, user_story_found: bool = False) -> Dict[str, Dict]:
+    def analyze_frameworks(self, content: str) -> Dict[str, Dict]:
         """Analyze content against the specified frameworks"""
         framework_analysis = {}
         
@@ -642,22 +624,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             
             content_lower = content.lower()
             
-            if framework_key == 'user_story_template':
-                # Use shared user story detection flag if provided, otherwise fall back to basic detection
-                if user_story_found:
-                    analysis['elements']['template_found'] = True
-                    analysis['coverage_score'] += 1
-                else:
-                    # Fall back to basic detection for backward compatibility
-                    user_story_pattern = r'as\s+a\s+.*?i\s+want\s+.*?so\s+that\s+.*?'
-                    if re.search(user_story_pattern, content_lower):
-                        analysis['elements']['template_found'] = True
-                        analysis['coverage_score'] += 1
-                    else:
-                        analysis['missing_elements'].append('User Story Template')
-                        analysis['suggestions'].append('Follow the template: "As a [user], I want [goal], so that [benefit]"')
-            
-            elif framework_key == 'roi':
+            if framework_key == 'roi':
                 # Check for Role, Objective, Insight elements
                 role_indicators = ['as a', 'user', 'customer', 'admin', 'manager']
                 objective_indicators = ['i want', 'need to', 'should be able to', 'goal']
@@ -747,7 +714,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return framework_analysis
     
-    def analyze_dor_requirements(self, content: str, user_story_found: bool = False) -> Dict[str, Dict]:
+    def analyze_dor_requirements(self, content: str) -> Dict[str, Dict]:
         """Analyze content against Definition of Ready (DOR) requirements"""
         dor_analysis = {}
         
@@ -763,30 +730,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             
             content_lower = content.lower()
             
-            if requirement_key == 'user_story':
-                # Use enhanced detection result if provided, otherwise fall back to basic detection
-                if user_story_found:
-                    analysis['coverage_score'] = 2  # Full credit for both template and business value
-                    analysis['coverage_percentage'] = 100.0
-                    # Skip the rest of the user story analysis since we already have full credit
-                else:
-                    # Check for user story template and questions
-                    template_found = re.search(r'as\s+a\s+.*?i\s+want\s+.*?so\s+that\s+.*?', content_lower)
-                    if template_found:
-                        analysis['coverage_score'] += 1
-                    else:
-                        analysis['missing_elements'].append('User Story Template')
-                        analysis['suggestions'].append(f'Follow template: "{requirement_info["template"]}"')
-                    
-                    # Check for business value indicators
-                    business_value_indicators = ['business value', 'goal', 'benefit', 'reward', 'value']
-                    if any(indicator in content_lower for indicator in business_value_indicators):
-                        analysis['coverage_score'] += 1
-                    else:
-                        analysis['missing_elements'].append('Business Value Goal')
-                        analysis['suggestions'].append('Clearly define the business value this card will deliver')
-            
-            elif requirement_key == 'acceptance_criteria':
+            if requirement_key == 'acceptance_criteria':
                 # Check for acceptance criteria characteristics
                 characteristics = requirement_info['characteristics']
                 for characteristic in characteristics:
@@ -963,7 +907,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                             analysis['suggestions'].append('Confirm mobile responsiveness and cross-browser/device testing scope is defined')
             
             # Calculate percentage coverage - handle user story special case
-            if requirement_key == 'user_story' and user_story_found:
+            if requirement_key == 'user_story':
                 # User story is already set to 100% coverage above
                 pass
             else:
@@ -1201,7 +1145,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return analysis
     
-    def analyze_sprint_readiness(self, content: str, user_story_found: bool = False) -> Dict[str, Dict]:
+    def analyze_sprint_readiness(self, content: str) -> Dict[str, Dict]:
         """Analyze content for sprint readiness indicators"""
         analysis = {
             'sprint_ready': False,
@@ -1224,11 +1168,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         if any(indicator in content_lower for indicator in missing_indicators):
             analysis['missing_for_sprint'].append('Pending items identified')
             analysis['recommendations'].append('Confirm if this story is expected to be pulled in the next sprint, or requires refinement backlog.')
-        
-        # Check for user story - only add to missing if not found
-        if not user_story_found:
-            analysis['missing_for_sprint'].append('User story is missing')
-            analysis['recommendations'].append('Define a clear user story following the format: "As a [user], I want [goal], so that [benefit]"')
         
         # Check for sprint context
         if 'next sprint' in content_lower or 'current sprint' in content_lower:
@@ -1381,7 +1320,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return ""
     
-    def calculate_groom_readiness_score(self, all_analyses: Dict, user_story_found: bool = False) -> Dict[str, any]:
+    def calculate_groom_readiness_score(self, all_analyses: Dict) -> Dict[str, any]:
         """Calculate groom readiness score as a percentage"""
         score_data = {
             'overall_score': 0,
@@ -1465,7 +1404,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return score_data
     
-    def create_visual_checklist(self, all_analyses: Dict, user_story_found: bool = False) -> Dict[str, Dict]:
+    def create_visual_checklist(self, all_analyses: Dict) -> Dict[str, Dict]:
         """Create a visual checklist summary for quick scanning"""
         checklist = {
             'overall_status': 'yellow',  # red, yellow, green
@@ -1476,7 +1415,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 'missing_items': 0,
                 'critical_gaps': []
             },
-            'groom_score': self.calculate_groom_readiness_score(all_analyses, user_story_found)
+            'groom_score': self.calculate_groom_readiness_score(all_analyses)
         }
         
         # Analyze DOR requirements
@@ -1580,16 +1519,16 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             
             level_prompt = self.get_groom_level_prompt(level)
             
-            # Analyze content for all aspects with enhanced detection flags
+            # Analyze content for all aspects
             ticket_summary_analysis = self.analyze_ticket_summary(ticket_content)
             brand_analysis = self.analyze_brand_abbreviations(ticket_content)
-            framework_analysis = self.analyze_frameworks(ticket_content, context['user_story_found'])
-            dor_analysis = self.analyze_dor_requirements(ticket_content, context['user_story_found'])
+            framework_analysis = self.analyze_frameworks(ticket_content)
+            dor_analysis = self.analyze_dor_requirements(ticket_content)
             card_analysis = self.analyze_card_type(ticket_content)
             dependencies_analysis = self.analyze_dependencies_and_blockers(ticket_content)
             dod_analysis = self.analyze_dod_alignment(ticket_content) if context['include_dod'] else {}
             stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content, context['figma_link_found'])
-            sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content, context['user_story_found'])
+            sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
             cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
             test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
             enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios_v2(ticket_content)
@@ -1603,13 +1542,13 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 'stakeholder_analysis': stakeholder_analysis,
                 'test_scenarios_analysis': test_scenarios_analysis
             }
-            visual_checklist = self.create_visual_checklist(all_analyses, context['user_story_found'])
+            visual_checklist = self.create_visual_checklist(all_analyses)
             
             # Create summaries
             ticket_summary_summary = self._create_ticket_summary_summary(ticket_summary_analysis)
-            framework_summary = self._create_framework_summary(framework_analysis, context['user_story_found'])
+            framework_summary = self._create_framework_summary(framework_analysis)
             brand_summary = self._create_brand_summary(brand_analysis)
-            dor_summary = self._create_dor_summary(dor_analysis, context['user_story_found'])
+            dor_summary = self._create_dor_summary(dor_analysis)
             card_summary = self._create_card_summary(card_analysis)
             dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
             dod_summary = self._create_dod_summary(dod_analysis)
@@ -1966,7 +1905,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             console.print(f"[red]Error details: {str(e)}[/red]")
             return self.get_fallback_groom_analysis()
     
-    def _create_framework_summary(self, framework_analysis: Dict, user_story_found: bool = False) -> str:
+    def _create_framework_summary(self, framework_analysis: Dict) -> str:
         """Create a summary of framework analysis"""
         summary = []
         
@@ -1974,11 +1913,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             framework_name = analysis['name']
             coverage = analysis['coverage_percentage']
             missing = analysis['missing_elements']
-            
-            # Skip user story template missing message if user story is actually found
-            if framework_key == 'user_story_template' and user_story_found and 'User Story Template' in missing:
-                missing = [item for item in missing if item != 'User Story Template']
-                coverage = 100.0  # Override coverage to show as complete
             
             summary.append(f"**{framework_name}**: {coverage:.1f}% coverage")
             if missing:
@@ -2013,7 +1947,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return '\n'.join(summary) if summary else "No brand abbreviations found."
     
-    def _create_dor_summary(self, dor_analysis: Dict, user_story_found: bool = False) -> str:
+    def _create_dor_summary(self, dor_analysis: Dict) -> str:
         """Create a summary of DOR analysis"""
         summary = []
         
@@ -2022,11 +1956,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             coverage = analysis['coverage_percentage']
             missing = analysis['missing_elements']
             responsibility = analysis['responsibility']
-            
-            # Skip user story missing message if user story is actually found
-            if requirement_key == 'user_story' and user_story_found and 'User Story defined with business value' in missing:
-                missing = [item for item in missing if item != 'User Story defined with business value']
-                coverage = 100.0  # Override coverage to show as complete
             
             summary.append(f"**{requirement_name}**: {coverage:.1f}% coverage")
             summary.append(f"  Responsibility: {responsibility}")
@@ -3413,145 +3342,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             analysis['coverage_analysis']['cross_browser']['status'] = 'missing'
             analysis['coverage_analysis']['cross_browser']['missing'].append('Cross-browser/device: ❌ Not defined')
 
-    # ============================================================================
-    # NEW METHODS FOR JIRA FIELD READING ACCURACY FIXES
-    # ============================================================================
 
-    def detect_user_story_enhanced(self, content: str) -> Dict[str, any]:
-        """
-        Enhanced user story detection that scans both description and Acceptance Criteria fields
-        Fixes false negatives on tickets like ODCD-33741
-        """
-        analysis = {
-            'user_story_found': False,
-            'location': None,
-            'pattern_matched': None,
-            'confidence': 0.0,
-            'debug_info': []
-        }
-        
 
-        
-        # Enhanced regex patterns to catch variations - more flexible
-        user_story_patterns = [
-            # Standard patterns
-            r"As a .*?, I want .*?, so that .*?\.",
-            r"As a .*? I want .*? so that .*?\.",
-            r"As a .*?, I want .*? so I can .*?\.",
-            r"As a .*? I want to .*? so that .*?\.",
-            r"As a .*?, I want to .*? so I can .*?\.",
-            r"As a .*? I want .*? so I can .*?\.",
-            r"As a .*?, I want .*? so that .*?",
-            r"As a .*? I want .*? so that .*?",
-            r"As a .*?, I want .*? so I can .*?",
-            r"As a .*? I want to .*? so that .*?",
-            r"As a .*?, I want to .*? so I can .*?",
-            r"As a .*? I want .*? so I can .*?",
-            # Additional patterns for variations
-            r"As a .*?, I want .*?, so I can .*?\.",
-            r"As a .*? I want .*?, so I can .*?\.",
-            r"As a .*?, I want to .*?, so that .*?\.",
-            r"As a .*? I want to .*?, so that .*?\.",
-            r"As a .*?, I want to .*?, so I can .*?\.",
-            r"As a .*? I want to .*?, so I can .*?\."
-        ]
-        
-        # More flexible patterns for various user story formats
-        flexible_patterns = [
-            r"As a .*? I want .*? so that .*?",      # Basic format without punctuation
-            r"As a .*? I want to .*? so that .*?",   # "I want to" without punctuation
-            r"As a .*? I want .*? so I can .*?",     # "so I can" without punctuation
-            r"As a .*? I want to .*? so I can .*?",  # "I want to" + "so I can" without punctuation
-            r"As a .*? I want .*? in order to .*?",  # "in order to" variation
-            r"As a .*? I want to .*? in order to .*?", # "I want to" + "in order to"
-            r"As a .*? I need .*? so that .*?",      # "I need" variation
-            r"As a .*? I need to .*? so that .*?",   # "I need to" variation
-            r"As a .*? I would like .*? so that .*?", # "I would like" variation
-            r"As a .*? I would like to .*? so that .*?", # "I would like to" variation
-            # Even more flexible patterns
-            r"As a .*? I .*? so that .*?",           # Any "I" action
-            r"As a .*? I .*? so I can .*?",          # Any "I" action with "so I can"
-            r"As a .*? I .*? in order to .*?",       # Any "I" action with "in order to"
-        ]
-        
-        # Combine all patterns
-        all_patterns = user_story_patterns + flexible_patterns
-        
-        # Search in User Story field first (highest priority)
-        user_story_section = self._extract_field_section(content, 'user story')
-        if user_story_section:
-            for pattern in all_patterns:
-                match = re.search(pattern, user_story_section, re.IGNORECASE | re.DOTALL)
-                if match:
-                    analysis['user_story_found'] = True
-                    analysis['location'] = 'user_story'
-                    analysis['pattern_matched'] = pattern
-                    analysis['confidence'] = 1.0
-                    analysis['debug_info'].append(f"User story found in User Story field with pattern: {pattern}")
-                    break
-        
-        # Search in description field if not found in User Story field
-        if not analysis['user_story_found']:
-            description_section = self._extract_field_section(content, 'description')
-            if description_section:
-                for pattern in all_patterns:
-                    match = re.search(pattern, description_section, re.IGNORECASE | re.DOTALL)
-                    if match:
-                        analysis['user_story_found'] = True
-                        analysis['location'] = 'description'
-                        analysis['pattern_matched'] = pattern
-                        analysis['confidence'] = 0.9
-                        analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
-                        break
-            
-            # Also search in the entire content for description-like patterns if not found in specific field
-            if not analysis['user_story_found']:
-                # Look for description-like content after "Description:" in the main content
-                description_match = re.search(r'Description:\s*(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)', content, re.IGNORECASE | re.DOTALL)
-                if description_match:
-                    description_text = description_match.group(1).strip()
-                    for pattern in all_patterns:
-                        match = re.search(pattern, description_text, re.IGNORECASE | re.DOTALL)
-                        if match:
-                            analysis['user_story_found'] = True
-                            analysis['location'] = 'description'
-                            analysis['pattern_matched'] = pattern
-                            analysis['confidence'] = 0.9
-                            analysis['debug_info'].append(f"User story found in description with pattern: {pattern}")
-                            break
-        
-        # Search in Acceptance Criteria field if not found in description
-        if not analysis['user_story_found']:
-            ac_section = self._extract_field_section(content, 'acceptance criteria')
-            if ac_section:
-                for pattern in all_patterns:
-                    match = re.search(pattern, ac_section, re.IGNORECASE | re.DOTALL)
-                    if match:
-                        analysis['user_story_found'] = True
-                        analysis['location'] = 'acceptance_criteria'
-                        analysis['pattern_matched'] = pattern
-                        analysis['confidence'] = 0.8
-                        analysis['debug_info'].append(f"User story found in AC with pattern: {pattern}")
-                        break
-        
-        # Search in comments field if still not found
-        if not analysis['user_story_found']:
-            comments_section = self._extract_field_section(content, 'comments')
-            if comments_section:
-                for pattern in all_patterns:
-                    match = re.search(pattern, comments_section, re.IGNORECASE | re.DOTALL)
-                    if match:
-                        analysis['user_story_found'] = True
-                        analysis['location'] = 'comments'
-                        analysis['pattern_matched'] = pattern
-                        analysis['confidence'] = 0.7
-                        analysis['debug_info'].append(f"User story found in comments with pattern: {pattern}")
-                        break
-        
-        if not analysis['user_story_found']:
-            analysis['debug_info'].append("No user story pattern found in any field")
-        
-        return analysis
+
 
     def detect_figma_links_enhanced(self, content: str) -> Dict[str, any]:
         """
@@ -3675,7 +3468,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return analysis
 
-    def calculate_groom_readiness_score_enhanced(self, all_analyses: Dict, user_story_found: bool = False, figma_link_found: bool = False) -> Dict[str, any]:
+    def calculate_groom_readiness_score_enhanced(self, all_analyses: Dict, figma_link_found: bool = False) -> Dict[str, any]:
         """
         Enhanced groom readiness score calculation that uses detection flags
         Fixes scoring penalties when user story and figma are actually present
@@ -3701,16 +3494,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         for requirement_key, analysis in dor_analysis.items():
             coverage = analysis['coverage_percentage']
-            
-            # Apply user story correction if detected
-            if requirement_key == 'user_story' and user_story_found and coverage < 50:
-                original_coverage = coverage
-                coverage = 100  # Full credit if user story is actually found
-                score_data['enhanced_scoring']['user_story_penalty_applied'] = True
-                score_data['enhanced_scoring']['corrections_made'].append(
-                    f"User Story: Corrected from {original_coverage:.1f}% to 100% (detected via enhanced analysis)"
-                )
-            
             dor_total += 100  # Each requirement is worth 100 points
             dor_score += coverage
             
@@ -3907,23 +3690,23 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             # Log debug information if enabled
             if debug_mode:
                 console.print(f"[blue]Enhanced Analysis Debug:[/blue]")
-                console.print(f"[blue]User Story Found: {context['user_story_found']}[/blue]")
+    
                 console.print(f"[blue]Figma Link Found: {context['figma_link_found']} (Link: {context['figma_link']})[/blue]")
                 console.print(f"[blue]DoD Evaluation: {context['include_dod']} (Status: {context['status']})[/blue]")
             
             # Run original analysis methods with enhanced detection flags
             level_prompt = self.get_groom_level_prompt(level)
             
-            # Analyze content for all aspects with enhanced detection results
+            # Analyze content for all aspects
             ticket_summary_analysis = self.analyze_ticket_summary(ticket_content)
             brand_analysis = self.analyze_brand_abbreviations(ticket_content)
-            framework_analysis = self.analyze_frameworks(ticket_content, context['user_story_found'])
-            dor_analysis = self.analyze_dor_requirements(ticket_content, context['user_story_found'])
+            framework_analysis = self.analyze_frameworks(ticket_content)
+            dor_analysis = self.analyze_dor_requirements(ticket_content)
             card_analysis = self.analyze_card_type(ticket_content)
             dependencies_analysis = self.analyze_dependencies_and_blockers(ticket_content)
             dod_analysis = self.analyze_dod_alignment(ticket_content) if context['include_dod'] else {}
             stakeholder_analysis = self.analyze_stakeholder_validation(ticket_content, context['figma_link_found'])
-            sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content, context['user_story_found'])
+            sprint_readiness_analysis = self.analyze_sprint_readiness(ticket_content)
             cross_functional_analysis = self.analyze_cross_functional_concerns(ticket_content)
             test_scenarios_analysis = self.analyze_test_scenarios(ticket_content)
             enhanced_test_scenarios_analysis = self.analyze_enhanced_test_scenarios_v2(ticket_content)
@@ -3937,20 +3720,19 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                 'stakeholder_analysis': stakeholder_analysis,
                 'test_scenarios_analysis': test_scenarios_analysis
             }
-            visual_checklist = self.create_visual_checklist(all_analyses, context['user_story_found'])
+            visual_checklist = self.create_visual_checklist(all_analyses)
             
             # Apply enhanced scoring
             enhanced_score_data = self.calculate_groom_readiness_score_enhanced(
                 all_analyses, 
-                context['user_story_found'], 
                 context['figma_link_found']
             )
             
             # Create summaries with enhanced information
             ticket_summary_summary = self._create_ticket_summary_summary(ticket_summary_analysis)
-            framework_summary = self._create_framework_summary(framework_analysis, context['user_story_found'])
+            framework_summary = self._create_framework_summary(framework_analysis)
             brand_summary = self._create_brand_summary(brand_analysis)
-            dor_summary = self._create_dor_summary_enhanced(dor_analysis, {'user_story_found': context['user_story_found'], 'location': 'description' if context['user_story_found'] else None})
+            dor_summary = self._create_dor_summary_enhanced(dor_analysis, {})
             card_summary = self._create_card_summary(card_analysis)
             dependencies_summary = self._create_dependencies_summary(dependencies_analysis)
             dod_summary = self._create_dod_summary_enhanced(dod_analysis, {'should_evaluate': context['include_dod'], 'reason': f"Status: {context['status']}" if context['status'] else 'No status found'})
@@ -3966,7 +3748,6 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             # Add enhanced analysis information to the prompt
             enhanced_analysis_info = f"""
 **Enhanced Field Analysis Results (Using Centralized Helpers):**
-- User Story Detection: {'✅ Found' if context['user_story_found'] else '❌ Not Found'} (Using: has_user_story helper)
 - Figma Link Detection: {'✅ Found' if context['figma_link_found'] else '❌ Not Found'} (Link: {context['figma_link'] or 'None'}) (Using: find_figma_link helper)
 - DoD Evaluation: {'✅ Enabled' if context['include_dod'] else '❌ Suppressed'} (Status: {context['status'] or 'None'}) (Using: should_include_dod helper)
 
@@ -4140,28 +3921,25 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 
     def _create_dor_summary_enhanced(self, dor_analysis: Dict, user_story_analysis: Dict) -> str:
         """
-        Enhanced DOR summary that respects user story detection results
+        Enhanced DOR summary
         """
         summary = "**Definition of Ready (DOR) Analysis:**\n"
         
         for requirement_key, analysis in dor_analysis.items():
             summary += f"- **{analysis['name']}**: "
             
-            if requirement_key == 'user_story' and user_story_analysis['user_story_found']:
-                summary += f"✅ Found via enhanced detection (Location: {user_story_analysis['location']})\n"
+            coverage = analysis['coverage_percentage']
+            if coverage >= 75:
+                summary += f"✅ Good coverage ({coverage:.1f}%)\n"
+            elif coverage >= 50:
+                summary += f"⚠️ Partial coverage ({coverage:.1f}%)\n"
             else:
-                coverage = analysis['coverage_percentage']
-                if coverage >= 75:
-                    summary += f"✅ Good coverage ({coverage:.1f}%)\n"
-                elif coverage >= 50:
-                    summary += f"⚠️ Partial coverage ({coverage:.1f}%)\n"
-                else:
-                    summary += f"❌ Poor coverage ({coverage:.1f}%)\n"
-                
-                if analysis['missing_elements']:
-                    summary += f"  - Missing: {', '.join(analysis['missing_elements'])}\n"
-                if analysis['suggestions']:
-                    summary += f"  - Suggestions: {', '.join(analysis['suggestions'])}\n"
+                summary += f"❌ Poor coverage ({coverage:.1f}%)\n"
+            
+            if analysis['missing_elements']:
+                summary += f"  - Missing: {', '.join(analysis['missing_elements'])}\n"
+            if analysis['suggestions']:
+                summary += f"  - Suggestions: {', '.join(analysis['suggestions'])}\n"
         
         return summary
 
@@ -4252,65 +4030,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         
         return summary
 
-    def has_user_story(self, *fields: str) -> bool:
-        """
-        Centralized user story detection helper method
-        Returns True if a user story pattern is found in any of the provided fields
-        """
-        # Enhanced regex patterns to catch variations - more flexible
-        user_story_patterns = [
-            # Standard patterns
-            r"As a .*?, I want .*?, so that .*?\.",  # Standard format with punctuation
-            r"As a .*? I want .*? so that .*?\.",    # Standard format without comma
-            r"As a .*?, I want .*? so I can .*?\.",  # "so I can" variation
-            r"As a .*? I want to .*? so that .*?\.", # "I want to" variation
-            r"As a .*?, I want to .*? so I can .*?\.", # Combined variations
-            r"As a .*? I want .*? so I can .*?\.",   # "so I can" without comma
-            r"As a .*?, I want .*? so that .*?",     # Without ending period
-            r"As a .*? I want .*? so that .*?",      # Without ending period and comma
-            r"As a .*?, I want .*? so I can .*?",    # "so I can" without ending period
-            r"As a .*? I want to .*? so that .*?",   # "I want to" without ending period
-            r"As a .*?, I want to .*? so I can .*?", # Combined without ending period
-            r"As a .*? I want .*? so I can .*?",     # "so I can" without ending period and comma
-            # Additional patterns for variations
-            r"As a .*?, I want .*?, so I can .*?\.", # With comma before "so I can"
-            r"As a .*? I want .*?, so I can .*?\.",  # With comma before "so I can" no first comma
-            r"As a .*?, I want to .*?, so that .*?\.", # "I want to" with comma
-            r"As a .*? I want to .*?, so that .*?\.", # "I want to" with comma no first comma
-            r"As a .*?, I want to .*?, so I can .*?\.", # Combined with comma
-            r"As a .*? I want to .*?, so I can .*?\."  # Combined with comma no first comma
-        ]
-        
-        # More flexible patterns for various user story formats
-        flexible_patterns = [
-            r"As a .*? I want .*? so that .*?",      # Basic format without punctuation
-            r"As a .*? I want to .*? so that .*?",   # "I want to" without punctuation
-            r"As a .*? I want .*? so I can .*?",     # "so I can" without punctuation
-            r"As a .*? I want to .*? so I can .*?",  # "I want to" + "so I can" without punctuation
-            r"As a .*? I want .*? in order to .*?",  # "in order to" variation
-            r"As a .*? I want to .*? in order to .*?", # "I want to" + "in order to"
-            r"As a .*? I need .*? so that .*?",      # "I need" variation
-            r"As a .*? I need to .*? so that .*?",   # "I need to" variation
-            r"As a .*? I would like .*? so that .*?", # "I would like" variation
-            r"As a .*? I would like to .*? so that .*?", # "I would like to" variation
-            # Even more flexible patterns
-            r"As a .*? I .*? so that .*?",           # Any "I" action
-            r"As a .*? I .*? so I can .*?",          # Any "I" action with "so I can"
-            r"As a .*? I .*? in order to .*?",       # Any "I" action with "in order to"
-        ]
-        
-        # Combine all patterns
-        all_patterns = user_story_patterns + flexible_patterns
-        
-        # Combine all fields for searching
-        combined_content = " ".join(fields)
-        
-        # Check each pattern
-        for pattern in all_patterns:
-            if re.search(pattern, combined_content, re.IGNORECASE | re.DOTALL):
-                return True
-        
-        return False
+
 
     def find_figma_link(self, *fields) -> Optional[str]:
         """
@@ -4374,13 +4094,8 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         ac_section = self._extract_field_section(content, 'acceptance criteria')
         status_section = self._extract_field_section(content, 'status')
         
-        # Run detection using enhanced methods
-        user_story_analysis = self.detect_user_story_enhanced(content)
-        user_story_found = user_story_analysis['user_story_found']
-        
-        # Also use the new centralized helper for consistency
-        if not user_story_found:
-            user_story_found = self.has_user_story(description_section or "", ac_section or "")
+        # Set user story found to False since we removed user story detection
+        user_story_found = False
         figma_link = self.find_figma_link(description_section, ac_section)
         include_dod = self.should_include_dod(status_section or "")
         
@@ -4391,8 +4106,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'include_dod': include_dod,
             'status': status_section,
             'description': description_section,
-            'acceptance_criteria': ac_section,
-            'user_story_analysis': user_story_analysis  # Include full analysis for debugging
+            'acceptance_criteria': ac_section
         }
         
         # Add assertions for verification
