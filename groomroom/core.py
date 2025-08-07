@@ -315,6 +315,14 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - Check if test scenarios cover required dimensions (happy path, edge cases, RBT, cross-browser)
 - Ensure test scenarios are in dedicated field, not embedded in AC
 
+**ENHANCED ACCEPTANCE CRITERIA ANALYSIS:**
+- Compare the user story to its acceptance criteria
+- List any missing or ambiguous criteria
+- For each gap, suggest a precise Given/When/Then statement to fill it
+- Use bullet format: Intent, Conditions, Expected Result, Pass/Fail Logic
+- Include timing, accessibility, and fallback conditions where applicable
+- Convert implementation notes into behavioral expectations
+
 - Spot missing or mismatched fields (brand/component/story points)
 - Infer PO/design sign-off likelihood from ticket language and comments
 - Interpret labels/comments for blockers (e.g., "needs design", "blocked by backend")
@@ -1635,7 +1643,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Sprint context** - Cannot proceed until requirements met
 
 ## ✅ Acceptance Criteria Review:
-[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
+[Enhanced AC analysis - compares user story to acceptance criteria, lists missing/ambiguous criteria, suggests precise Given/When/Then statements for gaps, validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
 
 ## 🧪 Test Scenario Breakdown:
 [Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
@@ -1682,7 +1690,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Sprint context** - Consider for inclusion with noted areas
 
 ## ✅ Acceptance Criteria Review:
-[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
+[Enhanced AC analysis - compares user story to acceptance criteria, lists missing/ambiguous criteria, suggests precise Given/When/Then statements for gaps, validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
 
 ## 🧪 Test Scenario Breakdown:
 [Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
@@ -2884,9 +2892,29 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
                         summary.append(f"  - **Intent**: {suggestion.split('Intent:')[1].split('Conditions:')[0].strip() if 'Intent:' in suggestion else 'What the user expects to happen'}")
                         summary.append(f"  - **Conditions**: {suggestion.split('Conditions:')[1].split('Expected Result:')[0].strip() if 'Conditions:' in suggestion else 'When/what triggers it'}")
                         summary.append(f"  - **Expected Result**: {suggestion.split('Expected Result:')[1].split('Pass/Fail Logic:')[0].strip() if 'Expected Result:' in suggestion else 'What should be visible/achieved'}")
-                        summary.append(f"  - **Pass/Fail Logic**: {suggestion.split('Pass/Fail Logic:')[1].strip() if 'Pass/Fail Logic:' in suggestion else 'QA check conditions'}")
+                        summary.append(f"  - **Pass/Fail Logic**: {suggestion.split('Pass/Fail Logic:')[1].split('Given/When/Then:')[0].strip() if 'Pass/Fail Logic:' in suggestion else 'QA check conditions'}")
+                        
+                        # Add Given/When/Then format if present
+                        if 'Given/When/Then:' in suggestion:
+                            gwt_part = suggestion.split('Given/When/Then:')[1].strip()
+                            summary.append(f"  - **Given/When/Then**: {gwt_part}")
                     else:
                         summary.append(f"  💡 **Suggestion**: {suggestion}")
+        
+        # User story vs AC gaps analysis
+        user_story_gaps = enhanced_ac_analysis.get('user_story_gaps', [])
+        if user_story_gaps:
+            summary.append("\n**🔍 User Story vs AC Gaps - Missing Coverage:**")
+            for gap in user_story_gaps:
+                summary.append(f"- **Component**: {gap.get('component', 'Unknown')}")
+                summary.append(f"  **Given/When/Then**: {gap.get('suggestion', 'No suggestion available')}")
+        
+        # Missing criteria analysis
+        missing_criteria = enhanced_ac_analysis.get('missing_criteria', [])
+        if missing_criteria:
+            summary.append("\n**📋 Missing Criteria - Suggested Given/When/Then:**")
+            for criteria in missing_criteria:
+                summary.append(f"- **{criteria.get('type', 'Unknown').title()}**: {criteria.get('suggestion', 'No suggestion available')}")
         
         # Figma links - respect enhanced detection
         figma_links = enhanced_ac_analysis.get('figma_links', [])
@@ -2921,7 +2949,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         return '\n'.join(summary)
 
     def analyze_enhanced_acceptance_criteria(self, content: str, figma_link_found: bool = False) -> Dict[str, Dict]:
-        """Enhanced analysis of Acceptance Criteria field with detailed validation"""
+        """Enhanced analysis of Acceptance Criteria field with detailed validation and user story comparison"""
         analysis = {
             'ac_present': False,
             'ac_content': '',
@@ -2935,7 +2963,9 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             'figma_links': [],
             'test_scenarios_in_ac': False,
             'overall_quality': 'poor',
-            'recommendations': []
+            'recommendations': [],
+            'user_story_gaps': [],
+            'missing_criteria': []
         }
         
         # Extract Acceptance Criteria section
@@ -3021,6 +3051,11 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         else:
             analysis['recommendations'].append('No Acceptance Criteria field found - add specific requirements and success criteria')
         
+        # Analyze user story vs acceptance criteria gaps
+        if analysis['ac_present']:
+            analysis['user_story_gaps'] = self._analyze_user_story_ac_gaps(content, analysis['ac_content'])
+            analysis['missing_criteria'] = self._identify_missing_criteria(content, analysis['ac_content'])
+        
         return analysis
     
     def _extract_acceptance_criteria_section(self, content: str) -> str:
@@ -3079,29 +3114,29 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         return figma_links
     
     def _generate_vague_ac_suggestion(self, pattern: str, line: str) -> str:
-        """Generate specific suggestions for vague AC patterns with bullet format"""
+        """Generate specific suggestions for vague AC patterns with bullet format and Given/When/Then structure"""
         pattern_lower = pattern.lower()
         
         if 'figma' in pattern_lower:
-            return "Intent: User expects visual and behavioral consistency with design specifications. Conditions: When user interacts with [specific component/page]. Expected Result: [Component] displays and behaves exactly as shown in Figma frame [reference] with [specific interactions, responsive states, accessibility features]. Pass/Fail Logic: QA verifies visual match, interaction behavior, responsive breakpoints, and accessibility compliance against Figma specifications."
+            return "Intent: User expects visual and behavioral consistency with design specifications. Conditions: When user interacts with [specific component/page]. Expected Result: [Component] displays and behaves exactly as shown in Figma frame [reference] with [specific interactions, responsive states, accessibility features]. Pass/Fail Logic: QA verifies visual match, interaction behavior, responsive breakpoints, and accessibility compliance against Figma specifications. Given/When/Then: Given the user is viewing [component/page], When they interact with [specific element], Then the visual appearance and behavior matches Figma frame [reference] with [specific interactions, responsive states, accessibility features]."
         elif 'works like' in pattern_lower or 'current version' in pattern_lower:
-            return "Intent: User expects functionality to work similarly to existing implementation with specific improvements. Conditions: When user performs [specific action] in [specific context]. Expected Result: [Feature] functions with [specific improvements or changes from current version] while maintaining [existing behavior]. Pass/Fail Logic: QA compares behavior with current version and verifies new improvements work as specified."
+            return "Intent: User expects functionality to work similarly to existing implementation with specific improvements. Conditions: When user performs [specific action] in [specific context]. Expected Result: [Feature] functions with [specific improvements or changes from current version] while maintaining [existing behavior]. Pass/Fail Logic: QA compares behavior with current version and verifies new improvements work as specified. Given/When/Then: Given the user is in [specific context], When they perform [specific action], Then [feature] functions with [specific improvements] while maintaining [existing behavior]."
         elif 'fixes the bug' in pattern_lower:
-            return "Intent: User expects the reported issue to be resolved with proper error handling. Conditions: When [bug condition] occurs. Expected Result: [Expected behavior] instead of [current broken behavior], with [error handling for edge cases]. Pass/Fail Logic: QA reproduces original bug scenario and verifies it's fixed, tests edge cases for regression."
+            return "Intent: User expects the reported issue to be resolved with proper error handling. Conditions: When [bug condition] occurs. Expected Result: [Expected behavior] instead of [current broken behavior], with [error handling for edge cases]. Pass/Fail Logic: QA reproduces original bug scenario and verifies it's fixed, tests edge cases for regression. Given/When/Then: Given [bug condition] occurs, When the user performs [action], Then [expected behavior] happens instead of [current broken behavior], with [error handling for edge cases]."
         elif 'as expected' in pattern_lower:
-            return "Intent: User expects standard behavior for the given functionality. Conditions: When user performs [specific action] under [specific conditions]. Expected Result: [Specific expected outcome] with [validation criteria and timing]. Pass/Fail Logic: QA verifies behavior matches industry standards and specified requirements."
+            return "Intent: User expects standard behavior for the given functionality. Conditions: When user performs [specific action] under [specific conditions]. Expected Result: [Specific expected outcome] with [validation criteria and timing]. Pass/Fail Logic: QA verifies behavior matches industry standards and specified requirements. Given/When/Then: Given the user is in [specific context], When they perform [specific action] under [specific conditions], Then [specific expected outcome] occurs with [validation criteria and timing]."
         elif 'properly' in pattern_lower or 'correctly' in pattern_lower:
-            return "Intent: User expects correct implementation with proper error handling and edge case management. Conditions: When [condition] occurs, including edge cases. Expected Result: [Specific correct behavior] with [error handling for edge cases] and [performance requirements]. Pass/Fail Logic: QA tests happy path, edge cases, error conditions, and performance benchmarks."
+            return "Intent: User expects correct implementation with proper error handling and edge case management. Conditions: When [condition] occurs, including edge cases. Expected Result: [Specific correct behavior] with [error handling for edge cases] and [performance requirements]. Pass/Fail Logic: QA tests happy path, edge cases, error conditions, and performance benchmarks. Given/When/Then: Given [condition] occurs, including edge cases, When the system processes the request, Then [specific correct behavior] happens with [error handling for edge cases] and [performance requirements]."
         elif 'as designed' in pattern_lower:
-            return "Intent: User expects implementation to match approved design specifications. Conditions: When user interacts with [specific component] in [specific context]. Expected Result: [Specific design behavior] matching [design reference] with [interaction details, animations, responsive behavior]. Pass/Fail Logic: QA compares implementation against design specs and verifies all interactions work as designed."
+            return "Intent: User expects implementation to match approved design specifications. Conditions: When user interacts with [specific component] in [specific context]. Expected Result: [Specific design behavior] matching [design reference] with [interaction details, animations, responsive behavior]. Pass/Fail Logic: QA compares implementation against design specs and verifies all interactions work as designed. Given/When/Then: Given the user is interacting with [specific component] in [specific context], When they perform [interaction], Then [specific design behavior] occurs matching [design reference] with [interaction details, animations, responsive behavior]."
         elif 'looks good' in pattern_lower:
-            return "Intent: User expects visual elements to display correctly according to design specifications. Conditions: When [component] is rendered in [specific context/environment]. Expected Result: Visual elements display [specific appearance] with [color, spacing, typography, responsive behavior] matching [design reference]. Pass/Fail Logic: QA verifies visual match across browsers/devices and accessibility compliance."
+            return "Intent: User expects visual elements to display correctly according to design specifications. Conditions: When [component] is rendered in [specific context/environment]. Expected Result: Visual elements display [specific appearance] with [color, spacing, typography, responsive behavior] matching [design reference]. Pass/Fail Logic: QA verifies visual match across browsers/devices and accessibility compliance. Given/When/Then: Given [component] is rendered in [specific context/environment], When the page loads, Then visual elements display [specific appearance] with [color, spacing, typography, responsive behavior] matching [design reference]."
         elif 'functions properly' in pattern_lower:
-            return "Intent: User expects functionality to work reliably with proper performance and error handling. Conditions: When user performs [specific action] under [normal and stress conditions]. Expected Result: [Specific functionality] works with [performance requirements] and [error handling for various scenarios]. Pass/Fail Logic: QA tests functionality under normal load, stress conditions, and verifies error handling."
+            return "Intent: User expects functionality to work reliably with proper performance and error handling. Conditions: When user performs [specific action] under [normal and stress conditions]. Expected Result: [Specific functionality] works with [performance requirements] and [error handling for various scenarios]. Pass/Fail Logic: QA tests functionality under normal load, stress conditions, and verifies error handling. Given/When/Then: Given the user performs [specific action] under [normal and stress conditions], When the system processes the request, Then [specific functionality] works with [performance requirements] and [error handling for various scenarios]."
         elif 'behaves correctly' in pattern_lower:
-            return "Intent: User expects proper behavior with accessibility compliance and cross-browser compatibility. Conditions: When user interacts with [component] across [different browsers/devices/accessibility tools]. Expected Result: [Specific behavior] with [accessibility compliance] and [cross-browser compatibility] including [specific requirements]. Pass/Fail Logic: QA tests across browsers, devices, and accessibility tools to verify compliance."
+            return "Intent: User expects proper behavior with accessibility compliance and cross-browser compatibility. Conditions: When user interacts with [component] across [different browsers/devices/accessibility tools]. Expected Result: [Specific behavior] with [accessibility compliance] and [cross-browser compatibility] including [specific requirements]. Pass/Fail Logic: QA tests across browsers, devices, and accessibility tools to verify compliance. Given/When/Then: Given the user interacts with [component] across [different browsers/devices/accessibility tools], When they perform [action], Then [specific behavior] occurs with [accessibility compliance] and [cross-browser compatibility] including [specific requirements]."
         else:
-            return "Intent: What the user expects to happen. Conditions: When/what triggers it. Expected Result: What should be visible/achieved. Pass/Fail Logic: QA check conditions."
+            return "Intent: What the user expects to happen. Conditions: When/what triggers it. Expected Result: What should be visible/achieved. Pass/Fail Logic: QA check conditions. Given/When/Then: Given [context], When [action], Then [expected result]."
     
     def _generate_figma_recommendation(self, has_context: bool, has_behavioral_expectation: bool) -> str:
         """Generate recommendation for Figma link usage"""
@@ -3113,6 +3148,133 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
             return "Include behavioral expectations alongside Figma reference"
         else:
             return "Consider moving Figma link to dedicated Design/Attachments field for better visibility"
+    
+    def _analyze_user_story_ac_gaps(self, content: str, ac_content: str) -> List[Dict]:
+        """Analyze gaps between user story and acceptance criteria"""
+        gaps = []
+        
+        # Extract user story from content
+        user_story = self._extract_user_story(content)
+        if not user_story:
+            return gaps
+        
+        # Analyze user story components
+        story_components = self._extract_story_components(user_story)
+        
+        # Check for missing AC coverage
+        for component in story_components:
+            if not self._is_covered_in_ac(component, ac_content):
+                gaps.append({
+                    'component': component,
+                    'type': 'missing_coverage',
+                    'suggestion': self._generate_given_when_then(component)
+                })
+        
+        return gaps
+    
+    def _identify_missing_criteria(self, content: str, ac_content: str) -> List[Dict]:
+        """Identify missing acceptance criteria based on user story analysis"""
+        missing_criteria = []
+        
+        # Common missing criteria patterns
+        missing_patterns = [
+            {
+                'pattern': 'error handling',
+                'suggestion': 'Given an error occurs, When the system processes the request, Then appropriate error message is displayed and user can recover gracefully'
+            },
+            {
+                'pattern': 'accessibility',
+                'suggestion': 'Given a user with accessibility needs, When they interact with the component, Then all accessibility requirements are met (ARIA labels, keyboard navigation, screen reader compatibility)'
+            },
+            {
+                'pattern': 'performance',
+                'suggestion': 'Given the component loads, When user performs actions, Then response time is under [X] seconds and performance metrics are met'
+            },
+            {
+                'pattern': 'edge cases',
+                'suggestion': 'Given edge case conditions occur, When the system processes the request, Then appropriate handling is implemented without breaking functionality'
+            },
+            {
+                'pattern': 'validation',
+                'suggestion': 'Given invalid input is provided, When the user submits the form, Then validation errors are displayed clearly and user can correct the input'
+            }
+        ]
+        
+        # Check for missing patterns in AC
+        for pattern in missing_patterns:
+            if not self._pattern_exists_in_ac(pattern['pattern'], ac_content):
+                missing_criteria.append({
+                    'type': pattern['pattern'],
+                    'suggestion': pattern['suggestion']
+                })
+        
+        return missing_criteria
+    
+    def _extract_user_story(self, content: str) -> str:
+        """Extract user story from content"""
+        # Look for user story patterns
+        story_patterns = [
+            r'as a\s+([^,]+),\s*i\s+(?:want|need|would like)\s+(?:to\s+)?([^,]+)',
+            r'user\s+story[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)',
+            r'story[:\s]*\n(.*?)(?=\n\s*[A-Z][a-zA-Z\s]+:|\n\s*$)'
+        ]
+        
+        for pattern in story_patterns:
+            match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+            if match:
+                return match.group(0).strip()
+        
+        return ""
+    
+    def _extract_story_components(self, user_story: str) -> List[str]:
+        """Extract key components from user story"""
+        components = []
+        
+        # Extract user role
+        user_match = re.search(r'as a\s+([^,]+)', user_story, re.IGNORECASE)
+        if user_match:
+            components.append(f"User role: {user_match.group(1).strip()}")
+        
+        # Extract desired action
+        action_match = re.search(r'i\s+(?:want|need|would like)\s+(?:to\s+)?([^,]+)', user_story, re.IGNORECASE)
+        if action_match:
+            components.append(f"Desired action: {action_match.group(1).strip()}")
+        
+        # Extract business value
+        value_match = re.search(r'so that\s+([^,]+)', user_story, re.IGNORECASE)
+        if value_match:
+            components.append(f"Business value: {value_match.group(1).strip()}")
+        
+        return components
+    
+    def _is_covered_in_ac(self, component: str, ac_content: str) -> bool:
+        """Check if a story component is covered in acceptance criteria"""
+        component_keywords = component.lower().split()
+        ac_lower = ac_content.lower()
+        
+        # Check if any keyword from component appears in AC
+        return any(keyword in ac_lower for keyword in component_keywords if len(keyword) > 3)
+    
+    def _generate_given_when_then(self, component: str) -> str:
+        """Generate Given/When/Then statement for a component"""
+        if 'user role' in component.lower():
+            role = component.split(':')[1].strip()
+            return f"Given a {role}, When they access the feature, Then they can perform their intended actions successfully"
+        elif 'desired action' in component.lower():
+            action = component.split(':')[1].strip()
+            return f"Given the user wants to {action}, When they interact with the system, Then {action} is completed successfully"
+        elif 'business value' in component.lower():
+            value = component.split(':')[1].strip()
+            return f"Given the business goal is {value}, When the feature is implemented, Then {value} is achieved"
+        else:
+            return f"Given the user story component: {component}, When the feature is used, Then the expected outcome is achieved"
+    
+    def _pattern_exists_in_ac(self, pattern: str, ac_content: str) -> bool:
+        """Check if a pattern exists in acceptance criteria"""
+        pattern_keywords = pattern.lower().split()
+        ac_lower = ac_content.lower()
+        
+        return any(keyword in ac_lower for keyword in pattern_keywords)
     
     def _detect_test_scenarios_in_ac(self, ac_content: str) -> bool:
         """Detect if test scenarios are embedded in Acceptance Criteria"""
@@ -3921,7 +4083,7 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
 - **Blocker assessment** with recommendations
 
 ## ✅ Acceptance Criteria Review:
-[Enhanced AC analysis - validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
+[Enhanced AC analysis - compares user story to acceptance criteria, lists missing/ambiguous criteria, suggests precise Given/When/Then statements for gaps, validates intent, conditions, expected results, pass/fail logic, detects vague AC like "match Figma", includes accessibility, performance, fallback examples. Use bullet format for suggestions: Intent, Conditions, Expected Result, Pass/Fail Logic]
 
 ## 🧪 Test Scenario Breakdown:
 [Enhanced Test Scenarios analysis - validates Happy Path, Negative, RBT, Cross-browser coverage, detects field misuse, suppresses overlap with AC]
