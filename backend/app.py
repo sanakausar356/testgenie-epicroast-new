@@ -79,6 +79,7 @@ def root():
             'testgenie': '/api/testgenie/generate',
             'epicroast': '/api/epicroast/generate',
             'groomroom': '/api/groomroom/generate',
+            'groomroom_concise': '/api/groomroom/concise',
             'jira_ticket': '/api/jira/ticket/<ticket_number>'
         }
     })
@@ -361,6 +362,99 @@ def generate_groom():
         }), 500
     finally:
         print("=== GROOMROOM API CALL END ===")
+
+@app.route('/api/groomroom/concise', methods=['POST'])
+def generate_concise_groom():
+    """Generate concise groom analysis from ticket content"""
+    print("=== CONCISE GROOMROOM API CALL START ===")
+    
+    if not groomroom:
+        print("ERROR: GroomRoom service not available")
+        return jsonify({
+            'success': False,
+            'error': 'GroomRoom service not available'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        ticket_content = data.get('ticket_content', '')
+        ticket_number = data.get('ticket_number', '')
+        
+        print(f"Request data: ticket_content length={len(ticket_content)}, ticket_number={ticket_number}")
+        
+        if not ticket_content and not ticket_number:
+            print("ERROR: No ticket content or number provided")
+            return jsonify({
+                'success': False,
+                'error': 'Either ticket_content or ticket_number must be provided'
+            }), 400
+        
+        # Get ticket content from Jira if ticket number provided
+        if ticket_number and not ticket_content:
+            print(f"Fetching ticket {ticket_number} from Jira...")
+            if not jira_integration or not jira_integration.is_available():
+                print("ERROR: Jira integration not available")
+                return jsonify({
+                    'success': False,
+                    'error': 'Jira integration not available'
+                }), 503
+            
+            ticket_info = jira_integration.get_ticket_info(ticket_number)
+            if ticket_info:
+                ticket_content = jira_integration.format_ticket_for_analysis(ticket_info)
+                print(f"Successfully fetched ticket content, length={len(ticket_content)}")
+            else:
+                print(f"ERROR: Could not fetch ticket {ticket_number}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Could not fetch ticket {ticket_number}'
+                }), 404
+        
+        # Check if groomroom client is available
+        print(f"GroomRoom client available: {groomroom.client is not None}")
+        if not groomroom.client:
+            print("ERROR: Azure OpenAI client not configured")
+            return jsonify({
+                'success': False,
+                'error': 'Azure OpenAI client not configured. Please check environment variables.',
+                'details': {
+                    'endpoint_set': bool(os.getenv('AZURE_OPENAI_ENDPOINT')),
+                    'api_key_set': bool(os.getenv('AZURE_OPENAI_API_KEY')),
+                    'deployment_set': bool(os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'))
+                }
+            }), 503
+        
+        # Generate concise groom analysis
+        print(f"Calling groomroom.generate_concise_groom_analysis")
+        
+        # Add request ID for debugging
+        import time
+        request_id = int(time.time())
+        print(f"Request ID: {request_id}")
+        print(f"Ticket content preview: {ticket_content[:200]}...")
+        
+        groom = groomroom.generate_concise_groom_analysis(ticket_content)
+        print(f"Concise groom analysis generated, length={len(groom) if groom else 0}")
+        print(f"Response preview: {groom[:200] if groom else 'None'}...")
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'groom': groom,
+                'ticket_number': ticket_number if ticket_number else None
+            }
+        })
+        
+    except Exception as e:
+        print(f"ERROR in concise groomroom API: {e}")
+        print(f"Error type: {type(e).__name__}")
+        return jsonify({
+            'success': False,
+            'error': f'Error generating concise groom analysis: {str(e)}',
+            'error_type': type(e).__name__
+        }), 500
+    finally:
+        print("=== CONCISE GROOMROOM API CALL END ===")
 
 @app.route('/api/teams/share', methods=['POST'])
 def share_to_teams():
