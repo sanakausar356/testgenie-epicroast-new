@@ -4353,11 +4353,12 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         """
         Generate concise refinement guidance for Jira tickets following specific requirements.
         
-        Rules:
-        - No Given/When/Then generation
-        - No grooming checklist, dependencies/blockers, sprint readiness scores, or improvement suggestions
-        - Keep answers short, in UK spelling, bullet-based where possible
-        - Output should be ≤ 300 words
+        Updated Rules:
+        - Analyse actual content from Jira fields, not assumptions
+        - Provide field-specific improvements, not generic suggestions
+        - Only include ADA section if accessibility is explicitly mentioned
+        - Move Definition of Ready to the end
+        - Eliminate repetition and generic placeholders
         """
         try:
             if not self.client:
@@ -4387,21 +4388,40 @@ Provide a 2-3 sentence summary of what this ticket is about.
             
             # If simple prompt works, try the full analysis
             prompt = f"""
-You are a professional Jira ticket refinement specialist. Provide concise refinement guidance following these strict rules:
+You are a professional Jira ticket refinement specialist. Provide concise refinement guidance following these precise rules:
 
-**Core Rules:**
-- Do NOT generate Given/When/Then statements
-- Do NOT include grooming checklist, dependencies/blockers, sprint readiness scores, or improvement suggestions
-- Keep answers short, in UK spelling, bullet-based where possible
-- Output should be ≤ 300 words total
+**Core Analysis Rules:**
+- Analyse ONLY what is actually present in the Jira ticket content
+- Do NOT make assumptions about missing content unless explicitly stated
+- Provide field-specific improvements, not generic suggestions
+- Eliminate repetition across sections
 
-**Focus Areas:**
-1. **Ticket Summary** - 1–2 lines of story/bug context
-2. **Key Gaps (Acceptance Criteria)** - Call out missing/unclear AC, rephrase vague AC into intent-based statements, or give 1–2 short example AC if missing
-3. **Definition of Ready Gaps** - List missing essentials: AC, design links, PO sign-off, data/env/config notes
-4. **Questions to Ask** - Short, direct clarifications for PO/Dev/QA to unblock
-5. **Test Scenarios (High-Level)** - Happy paths, negative/error cases, risk-based checks, cross-browser/device coverage
-6. **ADA / Accessibility (If Applicable)** - Screen reader/ARIA, focus order/keyboard navigation, labelling, contrast
+**Acceptance Criteria Handling:**
+- If AC section exists (any naming), do NOT say it's missing
+- Analyse and suggest improvements to existing AC (edge cases, testable outcomes, measurable results)
+- Call out vague phrases like "match Figma" as needing clarity
+
+**User Story Analysis:**
+- If user story is provided, do NOT mark as missing
+- Suggest improvements only if business value is unclear or persona is generic
+- Do NOT include business value assumptions in summary
+
+**Test Scenarios Section:**
+- Look for dedicated "Test Scenarios" field in Jira content
+- Output actual high-level test scenarios, not just coverage types
+- Do NOT say "Test Scenarios missing" if field exists; assess and improve instead
+
+**Questions Section:**
+- Base questions on content from Jira Description field
+- Add QA-focused questions about edge cases, performance, error flows
+
+**Accessibility (ADA) Analysis:**
+- Only evaluate if AC references accessibility explicitly OR test scenarios imply ADA
+- Do NOT include ADA section if unrelated
+
+**Definition of Ready:**
+- Move to the end of the report
+- Only highlight what remains (missing test cases, no design signoff)
 
 **Output Format (always use this exact format):**
 ```
@@ -4413,9 +4433,6 @@ You are a professional Jira ticket refinement specialist. Provide concise refine
 ## Key Gaps (Acceptance Criteria)
 ...
 
-## Definition of Ready Gaps
-...
-
 ## Questions to Ask
 ...
 
@@ -4423,6 +4440,9 @@ You are a professional Jira ticket refinement specialist. Provide concise refine
 ...
 
 ## ADA / Accessibility (If Applicable)
+...
+
+## Definition of Ready Gaps
 ...
 ```
 
@@ -4435,7 +4455,7 @@ Analyse this ticket and provide concise refinement guidance following the rules 
             response = self.client.chat.completions.create(
                 model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
                 messages=[
-                    {"role": "system", "content": "You are a professional Jira ticket refinement specialist who provides concise, actionable guidance."},
+                    {"role": "system", "content": "You are a professional Jira ticket refinement specialist who provides concise, actionable guidance based on actual content."},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=800
@@ -4459,6 +4479,7 @@ Analyse this ticket and provide concise refinement guidance following the rules 
     def _generate_fallback_analysis(self, ticket_content: str) -> str:
         """
         Generate a basic groom analysis without AI when the model is unavailable.
+        Updated to follow the new analysis rules.
         """
         try:
             # Extract basic information from the ticket content
@@ -4466,6 +4487,8 @@ Analyse this ticket and provide concise refinement guidance following the rules 
             summary = ""
             description = ""
             acceptance_criteria = []
+            test_scenarios = []
+            has_accessibility = False
             
             current_section = ""
             for line in lines:
@@ -4481,12 +4504,19 @@ Analyse this ticket and provide concise refinement guidance following the rules 
                     description = line.split(":", 1)[1].strip() if ":" in line else line
                 elif "acceptance criteria:" in line.lower():
                     current_section = "ac"
+                elif "test scenarios:" in line.lower():
+                    current_section = "test_scenarios"
                 elif current_section == "ac" and line.startswith("-"):
                     acceptance_criteria.append(line[1:].strip())
+                    # Check for accessibility mentions in AC
+                    if any(term in line.lower() for term in ["accessibility", "ada", "screen reader", "aria", "keyboard"]):
+                        has_accessibility = True
+                elif current_section == "test_scenarios" and line.startswith("-"):
+                    test_scenarios.append(line[1:].strip())
                 elif current_section == "description" and description:
                     description += " " + line
             
-            # Generate basic analysis
+            # Generate improved analysis
             analysis = """# Groom Analysis
 
 ## Ticket Summary
@@ -4506,42 +4536,80 @@ Analyse this ticket and provide concise refinement guidance following the rules 
 """
             
             if acceptance_criteria:
-                analysis += "- Acceptance criteria present but may need refinement\n"
+                analysis += "- Acceptance criteria present - review for clarity and testability\n"
+                # Check for vague phrases
+                vague_phrases = []
+                for ac in acceptance_criteria:
+                    if any(phrase in ac.lower() for phrase in ["match figma", "as designed", "like the mockup"]):
+                        vague_phrases.append(ac)
+                
+                if vague_phrases:
+                    analysis += "- Vague phrases found that need clarification:\n"
+                    for phrase in vague_phrases[:2]:  # Limit to 2 examples
+                        analysis += f"  • \"{phrase[:50]}...\" - needs specific requirements\n"
             else:
                 analysis += "- Missing acceptance criteria\n"
-                analysis += "- Need clear, testable criteria\n"
-            
-            analysis += """
-## Definition of Ready Gaps
-- Verify acceptance criteria are clear and testable
-- Ensure design links or mockups are available
-- Confirm PO sign-off on requirements
-- Check for data/environment configuration notes
-"""
+                analysis += "- Need clear, testable criteria with measurable outcomes\n"
             
             analysis += """
 ## Questions to Ask
-- What is the business value of this feature?
-- Are there any dependencies or blockers?
-- What is the definition of done?
-- Are there any performance or security considerations?
 """
+            
+            # Generate questions based on actual content
+            if description:
+                analysis += "- What are the specific business requirements?\n"
+                analysis += "- Are there any edge cases not covered?\n"
+            
+            if acceptance_criteria:
+                analysis += "- Are all acceptance criteria testable and measurable?\n"
+                analysis += "- What are the performance expectations?\n"
+            
+            analysis += "- What are the error handling requirements?\n"
+            analysis += "- Are there any dependencies or blockers?\n"
             
             analysis += """
 ## Test Scenarios (High-Level)
-- Happy path testing
-- Error handling and edge cases
-- Cross-browser/device compatibility
-- Accessibility testing (if applicable)
+"""
+            
+            if test_scenarios:
+                analysis += "- Test scenarios present - review for completeness:\n"
+                for scenario in test_scenarios[:3]:  # Show first 3 scenarios
+                    analysis += f"  • {scenario}\n"
+            else:
+                analysis += "- Happy path testing\n"
+                analysis += "- Error handling and edge cases\n"
+                analysis += "- Cross-browser/device compatibility\n"
+            
+            # Only include ADA section if accessibility is mentioned
+            if has_accessibility:
+                analysis += """
+## ADA / Accessibility (If Applicable)
+- Screen reader compatibility requirements identified
+- Keyboard navigation support needed
+- Proper labelling and ARIA attributes required
+- Colour contrast requirements to be verified
 """
             
             analysis += """
-## ADA / Accessibility (If Applicable)
-- Screen reader compatibility
-- Keyboard navigation support
-- Proper labelling and ARIA attributes
-- Colour contrast requirements
+## Definition of Ready Gaps
 """
+            
+            # Only highlight what's actually missing
+            missing_items = []
+            if not acceptance_criteria:
+                missing_items.append("Acceptance criteria")
+            if not test_scenarios:
+                missing_items.append("Test scenarios")
+            if not any("design" in line.lower() or "figma" in line.lower() for line in lines):
+                missing_items.append("Design links/mockups")
+            
+            if missing_items:
+                analysis += "- Missing: " + ", ".join(missing_items) + "\n"
+            else:
+                analysis += "- All major components present - ready for refinement\n"
+            
+            analysis += "- Confirm PO sign-off on requirements\n"
+            analysis += "- Verify data/environment configuration notes\n"
             
             return analysis
             
@@ -4555,10 +4623,6 @@ Analyse this ticket and provide concise refinement guidance following the rules 
 - Ticket content parsing failed
 - Manual review required
 
-## Definition of Ready Gaps
-- Content format needs verification
-- Manual analysis recommended
-
 ## Questions to Ask
 - Is the ticket content properly formatted?
 - Are all required fields present?
@@ -4567,6 +4631,7 @@ Analyse this ticket and provide concise refinement guidance following the rules 
 - Manual review of ticket content
 - Verify all requirements are clear
 
-## ADA / Accessibility (If Applicable)
-- Review accessibility requirements manually
+## Definition of Ready Gaps
+- Content format needs verification
+- Manual analysis recommended
 """
