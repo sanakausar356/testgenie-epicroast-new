@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Simple TestGenie Deployment Script
-Works on Windows and provides detailed output
+Deploy TestGenie - Complete Deployment Script
+Deploys both frontend (Vercel) and backend (Railway)
 """
 
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 def run_command(command, cwd=None):
@@ -30,48 +31,65 @@ def run_command(command, cwd=None):
         print(f"❌ Error: {e.stderr}")
         return None
 
-def check_tools():
-    """Check if required tools are available"""
-    print("🔍 Checking tools...")
+def check_prerequisites():
+    """Check if all prerequisites are installed"""
+    print("🔍 Checking prerequisites...")
     
-    tools = {
-        "Node.js": "node --version",
-        "npm": "npm --version", 
-        "Python": "python --version"
-    }
+    # Check Node.js
+    try:
+        result = subprocess.run(["node", "--version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ Node.js: {result.stdout.strip()}")
+        else:
+            print("❌ Node.js not found")
+            return False
+    except FileNotFoundError:
+        print("❌ Node.js not found")
+        return False
     
-    all_good = True
-    for tool_name, command in tools.items():
-        try:
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"✅ {tool_name}: {result.stdout.strip()}")
-            else:
-                print(f"❌ {tool_name}: Not found")
-                all_good = False
-        except Exception as e:
-            print(f"❌ {tool_name}: Error - {e}")
-            all_good = False
+    # Check npm
+    try:
+        result = subprocess.run(["npm", "--version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ npm: {result.stdout.strip()}")
+        else:
+            print("❌ npm not found")
+            return False
+    except FileNotFoundError:
+        print("❌ npm not found")
+        return False
     
-    return all_good
+    # Check Python
+    try:
+        result = subprocess.run(["python", "--version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ Python: {result.stdout.strip()}")
+        else:
+            print("❌ Python not found")
+            return False
+    except FileNotFoundError:
+        print("❌ Python not found")
+        return False
+    
+    return True
 
 def install_cli_tools():
-    """Install Vercel and Railway CLI"""
+    """Install required CLI tools"""
     print("📦 Installing CLI tools...")
     
-    tools = [
-        ("Vercel CLI", "npm install -g vercel"),
-        ("Railway CLI", "npm install -g @railway/cli")
-    ]
+    # Install Vercel CLI
+    print("Installing Vercel CLI...")
+    if not run_command("npm install -g vercel"):
+        print("❌ Failed to install Vercel CLI")
+        return False
     
-    for tool_name, command in tools:
-        print(f"Installing {tool_name}...")
-        if run_command(command):
-            print(f"✅ {tool_name} installed successfully")
-        else:
-            print(f"❌ Failed to install {tool_name}")
-            return False
+    # Install Railway CLI
+    print("Installing Railway CLI...")
+    if not run_command("npm install -g @railway/cli"):
+        print("❌ Failed to install Railway CLI")
+        return False
     
+    print("✅ All CLI tools installed successfully")
     return True
 
 def deploy_backend():
@@ -102,12 +120,21 @@ restartPolicyType = "on_failure"
 """
             with open("railway.toml", "w") as f:
                 f.write(railway_config)
-            print("✅ Created railway.toml")
         
         # Deploy to Railway
-        print("Deploying to Railway...")
         if run_command("railway up --detach"):
             print("✅ Backend deployed successfully to Railway")
+            
+            # Wait a moment for deployment to complete
+            time.sleep(5)
+            
+            # Get the Railway URL
+            print("Getting Railway deployment URL...")
+            status_result = run_command("railway status")
+            if status_result:
+                print("Railway deployment status:")
+                print(status_result)
+            
             return True
         else:
             print("❌ Failed to deploy backend to Railway")
@@ -132,19 +159,16 @@ def deploy_frontend():
     
     try:
         # Install dependencies
-        print("Installing frontend dependencies...")
         if not run_command("npm install"):
             print("❌ Failed to install frontend dependencies")
             return False
         
         # Build the project
-        print("Building frontend...")
         if not run_command("npm run build"):
             print("❌ Failed to build frontend")
             return False
         
         # Deploy to Vercel
-        print("Deploying to Vercel...")
         if run_command("vercel --prod --yes"):
             print("✅ Frontend deployed successfully to Vercel")
             return True
@@ -156,14 +180,32 @@ def deploy_frontend():
         # Return to original directory
         os.chdir(original_dir)
 
+def update_api_url():
+    """Update the API URL in vercel.json with the new Railway URL"""
+    print("🔧 Updating API URL in vercel.json...")
+    
+    # Get Railway URL
+    backend_dir = Path("backend")
+    if backend_dir.exists():
+        os.chdir(backend_dir)
+        try:
+            status_result = run_command("railway status")
+            if status_result:
+                # Extract URL from status (this is a simplified approach)
+                # In practice, you'd need to parse the output more carefully
+                print("Please manually update the API URL in frontend/vercel.json")
+                print("with your Railway deployment URL")
+        finally:
+            os.chdir("..")
+
 def main():
     """Main deployment function"""
-    print("🚀 Starting TestGenie Deployment")
+    print("🚀 Starting TestGenie Complete Deployment")
     print("=" * 50)
     
-    # Check tools
-    if not check_tools():
-        print("❌ Required tools not found. Please install Node.js, npm, and Python")
+    # Check prerequisites
+    if not check_prerequisites():
+        print("❌ Prerequisites not met. Please install Node.js, npm, and Python")
         sys.exit(1)
     
     # Install CLI tools
@@ -183,6 +225,10 @@ def main():
         print("❌ Frontend deployment failed")
         sys.exit(1)
     
+    # Update API URL
+    print("\n" + "=" * 50)
+    update_api_url()
+    
     print("\n🎉 Deployment completed successfully!")
     print("\nNext steps:")
     print("1. ✅ Backend deployed on Railway")
@@ -198,4 +244,4 @@ def main():
     print("\nYour application should now be live!")
 
 if __name__ == "__main__":
-    main() 
+    main()

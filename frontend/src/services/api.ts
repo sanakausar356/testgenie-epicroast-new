@@ -73,7 +73,9 @@ export const generateGroom = async (request: GroomRoomRequest): Promise<ApiRespo
       timestamp
     }
     
-    const response = await fetch(`${API_BASE_URL}/groomroom/generate`, {
+    console.log('API: Making request to /groomroom/concise with:', requestWithTimestamp)
+    
+    const response = await fetch(`${API_BASE_URL}/groomroom/concise`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -84,8 +86,14 @@ export const generateGroom = async (request: GroomRoomRequest): Promise<ApiRespo
       body: JSON.stringify(requestWithTimestamp),
     })
     
-    return await response.json()
+    console.log('API: Response status:', response.status)
+    
+    const responseData = await response.json()
+    console.log('API: Response data:', responseData)
+    
+    return responseData
   } catch (error) {
+    console.error('API: Error in generateGroom:', error)
     return {
       success: false,
       error: 'Network error occurred'

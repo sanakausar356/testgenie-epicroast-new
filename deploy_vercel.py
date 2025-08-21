@@ -1,83 +1,113 @@
 #!/usr/bin/env python3
 """
-Vercel Deployment Script for Enhanced Groom Room Agent
+Deploy TestGenie to Vercel
 """
 
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 def run_command(command, cwd=None):
     """Run a command and return the result"""
+    print(f"Running: {command}")
+    if cwd:
+        print(f"Working directory: {cwd}")
+    
     try:
         result = subprocess.run(
-            command, 
-            shell=True, 
+            command,
+            shell=True,
             cwd=cwd,
-            capture_output=True, 
-            text=True, 
+            capture_output=True,
+            text=True,
             check=True
         )
-        return result.stdout.strip()
+        print(f"✅ Success: {result.stdout}")
+        return result.stdout
     except subprocess.CalledProcessError as e:
-        print(f"Error running command '{command}': {e}")
-        print(f"Error output: {e.stderr}")
+        print(f"❌ Error: {e.stderr}")
         return None
 
-def main():
-    print("🚀 Vercel Deployment for Enhanced Groom Room Agent")
-    print("=" * 60)
+def check_vercel_cli():
+    """Check if Vercel CLI is installed"""
+    try:
+        result = subprocess.run(
+            ["vercel", "--version"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            print(f"✅ Vercel CLI found: {result.stdout.strip()}")
+            return True
+        else:
+            print("❌ Vercel CLI not found")
+            return False
+    except FileNotFoundError:
+        print("❌ Vercel CLI not found")
+        return False
+
+def install_vercel_cli():
+    """Install Vercel CLI"""
+    print("Installing Vercel CLI...")
+    if run_command("npm install -g vercel"):
+        print("✅ Vercel CLI installed successfully")
+        return True
+    else:
+        print("❌ Failed to install Vercel CLI")
+        return False
+
+def deploy_frontend():
+    """Deploy frontend to Vercel"""
+    frontend_dir = Path("frontend")
     
-    # Check if we're in the right directory
-    current_dir = os.getcwd()
-    print(f"Current directory: {current_dir}")
-    
-    # Check if frontend directory exists
-    frontend_dir = os.path.join(current_dir, "frontend")
-    if not os.path.exists(frontend_dir):
+    if not frontend_dir.exists():
         print("❌ Frontend directory not found")
-        return
+        return False
     
-    print("✅ Frontend directory found")
+    print("🚀 Deploying frontend to Vercel...")
     
-    # Check Vercel CLI
-    print("\n🔍 Checking Vercel CLI...")
-    vercel_version = run_command("vercel --version")
-    if vercel_version:
-        print(f"✅ Vercel CLI version: {vercel_version}")
-    else:
-        print("❌ Vercel CLI not found or not working")
-        return
+    # Change to frontend directory
+    os.chdir(frontend_dir)
     
-    # Check current Vercel project
-    print("\n🔍 Checking Vercel project status...")
-    vercel_status = run_command("vercel ls")
-    if vercel_status:
-        print("✅ Vercel project status:")
-        print(vercel_status)
-    else:
-        print("❌ Could not get Vercel project status")
+    # Install dependencies
+    if not run_command("npm install"):
+        print("❌ Failed to install frontend dependencies")
+        return False
     
-    # Build frontend
-    print("\n🔨 Building frontend...")
-    build_result = run_command("npm run build", cwd=frontend_dir)
-    if build_result:
-        print("✅ Frontend build successful")
-    else:
-        print("❌ Frontend build failed")
-        return
+    # Build the project
+    if not run_command("npm run build"):
+        print("❌ Failed to build frontend")
+        return False
     
     # Deploy to Vercel
-    print("\n🚀 Deploying to Vercel...")
-    deploy_result = run_command("vercel --prod", cwd=frontend_dir)
-    if deploy_result:
-        print("✅ Deployment successful!")
-        print("Deployment output:")
-        print(deploy_result)
+    if run_command("vercel --prod --yes"):
+        print("✅ Frontend deployed successfully to Vercel")
+        return True
+    else:
+        print("❌ Failed to deploy frontend to Vercel")
+        return False
+
+def main():
+    """Main deployment function"""
+    print("🚀 Starting TestGenie Vercel Deployment")
+    
+    # Check if Vercel CLI is installed
+    if not check_vercel_cli():
+        if not install_vercel_cli():
+            print("❌ Cannot proceed without Vercel CLI")
+            sys.exit(1)
+    
+    # Deploy frontend
+    if deploy_frontend():
+        print("🎉 Deployment completed successfully!")
+        print("\nNext steps:")
+        print("1. Your frontend is now deployed on Vercel")
+        print("2. The backend should be deployed separately (Railway/Render/Heroku)")
+        print("3. Update the API URL in vercel.json if needed")
     else:
         print("❌ Deployment failed")
-    
-    print("\n🎉 Deployment process completed!")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

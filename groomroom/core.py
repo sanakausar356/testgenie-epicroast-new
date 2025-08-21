@@ -4348,3 +4348,225 @@ You must read and analyze ALL available Jira fields in the ticket content, inclu
         assert isinstance(context['figma_link_found'], bool), "Figma link found flag must be boolean"
         
         return context
+
+    def generate_concise_groom_analysis(self, ticket_content: str) -> str:
+        """
+        Generate concise refinement guidance for Jira tickets following specific requirements.
+        
+        Rules:
+        - No Given/When/Then generation
+        - No grooming checklist, dependencies/blockers, sprint readiness scores, or improvement suggestions
+        - Keep answers short, in UK spelling, bullet-based where possible
+        - Output should be ≤ 300 words
+        """
+        try:
+            if not self.client:
+                return self._generate_fallback_analysis(ticket_content)
+            
+            # Try a simpler prompt first to test if the model is working
+            simple_prompt = f"""
+Analyse this Jira ticket and provide a brief summary:
+
+{ticket_content}
+
+Provide a 2-3 sentence summary of what this ticket is about.
+"""
+
+            # Test with simple prompt first
+            test_response = self.client.chat.completions.create(
+                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                messages=[
+                    {"role": "user", "content": simple_prompt}
+                ],
+                max_completion_tokens=100
+            )
+            
+            if not test_response.choices or not test_response.choices[0].message.content:
+                console.print("[red]Azure OpenAI model is returning empty responses. Using fallback analysis.[/red]")
+                return self._generate_fallback_analysis(ticket_content)
+            
+            # If simple prompt works, try the full analysis
+            prompt = f"""
+You are a professional Jira ticket refinement specialist. Provide concise refinement guidance following these strict rules:
+
+**Core Rules:**
+- Do NOT generate Given/When/Then statements
+- Do NOT include grooming checklist, dependencies/blockers, sprint readiness scores, or improvement suggestions
+- Keep answers short, in UK spelling, bullet-based where possible
+- Output should be ≤ 300 words total
+
+**Focus Areas:**
+1. **Ticket Summary** - 1–2 lines of story/bug context
+2. **Key Gaps (Acceptance Criteria)** - Call out missing/unclear AC, rephrase vague AC into intent-based statements, or give 1–2 short example AC if missing
+3. **Definition of Ready Gaps** - List missing essentials: AC, design links, PO sign-off, data/env/config notes
+4. **Questions to Ask** - Short, direct clarifications for PO/Dev/QA to unblock
+5. **Test Scenarios (High-Level)** - Happy paths, negative/error cases, risk-based checks, cross-browser/device coverage
+6. **ADA / Accessibility (If Applicable)** - Screen reader/ARIA, focus order/keyboard navigation, labelling, contrast
+
+**Output Format (always use this exact format):**
+```
+# Groom Analysis
+
+## Ticket Summary
+...
+
+## Key Gaps (Acceptance Criteria)
+...
+
+## Definition of Ready Gaps
+...
+
+## Questions to Ask
+...
+
+## Test Scenarios (High-Level)
+...
+
+## ADA / Accessibility (If Applicable)
+...
+```
+
+**Jira Ticket Content:**
+{ticket_content}
+
+Analyse this ticket and provide concise refinement guidance following the rules above.
+"""
+
+            response = self.client.chat.completions.create(
+                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                messages=[
+                    {"role": "system", "content": "You are a professional Jira ticket refinement specialist who provides concise, actionable guidance."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_completion_tokens=800
+            )
+            
+            if response and hasattr(response, 'choices') and response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content.strip()
+                if content:
+                    return content
+                else:
+                    console.print("[red]Azure OpenAI returned empty content for full analysis. Using fallback.[/red]")
+                    return self._generate_fallback_analysis(ticket_content)
+            else:
+                console.print(f"[red]Unexpected response format: {response}. Using fallback.[/red]")
+                return self._generate_fallback_analysis(ticket_content)
+            
+        except Exception as e:
+            console.print(f"[red]Error generating concise groom analysis: {e}. Using fallback.[/red]")
+            return self._generate_fallback_analysis(ticket_content)
+    
+    def _generate_fallback_analysis(self, ticket_content: str) -> str:
+        """
+        Generate a basic groom analysis without AI when the model is unavailable.
+        """
+        try:
+            # Extract basic information from the ticket content
+            lines = ticket_content.split('\n')
+            summary = ""
+            description = ""
+            acceptance_criteria = []
+            
+            current_section = ""
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                if "summary:" in line.lower():
+                    current_section = "summary"
+                    summary = line.split(":", 1)[1].strip() if ":" in line else line
+                elif "description:" in line.lower():
+                    current_section = "description"
+                    description = line.split(":", 1)[1].strip() if ":" in line else line
+                elif "acceptance criteria:" in line.lower():
+                    current_section = "ac"
+                elif current_section == "ac" and line.startswith("-"):
+                    acceptance_criteria.append(line[1:].strip())
+                elif current_section == "description" and description:
+                    description += " " + line
+            
+            # Generate basic analysis
+            analysis = """# Groom Analysis
+
+## Ticket Summary
+"""
+            
+            if summary:
+                analysis += f"- {summary}\n"
+            elif description:
+                # Extract first sentence from description
+                first_sentence = description.split('.')[0] + '.' if '.' in description else description
+                analysis += f"- {first_sentence}\n"
+            else:
+                analysis += "- Ticket requires summary and description\n"
+            
+            analysis += """
+## Key Gaps (Acceptance Criteria)
+"""
+            
+            if acceptance_criteria:
+                analysis += "- Acceptance criteria present but may need refinement\n"
+            else:
+                analysis += "- Missing acceptance criteria\n"
+                analysis += "- Need clear, testable criteria\n"
+            
+            analysis += """
+## Definition of Ready Gaps
+- Verify acceptance criteria are clear and testable
+- Ensure design links or mockups are available
+- Confirm PO sign-off on requirements
+- Check for data/environment configuration notes
+"""
+            
+            analysis += """
+## Questions to Ask
+- What is the business value of this feature?
+- Are there any dependencies or blockers?
+- What is the definition of done?
+- Are there any performance or security considerations?
+"""
+            
+            analysis += """
+## Test Scenarios (High-Level)
+- Happy path testing
+- Error handling and edge cases
+- Cross-browser/device compatibility
+- Accessibility testing (if applicable)
+"""
+            
+            analysis += """
+## ADA / Accessibility (If Applicable)
+- Screen reader compatibility
+- Keyboard navigation support
+- Proper labelling and ARIA attributes
+- Colour contrast requirements
+"""
+            
+            return analysis
+            
+        except Exception as e:
+            return f"""# Groom Analysis
+
+## Ticket Summary
+- Unable to parse ticket content due to error: {str(e)}
+
+## Key Gaps (Acceptance Criteria)
+- Ticket content parsing failed
+- Manual review required
+
+## Definition of Ready Gaps
+- Content format needs verification
+- Manual analysis recommended
+
+## Questions to Ask
+- Is the ticket content properly formatted?
+- Are all required fields present?
+
+## Test Scenarios (High-Level)
+- Manual review of ticket content
+- Verify all requirements are clear
+
+## ADA / Accessibility (If Applicable)
+- Review accessibility requirements manually
+"""

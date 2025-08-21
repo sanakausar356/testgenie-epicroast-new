@@ -55,13 +55,18 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
     setValidationError('')
     
     try {
+      console.log('Calling generateGroom with:', { ticket_number: ticketNumber, ticket_content: ticketContent, level })
+      
       const response = await generateGroom({
         ticket_number: ticketNumber,
         ticket_content: ticketContent,
         level
       })
       
+      console.log('Response received:', response)
+      
       if (response.success) {
+        console.log('Setting results to:', response.data.groom)
         setResults(response.data.groom)
         if (ticketNumber) {
           setSharedTicketNumber(ticketNumber)
@@ -69,9 +74,11 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
         setShowSuccess(true)
         setTimeout(() => setShowSuccess(false), 3000)
       } else {
+        console.log('Error in response:', response.error)
         setError(response.error || 'Failed to generate groom analysis')
       }
     } catch (err) {
+      console.error('Exception in handleGenerate:', err)
       setError('An error occurred while generating groom analysis')
     } finally {
       setIsLoading(false)
