@@ -16,7 +16,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
 }) => {
   const [ticketNumber, setTicketNumber] = useState(sharedTicketNumber)
   const [ticketContent, setTicketContent] = useState('')
-  const [level, setLevel] = useState('default')
+  const [level, setLevel] = useState('updated')
   const [results, setResults] = useState('')
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
@@ -106,6 +106,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
 
   const getLevelIcon = (level: string) => {
     switch (level) {
+      case 'updated': return '🔄'
       case 'strict': return '🔒'
       case 'light': return '💡'
       case 'default': return '📊'
@@ -236,6 +237,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             onChange={(e) => setLevel(e.target.value)}
             className="beach-input w-full"
           >
+            <option value="updated">🔄 Updated (QA Refinement)</option>
             <option value="strict">🔒 Strict</option>
             <option value="light">💡 Light</option>
             <option value="default">📊 Default</option>
@@ -245,6 +247,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             <option value="summary">📝 Summary</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">
+            {level === 'updated' && 'QA Refinement Assistant: concise, story-specific, refinement-ready analysis'}
             {level === 'strict' && 'Zero tolerance: enforce ALL Definition of Ready requirements'}
             {level === 'light' && 'Flexible approach: focus on critical elements with reasonable flexibility'}
             {level === 'default' && 'Balanced mix of feedback and gentle tone'}

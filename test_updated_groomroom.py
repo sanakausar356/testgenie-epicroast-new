@@ -1,122 +1,119 @@
 #!/usr/bin/env python3
 """
-Test script for updated GroomRoom functionality
+Test script for the updated Groom Room implementation
 """
 
 import os
 import sys
-from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
-
-# Add current directory to path
+# Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from groomroom.core import GroomRoom
+from rich.console import Console
+
+console = Console()
+
 def test_updated_groomroom():
-    """Test the updated groomroom functionality"""
+    """Test the updated Groom Room implementation"""
     
-    # Test case 1: Ticket with AC and accessibility
-    test_ticket_1 = """
-    Summary: Add password reset functionality to user account page
-    
-    Description:
-    As a user, I want to be able to reset my password when I forget it, so that I can regain access to my account.
-    
-    Acceptance Criteria:
-    - User can click "Forgot Password" link
-    - User receives email with reset link
-    - User can set new password via reset link
-    - Password meets security requirements
-    - Screen reader announces password reset status
-    - Keyboard navigation works for all form elements
-    
-    Test Scenarios:
-    - User clicks ATC on PLP → PDP loads
-    - Missing image on PDP → fallback message appears
-    - ATC button not visible on out-of-stock item
-    """
-    
-    # Test case 2: Ticket with vague AC
-    test_ticket_2 = """
-    Summary: Update product listing page design
-    
-    Description:
-    As a user, I want to see an improved product listing page so that I can find products more easily.
-    
-    Acceptance Criteria:
-    - Product cards match Figma design
-    - Layout looks like the mockup
-    - User can click on products
+    # Sample Jira ticket content for testing
+    sample_ticket = """
+Title: Add ClearPay payment option for EMEA checkout
+Description: As a customer in EMEA regions, I want to see ClearPay as a payment option during checkout so that I can use this preferred payment method.
+
+Acceptance Criteria:
+- ClearPay option appears in payment methods for EMEA brands
+- ClearPay integration works with existing payment flow
+- Error handling for failed ClearPay transactions
+
+Components: Checkout, Payment
+Brands: EMEA
+Story Points: 5
     """
     
     try:
-        from groomroom.core import GroomRoom
-        
-        print("🧹 Testing Updated GroomRoom Functionality")
-        print("="*60)
+        console.print("[blue]Testing Updated Groom Room Implementation...[/blue]")
         
         # Initialize GroomRoom
         groomroom = GroomRoom()
         
-        print(f"✅ GroomRoom initialized: {groomroom is not None}")
+        if not groomroom.client:
+            console.print("[red]Error: GroomRoom not properly configured. Check environment variables.[/red]")
+            return False
         
-        # Test case 1: Ticket with AC and accessibility
-        print("\n🔍 Test Case 1: Ticket with AC and accessibility")
-        print("-" * 40)
-        analysis_1 = groomroom.generate_concise_groom_analysis(test_ticket_1)
-        
-        print(f"✅ Analysis generated: {len(analysis_1)} characters")
-        print(f"✅ Contains 'ADA / Accessibility': {'ADA / Accessibility' in analysis_1}")
-        print(f"✅ Definition of Ready at end: {'Definition of Ready Gaps' in analysis_1.split('##')[-1]}")
-        
-        # Test case 2: Ticket with vague AC
-        print("\n🔍 Test Case 2: Ticket with vague AC")
-        print("-" * 40)
-        analysis_2 = groomroom.generate_concise_groom_analysis(test_ticket_2)
-        
-        print(f"✅ Analysis generated: {len(analysis_2)} characters")
-        print(f"✅ Contains 'match Figma': {'match Figma' in analysis_2 or 'Figma' in analysis_2}")
-        print(f"✅ No ADA section (not accessibility related): {'ADA / Accessibility' not in analysis_2}")
-        
-        # Check for improvements
-        print("\n📊 Analysis Quality Check:")
-        print("-" * 40)
-        
-        # Check for generic phrases that should be avoided
-        generic_phrases = ["AC is missing", "add AC", "define test cases"]
-        for phrase in generic_phrases:
-            if phrase in analysis_1 or phrase in analysis_2:
-                print(f"❌ Found generic phrase: '{phrase}'")
-            else:
-                print(f"✅ No generic phrase: '{phrase}'")
-        
-        # Check for field-specific content
-        if "Test scenarios present" in analysis_1:
-            print("✅ Found field-specific test scenario analysis")
+        # Test the updated system prompt
+        console.print("[green]✅ Testing updated system prompt...[/green]")
+        updated_prompt = groomroom.get_updated_groom_room_system_prompt()
+        if "QA Refinement Assistant" in updated_prompt:
+            console.print("[green]✅ Updated system prompt generated successfully[/green]")
         else:
-            print("❌ Missing field-specific test scenario analysis")
+            console.print("[red]❌ Updated system prompt not generated correctly[/red]")
+            return False
         
-        if "Vague phrases found" in analysis_2:
-            print("✅ Found vague phrase detection")
+        # Test the updated analysis
+        console.print("[green]✅ Testing updated analysis generation...[/green]")
+        analysis = groomroom.generate_updated_groom_analysis(sample_ticket)
+        
+        if analysis and len(analysis) > 100:
+            console.print("[green]✅ Updated analysis generated successfully[/green]")
+            console.print(f"[blue]Analysis length: {len(analysis)} characters[/blue]")
+            
+            # Check for expected sections
+            expected_sections = [
+                "Ticket Summary",
+                "Acceptance Criteria",
+                "Questions to Clarify",
+                "High-Level Test Scenarios",
+                "Observability & Evidence Plan",
+                "Definition of Ready Gate"
+            ]
+            
+            found_sections = []
+            for section in expected_sections:
+                if section in analysis:
+                    found_sections.append(section)
+            
+            console.print(f"[blue]Found {len(found_sections)}/{len(expected_sections)} expected sections[/blue]")
+            for section in found_sections:
+                console.print(f"  ✅ {section}")
+            
+            for section in expected_sections:
+                if section not in found_sections:
+                    console.print(f"  ❌ {section} (missing)")
+            
+            # Display a preview of the analysis
+            console.print("\n[bold blue]Analysis Preview:[/bold blue]")
+            preview_lines = analysis.split('\n')[:20]
+            for line in preview_lines:
+                console.print(line)
+            
+            if len(analysis.split('\n')) > 20:
+                console.print("...")
+            
         else:
-            print("❌ Missing vague phrase detection")
+            console.print("[red]❌ Updated analysis generation failed[/red]")
+            return False
         
+        # Test the level-based analysis
+        console.print("[green]✅ Testing level-based analysis...[/green]")
+        level_analysis = groomroom.generate_groom_analysis(sample_ticket, level="updated")
+        
+        if level_analysis and len(level_analysis) > 100:
+            console.print("[green]✅ Level-based analysis works correctly[/green]")
+        else:
+            console.print("[red]❌ Level-based analysis failed[/red]")
+            return False
+        
+        console.print("\n[bold green]🎉 All tests passed! Updated Groom Room implementation is working correctly.[/bold green]")
         return True
         
     except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
+        console.print(f"[red]❌ Test failed with error: {e}[/red]")
+        console.print(f"[red]Error type: {type(e).__name__}[/red]")
         return False
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     success = test_updated_groomroom()
-    
-    print("\n" + "="*60)
-    print(f"TEST RESULT: {'✅ PASS' if success else '❌ FAIL'}")
-    
-    if success:
-        print("🎉 Updated GroomRoom functionality is working correctly!")
-    else:
-        print("🔧 Updated GroomRoom functionality needs attention")
+    sys.exit(0 if success else 1)

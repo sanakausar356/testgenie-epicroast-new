@@ -50,12 +50,20 @@ class JiraIntegration:
             auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
             self.auth_header = f"Basic {auth_b64}"
             
-            # Test connection
-            self._test_connection()
-            console.print("[green]✅ Jira connection successful[/green]")
+            # Test connection (non-blocking)
+            try:
+                self._test_connection()
+                console.print("[green]✅ Jira connection successful[/green]")
+            except Exception as e:
+                console.print(f"[yellow]Warning: Jira connection test failed: {e}[/yellow]")
+                console.print("[yellow]Jira integration will be limited[/yellow]")
             
-            # Fetch field mappings
-            self._fetch_field_mappings()
+            # Fetch field mappings (non-blocking)
+            try:
+                self._fetch_field_mappings()
+            except Exception as e:
+                console.print(f"[yellow]Warning: Field mapping fetch failed: {e}[/yellow]")
+                self.field_mappings = {}
             
         except Exception as e:
             console.print(f"[red]Error setting up Jira client: {e}[/red]")
@@ -166,7 +174,7 @@ class JiraIntegration:
             'Accept': 'application/json'
         }
         
-        response = requests.get(f"{self.base_url}/rest/api/3/myself", headers=headers)
+        response = requests.get(f"{self.base_url}/rest/api/3/myself", headers=headers, timeout=5)
         response.raise_for_status()
     
     def is_available(self) -> bool:
@@ -232,7 +240,7 @@ class JiraIntegration:
         }
         
         try:
-            response = requests.get(f"{self.base_url}{endpoint}", headers=headers)
+            response = requests.get(f"{self.base_url}{endpoint}", headers=headers, timeout=10)
             console.print(f"[blue]Response status: {response.status_code}[/blue]")
             
             # Check if response is successful

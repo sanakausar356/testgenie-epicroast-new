@@ -28,8 +28,15 @@ class GroomRoom:
     
     def __init__(self):
         self.client = None
-        self.jira_integration = JiraIntegration() if JiraIntegration else None
+        self.jira_integration = None
         self.setup_azure_openai()
+        # Initialize Jira integration after Azure OpenAI to avoid blocking
+        if JiraIntegration:
+            try:
+                self.jira_integration = JiraIntegration()
+            except Exception as e:
+                console.print(f"[yellow]Warning: Jira integration failed to initialize: {e}[/yellow]")
+                self.jira_integration = None
         
         # Brand abbreviations mapping
         self.brand_abbreviations = {

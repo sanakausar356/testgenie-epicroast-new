@@ -52,6 +52,13 @@ Examples:
         help='Output file for results (default: stdout)'
     )
     
+    parser.add_argument(
+        '--level', '-l',
+        choices=['updated', 'strict', 'light', 'default', 'insight', 'deep_dive', 'actionable', 'summary'],
+        default='default',
+        help='Analysis level (default: default - Enhanced Groom Analysis format)'
+    )
+    
     args = parser.parse_args()
     
     # Validate input
@@ -104,8 +111,8 @@ Examples:
             sys.exit(1)
         
         # Generate analysis
-        console.print("[blue]Generating concise groom analysis...[/blue]")
-        analysis = groomroom.generate_concise_groom_analysis(ticket_content)
+        console.print(f"[blue]Generating groom analysis with level: {args.level}...[/blue]")
+        analysis = groomroom.generate_groom_analysis(ticket_content, level=args.level)
         
         # Output results
         if args.output:
