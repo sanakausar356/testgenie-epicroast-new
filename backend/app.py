@@ -328,8 +328,8 @@ def generate_groom():
                 }
             }), 503
         
-        # Generate enhanced groom analysis
-        print(f"Calling groomroom.generate_groom_analysis_enhanced with level={level}")
+        # Generate enhanced groom analysis with fallback
+        print(f"Calling groomroom analysis with level={level}")
         debug_mode = data.get('debug_mode', False)
         
         # Add request ID for debugging
@@ -338,7 +338,17 @@ def generate_groom():
         print(f"Request ID: {request_id}")
         print(f"Ticket content preview: {ticket_content[:200]}...")
         
-        groom = groomroom.generate_groom_analysis(ticket_content, level=level)
+        # Try enhanced method first, fallback to regular method
+        try:
+            if hasattr(groomroom, 'generate_groom_analysis_enhanced'):
+                groom = groomroom.generate_groom_analysis_enhanced(ticket_content, level=level, debug_mode=debug_mode)
+                print("Using enhanced groom analysis method")
+            else:
+                groom = groomroom.generate_groom_analysis(ticket_content, level=level)
+                print("Using standard groom analysis method (enhanced not available)")
+        except AttributeError:
+            groom = groomroom.generate_groom_analysis(ticket_content, level=level)
+            print("Falling back to standard groom analysis method")
         print(f"Enhanced groom analysis generated, length={len(groom) if groom else 0}")
         print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
         print(f"Response preview: {groom[:200] if groom else 'None'}...")
