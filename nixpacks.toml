@@ -10,4 +10,4 @@ cmds = [
 cmds = ["echo 'Build complete'"]
 
 [start]
-cmd = "python main.py"
+cmd = "cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
