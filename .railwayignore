@@ -1,0 +1,52 @@
+# Ignore frontend files (deployed separately to Vercel)
+frontend/
+frontend/**
+
+# Ignore development and test files
+test_*.py
+debug_*.py
+check_*.py
+verify_*.py
+deploy_*.py
+fix_*.py
+setup_*.py
+start_*.py
+simple_*.py
+minimal_*.py
+
+# Ignore documentation files
+*.md
+!README.md
+
+# Ignore cache and temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore other deployment files
+vercel.json
+.vercel/
