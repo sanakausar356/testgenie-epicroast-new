@@ -789,6 +789,28 @@ Comment {i} by {comment['author']}:
             { 'key': 'ready-to-groom', 'name': 'Ready to Groom' },
             { 'key': 'ready-for-dev', 'name': 'Ready for Dev' }
         ]
+    
+    def get_all_fields(self) -> List[Dict[str, Any]]:
+        """Get all Jira fields from the API"""
+        if not self.is_available():
+            console.print("[red]Jira integration is not available[/red]")
+            return []
+        
+        try:
+            console.print("[blue]Fetching all Jira fields...[/blue]")
+            endpoint = "/rest/api/3/field"
+            fields_data = self._make_request(endpoint)
+            
+            if fields_data:
+                console.print(f"[green]✅ Successfully fetched {len(fields_data)} fields[/green]")
+                return fields_data
+            else:
+                console.print("[red]Failed to fetch fields from Jira API[/red]")
+                return []
+                
+        except Exception as e:
+            console.print(f"[red]Error fetching all fields: {e}[/red]")
+            return []
 
     def _get_mock_dashboard_cards(self) -> list:
         """Get mock dashboard cards for fallback"""

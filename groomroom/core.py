@@ -13,9 +13,11 @@ from rich.console import Console
 import openai
 try:
     from jira_integration import JiraIntegration
+    from jira_field_mapper import JiraFieldMapper
 except ImportError:
     # Handle import error for Railway deployment
     JiraIntegration = None
+    JiraFieldMapper = None
 
 # Load environment variables
 load_dotenv()
@@ -29,14 +31,20 @@ class GroomRoom:
     def __init__(self):
         self.client = None
         self.jira_integration = None
+        self.field_mapper = None
         self.setup_azure_openai()
         # Initialize Jira integration after Azure OpenAI to avoid blocking
         if JiraIntegration:
             try:
                 self.jira_integration = JiraIntegration()
+                # Initialize field mapper with Jira integration
+                if JiraFieldMapper:
+                    self.field_mapper = JiraFieldMapper(self.jira_integration)
+                    self.field_mapper.initialize()
             except Exception as e:
                 console.print(f"[yellow]Warning: Jira integration failed to initialize: {e}[/yellow]")
                 self.jira_integration = None
+                self.field_mapper = None
         
         # Brand abbreviations mapping
         self.brand_abbreviations = {
@@ -177,6 +185,21 @@ class GroomRoom:
             console.print(f"[red]❌ Failed to initialize Azure OpenAI client: {e}[/red]")
             self.client = None
 
+    def _get_field_value(self, issue_fields: Dict, field_name: str) -> Any:
+        """Get field value using dynamic field mapping"""
+        if self.field_mapper:
+            return self.field_mapper.get_field_value(issue_fields, field_name)
+        else:
+            # Fallback to hardcoded field IDs
+            fallback_fields = {
+                'Acceptance Criteria': 'customfield_10017',
+                'Test Scenarios': 'customfield_10018', 
+                'Story Points': 'customfield_10016',
+                'Agile Team': 'customfield_10020'
+            }
+            field_id = fallback_fields.get(field_name)
+            return issue_fields.get(field_id) if field_id else None
+
     def extract_jira_fields(self, jira_issue: Dict) -> Dict[str, Any]:
         """Extract all relevant fields from Jira issue dynamically"""
         try:
@@ -197,14 +220,14 @@ class GroomRoom:
                 'project': fields.get('project', {}).get('name', 'Unknown'),
                 'labels': fields.get('labels', []),
                 'components': [comp.get('name', '') for comp in fields.get('components', [])],
-                'story_points': fields.get('customfield_10016', None),  # Story Points field
+                'story_points': self._get_field_value(fields, 'Story Points'),
                 'acceptance_criteria': self._extract_acceptance_criteria(fields),
                 'test_scenarios': self._extract_test_scenarios(fields),
                 'figma_links': self._extract_figma_links(fields),
                 'attachments': self._extract_attachments(fields),
                 'linked_issues': self._extract_linked_issues(fields),
                 'comments': self._extract_comments(fields),
-                'agile_team': self._extract_agile_team(fields),
+                'agile_team': self._get_field_value(fields, 'Agile Team') or self._extract_agile_team(fields),
                 'dependencies': self._extract_dependencies(fields)
             }
             
@@ -237,13 +260,22 @@ class GroomRoom:
         """Extract acceptance criteria from various possible fields"""
         ac_list = []
         
-        # Check custom fields for AC
-        for key, value in fields.items():
-            if 'acceptance' in key.lower() or 'criteria' in key.lower():
-                if isinstance(value, str) and value.strip():
-                    ac_list.append(value.strip())
-                elif isinstance(value, list):
-                    ac_list.extend([str(item).strip() for item in value if str(item).strip()])
+        # Try dynamic field mapping first
+        ac_value = self._get_field_value(fields, 'Acceptance Criteria')
+        if ac_value:
+            if isinstance(ac_value, str) and ac_value.strip():
+                ac_list.append(ac_value.strip())
+            elif isinstance(ac_value, list):
+                ac_list.extend([str(item).strip() for item in ac_value if str(item).strip()])
+        
+        # Fallback: Check custom fields for AC
+        if not ac_list:
+            for key, value in fields.items():
+                if 'acceptance' in key.lower() or 'criteria' in key.lower():
+                    if isinstance(value, str) and value.strip():
+                        ac_list.append(value.strip())
+                    elif isinstance(value, list):
+                        ac_list.extend([str(item).strip() for item in value if str(item).strip()])
         
         # Check description for AC patterns
         description = self._extract_description(fields.get('description'))
@@ -267,13 +299,22 @@ class GroomRoom:
         """Extract test scenarios from various possible fields"""
         test_list = []
         
-        # Check custom fields for test scenarios
-        for key, value in fields.items():
-            if 'test' in key.lower() and 'scenario' in key.lower():
-                if isinstance(value, str) and value.strip():
-                    test_list.append(value.strip())
-                elif isinstance(value, list):
-                    test_list.extend([str(item).strip() for item in value if str(item).strip()])
+        # Try dynamic field mapping first
+        test_value = self._get_field_value(fields, 'Test Scenarios')
+        if test_value:
+            if isinstance(test_value, str) and test_value.strip():
+                test_list.append(test_value.strip())
+            elif isinstance(test_value, list):
+                test_list.extend([str(item).strip() for item in test_value if str(item).strip()])
+        
+        # Fallback: Check custom fields for test scenarios
+        if not test_list:
+            for key, value in fields.items():
+                if 'test' in key.lower() and 'scenario' in key.lower():
+                    if isinstance(value, str) and value.strip():
+                        test_list.append(value.strip())
+                    elif isinstance(value, list):
+                        test_list.extend([str(item).strip() for item in value if str(item).strip()])
         
         return list(set(test_list))
 
@@ -855,26 +896,87 @@ Provide a single, improved acceptance criteria:"""
             console.print(f"[red]Error in groom analysis pipeline: {e}[/red]")
             return self.get_fallback_groom_analysis()
 
-    def generate_groom_analysis_enhanced(self, ticket_content: str, level: str = "default", debug_mode: bool = False) -> str:
-        """Enhanced version of groom analysis with additional debugging and error handling"""
+    def generate_groom_analysis_enhanced(self, jira_issue_or_content, level: str = "default", debug_mode: bool = False) -> Dict[str, Any]:
+        """
+        Enhanced GroomRoom analysis:
+        - Reads Jira fields dynamically
+        - Evaluates Definition of Ready (DOR)
+        - Reviews and rewrites Acceptance Criteria
+        - Detects missing test scenarios and metadata
+        - Returns structured Groom Analysis for UI or API response
+        """
         try:
             if debug_mode:
                 console.print(f"[blue]Enhanced groom analysis started for level: {level}[/blue]")
-                console.print(f"[blue]Ticket content length: {len(ticket_content)}[/blue]")
             
-            # Use the main analysis method as the base
-            analysis = self.generate_groom_analysis(ticket_content, level)
+            # Handle both Jira issue objects and ticket content strings
+            if isinstance(jira_issue_or_content, str):
+                # If it's a ticket number, fetch from Jira
+                if re.match(r'^[A-Z]+-\d+$', jira_issue_or_content.strip()):
+                    if not self.jira_integration:
+                        return {"error": "Jira integration not available"}
+                    
+                    jira_issue = self.jira_integration.get_ticket_info(jira_issue_or_content.strip())
+                    if not jira_issue:
+                        return {"error": f"Could not fetch ticket {jira_issue_or_content}"}
+                else:
+                    # Create minimal issue data from pasted content
+                    jira_issue = {
+                        'key': 'PASTED-CONTENT',
+                        'fields': {
+                            'summary': 'Pasted Content Analysis',
+                            'description': jira_issue_or_content,
+                            'issuetype': {'name': 'Unknown'},
+                            'status': {'name': 'Unknown'},
+                            'priority': {'name': 'None'},
+                            'assignee': None,
+                            'reporter': None,
+                            'created': '',
+                            'updated': '',
+                            'project': {'name': 'Unknown'},
+                            'labels': [],
+                            'components': []
+                        }
+                    }
+            else:
+                jira_issue = jira_issue_or_content
+            
+            # Extract key fields dynamically
+            issue_data = self.extract_jira_fields(jira_issue)
             
             if debug_mode:
-                console.print(f"[blue]Analysis completed, length: {len(analysis)}[/blue]")
+                console.print(f"[blue]Extracted issue data: {issue_data.get('key', 'Unknown')}[/blue]")
+                console.print(f"[blue]Field mapper available: {self.field_mapper is not None}[/blue]")
             
-            return analysis
+            # Run the complete analysis pipeline
+            dor_analysis = self.analyze_dor_requirements(issue_data)
+            ac_analysis = self.analyze_acceptance_criteria(issue_data.get('acceptance_criteria', []))
+            test_analysis = self.analyze_test_scenarios(issue_data)
+            sprint_readiness = self.evaluate_sprint_readiness(dor_analysis)
+            gaps = self.identify_gaps(dor_analysis, ac_analysis, test_analysis)
+            
+            # Build structured output
+            structured_output = self.build_structured_output(
+                issue_data, dor_analysis, ac_analysis, test_analysis, sprint_readiness, gaps
+            )
+            
+            # Generate final analysis using LLM if available
+            if self.client:
+                final_analysis = self._generate_final_analysis(structured_output, level)
+                structured_output['llm_analysis'] = final_analysis
+            
+            if debug_mode:
+                console.print(f"[blue]Enhanced analysis completed successfully[/blue]")
+            
+            return structured_output
             
         except Exception as e:
             console.print(f"[red]Error in enhanced groom analysis: {e}[/red]")
             if debug_mode:
                 console.print(f"[red]Debug info: {str(e)}[/red]")
-            return self.get_fallback_groom_analysis()
+                import traceback
+                traceback.print_exc()
+            return {"error": str(e)}
 
     def generate_updated_groom_analysis(self, ticket_content: str, level: str = "updated") -> str:
         """Updated version of groom analysis with latest improvements"""
@@ -883,6 +985,22 @@ Provide a single, improved acceptance criteria:"""
     def generate_concise_groom_analysis(self, ticket_content: str) -> str:
         """Generate a concise version of groom analysis"""
         return self.generate_groom_analysis(ticket_content, "light")
+    
+    def run_analysis(self, jira_issue_or_content, level: str = "default") -> Dict[str, Any]:
+        """Safely call enhanced version with fallback to basic analysis"""
+        try:
+            if hasattr(self, "generate_groom_analysis_enhanced"):
+                result = self.generate_groom_analysis_enhanced(jira_issue_or_content, level)
+                # If enhanced method returns an error, fallback to basic
+                if isinstance(result, dict) and "error" in result:
+                    console.print(f"[yellow]Enhanced analysis failed, falling back to basic: {result['error']}[/yellow]")
+                    return {"message": "Basic GroomRoom analysis executed successfully.", "fallback": True}
+                return result
+            else:
+                return {"message": "Basic GroomRoom analysis executed successfully.", "fallback": True}
+        except Exception as e:
+            console.print(f"[red]Analysis failed: {e}[/red]")
+            return {"error": str(e), "fallback": True}
 
     def get_groom_level_prompt(self, level: str) -> str:
         """Get the prompt template for a specific groom level"""

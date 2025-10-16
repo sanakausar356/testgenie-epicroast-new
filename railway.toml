@@ -1,11 +1,5 @@
 [build]
-builder = "nixpacks"
+builder = "Python"
 
-[deploy]
-startCommand = "cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
-healthcheckPath = "/health"
-healthcheckTimeout = 300
-restartPolicyType = "on_failure"
-
-[env]
-PYTHONPATH = "." 
+[start]
+command = "python app.py" 

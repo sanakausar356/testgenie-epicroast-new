@@ -338,17 +338,32 @@ def generate_groom():
         print(f"Request ID: {request_id}")
         print(f"Ticket content preview: {ticket_content[:200]}...")
         
-        # Try enhanced method first, fallback to regular method
+        # Use the safe run_analysis method with fallback
         try:
-            if hasattr(groomroom, 'generate_groom_analysis_enhanced'):
-                groom = groomroom.generate_groom_analysis_enhanced(ticket_content, level=level, debug_mode=debug_mode)
-                print("Using enhanced groom analysis method")
+            if hasattr(groomroom, 'run_analysis'):
+                result = groomroom.run_analysis(ticket_content, level=level)
+                print("Using run_analysis method with fallback")
+                
+                # Handle both structured and string responses
+                if isinstance(result, dict):
+                    if 'error' in result:
+                        groom = f"Error: {result['error']}"
+                    elif 'llm_analysis' in result:
+                        groom = result['llm_analysis']
+                    elif 'message' in result:
+                        groom = result['message']
+                    else:
+                        # Return structured data as JSON string for now
+                        import json
+                        groom = json.dumps(result, indent=2)
+                else:
+                    groom = str(result)
             else:
                 groom = groomroom.generate_groom_analysis(ticket_content, level=level)
-                print("Using standard groom analysis method (enhanced not available)")
-        except AttributeError:
-            groom = groomroom.generate_groom_analysis(ticket_content, level=level)
-            print("Falling back to standard groom analysis method")
+                print("Falling back to standard groom analysis method")
+        except Exception as e:
+            groom = f"Error in analysis: {str(e)}"
+            print(f"Analysis failed: {e}")
         print(f"Enhanced groom analysis generated, length={len(groom) if groom else 0}")
         print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
         print(f"Response preview: {groom[:200] if groom else 'None'}...")
