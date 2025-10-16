@@ -855,6 +855,97 @@ Provide a single, improved acceptance criteria:"""
             console.print(f"[red]Error in groom analysis pipeline: {e}[/red]")
             return self.get_fallback_groom_analysis()
 
+    def generate_groom_analysis_enhanced(self, ticket_content: str, level: str = "default", debug_mode: bool = False) -> str:
+        """Enhanced version of groom analysis with additional debugging and error handling"""
+        try:
+            if debug_mode:
+                console.print(f"[blue]Enhanced groom analysis started for level: {level}[/blue]")
+                console.print(f"[blue]Ticket content length: {len(ticket_content)}[/blue]")
+            
+            # Use the main analysis method as the base
+            analysis = self.generate_groom_analysis(ticket_content, level)
+            
+            if debug_mode:
+                console.print(f"[blue]Analysis completed, length: {len(analysis)}[/blue]")
+            
+            return analysis
+            
+        except Exception as e:
+            console.print(f"[red]Error in enhanced groom analysis: {e}[/red]")
+            if debug_mode:
+                console.print(f"[red]Debug info: {str(e)}[/red]")
+            return self.get_fallback_groom_analysis()
+
+    def generate_updated_groom_analysis(self, ticket_content: str, level: str = "updated") -> str:
+        """Updated version of groom analysis with latest improvements"""
+        return self.generate_groom_analysis(ticket_content, level)
+
+    def generate_concise_groom_analysis(self, ticket_content: str) -> str:
+        """Generate a concise version of groom analysis"""
+        return self.generate_groom_analysis(ticket_content, "light")
+
+    def get_groom_level_prompt(self, level: str) -> str:
+        """Get the prompt template for a specific groom level"""
+        level_prompts = {
+            'updated': """Provide an updated analysis focusing on:
+1. Current sprint readiness
+2. Recent changes and updates
+3. Priority actions for immediate implementation
+4. Team collaboration points""",
+            
+            'strict': """Provide a strict analysis focusing on:
+1. Definition of Ready compliance
+2. Missing critical elements
+3. Quality standards adherence
+4. Risk assessment and mitigation""",
+            
+            'light': """Provide a light analysis focusing on:
+1. Key gaps and missing elements
+2. Top 3 priority actions
+3. Sprint readiness assessment
+4. Quick wins and improvements""",
+            
+            'default': """Provide a comprehensive analysis including:
+1. Detailed DOR assessment
+2. Acceptance criteria improvements
+3. Test scenario recommendations
+4. Framework alignment
+5. Brand-specific considerations
+6. Sprint readiness with specific next steps""",
+            
+            'insight': """Provide an insightful analysis focusing on:
+1. Business value and impact
+2. User experience considerations
+3. Technical complexity assessment
+4. Cross-team dependencies
+5. Strategic alignment""",
+            
+            'deep_dive': """Provide a deep dive analysis including:
+1. Comprehensive DOR analysis
+2. Detailed acceptance criteria review
+3. Extensive test scenario planning
+4. Framework alignment assessment
+5. Brand and component analysis
+6. Risk and dependency mapping
+7. Sprint planning recommendations""",
+            
+            'actionable': """Provide an actionable analysis focusing on:
+1. Specific next steps with owners
+2. Timeline and priority recommendations
+3. Resource requirements
+4. Success criteria and metrics
+5. Implementation roadmap""",
+            
+            'summary': """Provide a summary analysis including:
+1. Executive summary of readiness
+2. Key metrics and scores
+3. Critical gaps and blockers
+4. Recommended actions
+5. Timeline estimates"""
+        }
+        
+        return level_prompts.get(level, level_prompts['default'])
+
     def _generate_final_analysis(self, structured_output: Dict, level: str) -> str:
         """Generate final analysis using LLM with structured data"""
         if not self.client:
@@ -1011,6 +1102,36 @@ Use markdown formatting with clear headings."""
             output.append(f"- {action}")
         
         return "\n".join(output)
+
+    def _generate_fallback_analysis(self, ticket_content: str) -> str:
+        """Generate a basic fallback analysis without external services"""
+        return f"""# Groom Room Analysis - Fallback Mode
+
+**Ticket Content:** {ticket_content[:200]}{'...' if len(ticket_content) > 200 else ''}
+
+**Status:** Using fallback analysis (external services unavailable)
+
+**Basic Assessment:**
+- Content Length: {len(ticket_content)} characters
+- Has Description: {'Yes' if len(ticket_content.strip()) > 10 else 'No'}
+- Content Quality: {'Good' if len(ticket_content.strip()) > 50 else 'Needs Improvement'}
+
+**Manual Review Checklist:**
+- [ ] Clear summary and description
+- [ ] Acceptance criteria defined
+- [ ] Test scenarios identified
+- [ ] Story points estimated
+- [ ] Team assigned
+- [ ] Dependencies identified
+
+**Next Steps:**
+1. Review ticket content for completeness
+2. Ensure all DOR requirements are met
+3. Define clear acceptance criteria
+4. Plan test scenarios
+5. Estimate story points
+
+Please configure Azure OpenAI for enhanced analysis."""
 
     def get_fallback_groom_analysis(self) -> str:
         """Fallback analysis when services are unavailable"""
