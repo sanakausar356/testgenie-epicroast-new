@@ -1,5 +1,5 @@
 [build]
-builder = "Python"
+builder = "python"
 
 [start]
-command = "python app.py" 
+command = "gunicorn app:app --bind 0.0.0.0:$PORT" 
