@@ -64,6 +64,10 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
       })
       
       console.log('Response received:', response)
+      console.log('Response success:', response.success)
+      console.log('Response data:', response.data)
+      console.log('Groom content length:', response.data?.groom?.length || 0)
+      console.log('Groom content preview:', response.data?.groom?.substring(0, 200) || 'No content')
       
       if (response.success) {
         console.log('Setting results to:', response.data.groom)
@@ -324,7 +328,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-6 max-h-96 overflow-y-auto shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 max-h-[600px] overflow-y-auto shadow-sm">
             <div className="prose prose-sm max-w-none">
               {formatResults(results)}
             </div>

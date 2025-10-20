@@ -53,10 +53,10 @@ Examples:
     )
     
     parser.add_argument(
-        '--level', '-l',
-        choices=['updated', 'strict', 'light', 'default', 'insight', 'deep_dive', 'actionable', 'summary'],
-        default='default',
-        help='Analysis level (default: default - Enhanced Groom Analysis format)'
+        '--mode', '-m',
+        choices=['strict', 'light', 'insight', 'deepdive', 'actionable', 'default'],
+        default='actionable',
+        help='Analysis mode (default: actionable - Focus on rewrites and actions)'
     )
     
     args = parser.parse_args()
@@ -111,8 +111,12 @@ Examples:
             sys.exit(1)
         
         # Generate analysis
-        console.print(f"[blue]Generating groom analysis with level: {args.level}...[/blue]")
-        analysis = groomroom.generate_groom_analysis(ticket_content, level=args.level)
+        console.print(f"[blue]Generating groom analysis with mode: {args.mode}...[/blue]")
+        analysis_result = groomroom.analyze_ticket(ticket_content, mode=args.mode)
+        
+        # Convert to JSON string for output
+        import json
+        analysis = json.dumps(analysis_result, indent=2)
         
         # Output results
         if args.output:

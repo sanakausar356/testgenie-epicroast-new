@@ -1,0 +1,11 @@
+Title: Add ClearPay payment option for EMEA checkout
+Description: As a customer in EMEA regions, I want to see ClearPay as a payment option during checkout so that I can use this preferred payment method.
+
+Acceptance Criteria:
+- ClearPay option appears in payment methods for EMEA brands
+- ClearPay integration works with existing payment flow
+- Error handling for failed ClearPay transactions
+
+Components: Checkout, Payment
+Brands: EMEA
+Story Points: 5

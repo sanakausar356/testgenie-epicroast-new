@@ -1,0 +1,66 @@
+# Ticket Summary  
+Enable ClearPay as a new payment option during the EMEA checkout flow so EMEA customers can select and complete orders using ClearPay.
+
+# Acceptance Criteria (Refined & Testable)  
+1. Payment Option Visibility  
+   * On checkout for orders shipped to supported EMEA country codes [list to be provided], “ClearPay” appears alongside existing payment methods.  
+   * ClearPay does not appear for non-EMEA regions or when the ClearPay feature flag is disabled (if applicable).
+
+2. Integration & Order Completion  
+   * Selecting ClearPay initiates the ClearPay payment flow (redirection or in-app modal) and returns a success code.  
+   * Upon successful ClearPay confirmation, the order is created in our system with payment status = “paid” and an associated ClearPay transaction ID.  
+
+3. Error Handling  
+   * If ClearPay returns a decline (e.g. insufficient funds), user sees customised error copy (e.g. “Payment declined – please choose another method or contact ClearPay”) and can reselect a method.  
+   * If network/API timeout occurs, user sees retry option and is not charged.  
+
+4. Data & Observability  
+   * Each ClearPay transaction logs: userID, orderID, ClearPay transactionID, status code, timestamp.  
+   * Failed transactions emit an error metric/alert tagged “payment.clearpay.failure” in staging and production.  
+
+5. Performance  
+   * ClearPay option renders within 200 ms of page load under normal network conditions.
+
+# Questions to Clarify  
+1. Please provide the definitive list of supported EMEA country codes for ClearPay display.  
+2. Is there a feature flag for rollout? If so, name, default state, and targeted environments?  
+3. What is the exact copy for decline vs network-error messages, including translations?  
+4. Where should ClearPay appear in the payment methods list (positioning)?  
+5. Are there Figma/mock-ups for the ClearPay UI flow?  
+6. What sandbox credentials and endpoints should QA use for ClearPay testing?
+
+# High-Level Test Scenarios (Mapped to AC)  
+1. Happy Path – Visibility & Success  
+   * Region = FR (EMEA), feature flag on → ClearPay visible → complete payment flow → order status = paid + valid transactionID logged.  
+2. Negative – Non-EMEA  
+   * Region = US → ClearPay option does not display.  
+3. Negative – Decline  
+   * Simulate ClearPay decline response → decline message displayed → user can choose another payment method.  
+4. Negative – Network/Error  
+   * Simulate API timeout → network-error copy displayed → retry button functions without double-charging.  
+5. Edge Cases  
+   * Toggle feature flag off mid-session → ClearPay disappears upon refresh.  
+   * Rapid multiple clicks on “Pay with ClearPay” → no duplicate orders created.  
+6. Cross-Device/Browser  
+   * Test visibility and flow on Chrome, Safari, Firefox on desktop and iOS/Android.  
+7. Recovery  
+   * After a decline, user retries via ClearPay sandbox → success path completes.  
+
+# Observability & Evidence Plan  
+* Validate browser console logs and backend logs include userID, orderID, ClearPay transactionID and status.  
+* Confirm metrics/alerts for failure events in monitoring dashboard (e.g. Datadog/Grafana).  
+* Capture screenshots of payment option display, success confirmation screen, decline/network-error messages, and logs snippet showing transactionID.  
+
+# Definition of Ready Gate (Pass/Fail)  
+Checklist:  
+- Behaviour clearly defined (supported countries) – No  
+- Error/message copy specified – No  
+- Data rules (country list, positioning) – No  
+- Observability requirements – Partially  
+- Performance target – Yes  
+- Test credentials/endpoints available – No  
+
+DoR Status: Fail  
+Missing: supported country list, feature-flag details, error-message copy, UI designs, test credentials/endpoints.
+
+Do not point until DoR gaps are resolved.

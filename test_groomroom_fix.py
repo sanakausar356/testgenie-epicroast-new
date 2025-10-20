@@ -11,7 +11,7 @@ def test_railway_deployment():
     """Test the Railway deployment groom room endpoint"""
     print("🧪 Testing Railway deployment...")
     
-    url = "https://craven-worm-production.up.railway.app/api/groomroom/generate"
+    url = "https://backend-production-83c6.up.railway.app/api/groomroom/generate"
     
     test_data = {
         "ticket_content": "As a user, I want to be able to click a button, so that I can submit a form",
@@ -53,7 +53,7 @@ def test_health_endpoint():
     """Test the health endpoint"""
     print("\n🏥 Testing health endpoint...")
     
-    url = "https://craven-worm-production.up.railway.app/api/health"
+    url = "https://backend-production-83c6.up.railway.app/api/health"
     
     try:
         response = requests.get(url, timeout=10)
