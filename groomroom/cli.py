@@ -54,9 +54,9 @@ Examples:
     
     parser.add_argument(
         '--mode', '-m',
-        choices=['strict', 'light', 'insight', 'deepdive', 'actionable', 'default'],
+        choices=['insight', 'actionable', 'summary'],
         default='actionable',
-        help='Analysis mode (default: actionable - Focus on rewrites and actions)'
+        help='Groom Level: insight (Balanced Groom), actionable (QA + DoR Coaching), summary (Snapshot)'
     )
     
     args = parser.parse_args()

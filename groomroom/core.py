@@ -188,6 +188,28 @@ class GroomRoom:
             'needs_refinement': {'min': 70, 'max': 89, 'status': '⚠️ Needs Refinement'},
             'not_ready': {'min': 0, 'max': 69, 'status': '❌ Not Ready'}
         }
+        
+        # Top 3 Groom Levels with specific output behaviors
+        self.groom_levels = {
+            'insight': {
+                'name': 'Insight (Balanced Groom)',
+                'description': 'Balanced analysis — highlights clarity, ACs, QA scenarios.',
+                'purpose': 'Ideal for refinement meetings and sprint grooming',
+                'output_style': 'readable_summary'
+            },
+            'actionable': {
+                'name': 'Actionable (QA + DoR Coaching)',
+                'description': 'Full prescriptive refinement guidance, includes rewrites.',
+                'purpose': 'Deep, prescriptive mode for sprint commitment or QA handoff',
+                'output_style': 'structured_sections'
+            },
+            'summary': {
+                'name': 'Summary (Snapshot)',
+                'description': 'Concise overview for leads and dashboards.',
+                'purpose': 'Quick view for leads or refinement dashboards',
+                'output_style': 'compact_card'
+            }
+        }
 
     def setup_azure_openai(self):
         """Setup Azure OpenAI client with error handling"""
@@ -1067,56 +1089,22 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
         return recommendations[:5]  # Limit to top 5
 
     def _format_output_by_mode(self, output: Dict[str, Any], mode: str) -> Dict[str, Any]:
-        """Format output based on analysis mode"""
-        if mode == "strict":
-            # Pass/fail DoR checks only
-            return {
-                "TicketKey": output["TicketKey"],
-                "Type": output["Type"],
-                "SprintReadiness": output["SprintReadiness"],
-                "DoRPass": output["SprintReadiness"] >= 90,
-                "CriticalGaps": output["DefinitionOfReady"]["MissingFields"][:3]
-            }
+        """Format output based on the 3 groom levels with specific behaviors"""
         
-        elif mode == "light":
-            # Only critical gaps
-            return {
-                "TicketKey": output["TicketKey"],
-                "Type": output["Type"],
-                "SprintReadiness": output["SprintReadiness"],
-                "CriticalGaps": output["DefinitionOfReady"]["MissingFields"][:3],
-                "TopRecommendations": output["Recommendations"][:3]
-            }
-        
-        elif mode == "insight":
-            # Include rationale
-            return {
-                **output,
-                "Insights": {
-                    "ReadinessBreakdown": output["DetailedAnalysis"]["Readiness"]["breakdown"],
-                    "FrameworkAnalysis": output["FrameworkScores"],
-                    "QualityAssessment": f"Story quality: {output['StoryAnalysis']['story_quality_score']}/100"
-                }
-            }
-        
-        elif mode == "deepdive":
-            # Full diagnostics
-            return output
+        if mode == "insight":
+            # Insight (Balanced Groom) - Readable summary format
+            return self._format_insight_output(output)
         
         elif mode == "actionable":
-            # Focus on rewrites and actions
-            return {
-                "TicketKey": output["TicketKey"],
-                "Type": output["Type"],
-                "SprintReadiness": output["SprintReadiness"],
-                "StoryRewrite": output["StoryRewrite"],
-                "AcceptanceCriteriaAudit": output["AcceptanceCriteriaAudit"],
-                "SuggestedTestScenarios": output["SuggestedTestScenarios"],
-                "Recommendations": output["Recommendations"],
-                "NextActions": self._generate_next_actions(output)
-            }
+            # Actionable (QA + DoR Coaching) - Structured sections
+            return self._format_actionable_output(output)
         
-        return output
+        elif mode == "summary":
+            # Summary (Snapshot) - Compact card format
+            return self._format_summary_output(output)
+        
+        # Default to actionable if mode not recognized
+        return self._format_actionable_output(output)
 
     def _generate_next_actions(self, output: Dict[str, Any]) -> List[str]:
         """Generate specific next actions with owners"""
@@ -1141,6 +1129,146 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
             actions.append("Architect: Provide design or workflow links")
         
         return actions
+
+    def _format_insight_output(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Format output for Insight (Balanced Groom) mode - Readable summary"""
+        readiness = output.get("SprintReadiness", 0)
+        status = "Ready for Dev" if readiness >= 90 else "Needs minor refinement" if readiness >= 70 else "Not Ready"
+        
+        # Get top gaps
+        missing_fields = output.get("DefinitionOfReady", {}).get("MissingFields", [])
+        top_gaps = missing_fields[:3]
+        
+        # Story clarity assessment
+        story_analysis = output.get("StoryAnalysis", {})
+        story_quality = story_analysis.get("story_quality_score", 0)
+        story_clarity = "Good" if story_quality >= 70 else "Needs improvement"
+        
+        # Framework scores
+        framework_scores = output.get("FrameworkScores", {})
+        
+        return {
+            "mode": "insight",
+            "display_format": "readable_summary",
+            "ticket_key": output.get("TicketKey", ""),
+            "readiness_percentage": readiness,
+            "readiness_status": status,
+            "weak_areas": top_gaps,
+            "story_clarity": {
+                "assessment": story_clarity,
+                "persona_goal_detected": story_analysis.get("has_clear_structure", False),
+                "suggested_rewrite": output.get("StoryRewrite")
+            },
+            "acceptance_criteria": {
+                "detected_count": output.get("AcceptanceCriteriaAudit", {}).get("Detected", 0),
+                "weak_count": output.get("AcceptanceCriteriaAudit", {}).get("Weak", 0),
+                "suggested_rewrites": output.get("AcceptanceCriteriaAudit", {}).get("SuggestedRewrite", [])
+            },
+            "test_scenarios": output.get("SuggestedTestScenarios", []),
+            "framework_summary": {
+                "roi": framework_scores.get("ROI", 0),
+                "invest": framework_scores.get("INVEST", 0),
+                "accept": framework_scores.get("ACCEPT", 0),
+                "3c": framework_scores.get("3C", 0)
+            },
+            "qa_notes": self._generate_qa_notes(output)
+        }
+
+    def _format_actionable_output(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Format output for Actionable (QA + DoR Coaching) mode - Structured sections"""
+        readiness = output.get("SprintReadiness", 0)
+        status_emoji = "✅" if readiness >= 90 else "⚠️" if readiness >= 70 else "❌"
+        status_text = "Ready for Dev" if readiness >= 90 else "Needs Refinement" if readiness >= 70 else "Not Ready"
+        
+        return {
+            "mode": "actionable",
+            "display_format": "structured_sections",
+            "ticket_key": output.get("TicketKey", ""),
+            "readiness_score": readiness,
+            "readiness_status": f"{status_emoji} {status_text}",
+            "sections": {
+                "user_story": {
+                    "title": "🧩 User Story",
+                    "persona_goal_found": output.get("StoryAnalysis", {}).get("has_clear_structure", False),
+                    "benefit_clarity": "Clear" if output.get("StoryAnalysis", {}).get("story_quality_score", 0) >= 70 else "Unclear",
+                    "suggested_rewrite": output.get("StoryRewrite"),
+                    "missing_business_metric": not any("roi" in str(item).lower() or "business" in str(item).lower() 
+                                                     for item in output.get("Recommendations", []))
+                },
+                "acceptance_criteria": {
+                    "title": "✅ Acceptance Criteria",
+                    "detected_count": output.get("AcceptanceCriteriaAudit", {}).get("Detected", 0),
+                    "need_rewriting": output.get("AcceptanceCriteriaAudit", {}).get("Weak", 0),
+                    "suggested_rewrites": output.get("AcceptanceCriteriaAudit", {}).get("SuggestedRewrite", [])
+                },
+                "qa_scenarios": {
+                    "title": "🧪 QA Scenarios",
+                    "suggested_scenarios": output.get("SuggestedTestScenarios", []),
+                    "missing_negative_flow": len([s for s in output.get("SuggestedTestScenarios", []) if "negative" in s.lower()]) == 0,
+                    "missing_error_handling": len([s for s in output.get("SuggestedTestScenarios", []) if "error" in s.lower()]) == 0
+                },
+                "technical_ada": {
+                    "title": "🧱 Technical / ADA",
+                    "missing_architectural_solution": "Architectural Solution" in output.get("DefinitionOfReady", {}).get("MissingFields", []),
+                    "missing_ada_criteria": "ADA Criteria" in output.get("DefinitionOfReady", {}).get("MissingFields", []),
+                    "figma_links": output.get("DetailedAnalysis", {}).get("DOR", {}).get("detailed_analysis", {}).get("architectural_solution", {}).get("present", False)
+                }
+            },
+            "recommendations": {
+                "po": [rec for rec in output.get("Recommendations", []) if any(word in rec.lower() for word in ["story", "acceptance", "criteria", "business"])],
+                "qa": [rec for rec in output.get("Recommendations", []) if any(word in rec.lower() for word in ["test", "scenario", "qa", "testing"])],
+                "dev": [rec for rec in output.get("Recommendations", []) if any(word in rec.lower() for word in ["implementation", "technical", "architecture", "deployment"])]
+            }
+        }
+
+    def _format_summary_output(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Format output for Summary (Snapshot) mode - Compact card format"""
+        readiness = output.get("SprintReadiness", 0)
+        status_emoji = "✅" if readiness >= 90 else "⚠️" if readiness >= 70 else "❌"
+        status_text = "Ready for Dev" if readiness >= 90 else "Needs Refinement" if readiness >= 70 else "Not Ready"
+        
+        # Get top 3 gaps
+        missing_fields = output.get("DefinitionOfReady", {}).get("MissingFields", [])
+        top_gaps = missing_fields[:3]
+        
+        # Get top 3 recommended actions
+        recommendations = output.get("Recommendations", [])[:3]
+        
+        # Calculate framework averages
+        framework_scores = output.get("FrameworkScores", {})
+        framework_avg = sum(framework_scores.values()) / len(framework_scores) if framework_scores else 0
+        
+        return {
+            "mode": "summary",
+            "display_format": "compact_card",
+            "ticket_key": output.get("TicketKey", ""),
+            "readiness_percentage": readiness,
+            "readiness_status": f"{status_emoji} {status_text}",
+            "dor_coverage": output.get("DefinitionOfReady", {}).get("CoveragePercent", 0),
+            "top_gaps": top_gaps,
+            "recommended_actions": recommendations,
+            "framework_average": round(framework_avg, 1),
+            "card_type": output.get("Type", "Unknown")
+        }
+
+    def _generate_qa_notes(self, output: Dict[str, Any]) -> List[str]:
+        """Generate QA-specific notes from test scenarios"""
+        test_scenarios = output.get("SuggestedTestScenarios", [])
+        qa_notes = []
+        
+        # Check for different test types
+        has_positive = any("positive" in scenario.lower() for scenario in test_scenarios)
+        has_negative = any("negative" in scenario.lower() for scenario in test_scenarios)
+        has_error = any("error" in scenario.lower() for scenario in test_scenarios)
+        
+        if not has_positive:
+            qa_notes.append("Add positive test scenario for main user flow")
+        if not has_negative:
+            qa_notes.append("Add negative test scenarios for edge cases")
+        if not has_error:
+            qa_notes.append("Add error handling test scenarios")
+        
+        return qa_notes
 
     def summarize_output(self, analysis_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Generate summary for batch analysis"""
