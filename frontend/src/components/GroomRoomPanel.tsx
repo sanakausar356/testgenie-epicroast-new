@@ -16,7 +16,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
 }) => {
   const [ticketNumber, setTicketNumber] = useState(sharedTicketNumber)
   const [ticketContent, setTicketContent] = useState('')
-  const [level, setLevel] = useState('updated')
+  const [level, setLevel] = useState('actionable')
   const [results, setResults] = useState('')
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
@@ -110,15 +110,10 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
 
   const getLevelIcon = (level: string) => {
     switch (level) {
-      case 'updated': return '🔄'
-      case 'strict': return '🔒'
-      case 'light': return '💡'
-      case 'default': return '📊'
       case 'insight': return '🔍'
-      case 'deep_dive': return '🔬'
       case 'actionable': return '⚡'
-      case 'summary': return '📝'
-      default: return '📊'
+      case 'summary': return '📋'
+      default: return '⚡'
     }
   }
 
@@ -241,24 +236,14 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             onChange={(e) => setLevel(e.target.value)}
             className="beach-input w-full"
           >
-            <option value="updated">🔄 Updated (QA Refinement)</option>
-            <option value="strict">🔒 Strict</option>
-            <option value="light">💡 Light</option>
-            <option value="default">📊 Default</option>
-            <option value="insight">🔍 Insight</option>
-            <option value="deep_dive">🔬 Deep Dive</option>
-            <option value="actionable">⚡ Actionable</option>
-            <option value="summary">📝 Summary</option>
+            <option value="insight">🔍 Insight (Balanced Groom)</option>
+            <option value="actionable">⚡ Actionable (QA + DoR Coaching)</option>
+            <option value="summary">📋 Summary (Snapshot)</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">
-            {level === 'updated' && 'QA Refinement Assistant: concise, story-specific, refinement-ready analysis'}
-            {level === 'strict' && 'Zero tolerance: enforce ALL Definition of Ready requirements'}
-            {level === 'light' && 'Flexible approach: focus on critical elements with reasonable flexibility'}
-            {level === 'default' && 'Balanced mix of feedback and gentle tone'}
-            {level === 'insight' && 'Focused analysis: missing details and implied risks'}
-            {level === 'deep_dive' && 'Thorough analysis: edge cases, validations, compliance'}
-            {level === 'actionable' && 'Direct mapping to user stories with next steps'}
-            {level === 'summary' && 'Ultra-brief: 3 key gaps and 2 critical suggestions'}
+            {level === 'insight' && 'Balanced analysis — highlights clarity, ACs, QA scenarios.'}
+            {level === 'actionable' && 'Full prescriptive refinement guidance, includes rewrites.'}
+            {level === 'summary' && 'Concise overview for leads and dashboards.'}
           </p>
         </div>
 
