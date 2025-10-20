@@ -73,39 +73,67 @@ export const generateGroom = async (request: GroomRoomRequest): Promise<ApiRespo
       timestamp
     }
     
-    console.log('API: Making request to /groomroom/generate with:', requestWithTimestamp)
+    console.log('API: Making request to /groomroom with:', requestWithTimestamp)
     
-    const response = await fetch(`${API_BASE_URL}/groomroom`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      },
-      body: JSON.stringify(requestWithTimestamp),
-    })
-    
-    console.log('API: Response status:', response.status)
-    
-    const responseData = await response.json()
-    console.log('API: Response data:', responseData)
-    
-    // Handle specific error cases
-    if (!response.ok && responseData.error) {
-      return {
-        success: false,
-        error: responseData.error,
-        suggestion: responseData.suggestion
+    // Try primary endpoint first
+    try {
+      const response = await fetch(`${API_BASE_URL}/groomroom`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        body: JSON.stringify(requestWithTimestamp),
+      })
+      
+      console.log('API: Response status:', response.status)
+      
+      if (response.ok) {
+        const responseData = await response.json()
+        console.log('API: Response data:', responseData)
+        
+        // Handle specific error cases
+        if (responseData.error) {
+          return {
+            success: false,
+            error: responseData.error,
+            suggestion: responseData.suggestion
+          }
+        }
+        
+        return responseData
+      } else {
+        throw new Error(`Primary endpoint failed: ${response.status}`)
       }
+    } catch (primaryError) {
+      console.warn('API: Primary endpoint failed, retrying legacy endpoint:', primaryError.message)
+      
+      // Fallback to legacy endpoint
+      const legacyResponse = await fetch(`${API_BASE_URL}/groomroom/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        body: JSON.stringify(requestWithTimestamp),
+      })
+      
+      console.log('API: Legacy response status:', legacyResponse.status)
+      
+      const legacyData = await legacyResponse.json()
+      console.log('API: Legacy response data:', legacyData)
+      
+      return legacyData
     }
-    
-    return responseData
   } catch (error) {
     console.error('API: Error in generateGroom:', error)
     return {
       success: false,
-      error: 'Network error occurred'
+      error: 'Unable to reach GroomRoom service. Please check connection or try "Paste Ticket Content" instead.'
     }
   }
 }

@@ -87,7 +87,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
       }
     } catch (err) {
       console.error('Exception in handleGenerate:', err)
-      setError('An error occurred while generating groom analysis')
+      setError('Unable to reach GroomRoom service. Please check connection or try "Paste Ticket Content" instead.')
     } finally {
       setIsLoading(false)
     }
