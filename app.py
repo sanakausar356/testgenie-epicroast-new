@@ -47,21 +47,40 @@ def api_health():
         "timestamp": "2024-10-19T22:38:00Z"
     })
 
-@app.route('/api/groomroom/generate', methods=['POST'])
+@app.route('/api/groomroom', methods=['POST'])
 def generate_groom():
-    """Generate GroomRoom analysis"""
+    """Generate GroomRoom analysis using the actual GroomRoom service"""
     try:
-        data = request.get_json()
-        ticket_content = data.get('ticket_content', '')
-        level = data.get('level', 'light')
+        from groomroom.core import GroomRoom
         
-        # Placeholder for GroomRoom analysis
+        data = request.get_json()
+        ticket_number = data.get('ticket_number', '')
+        ticket_content = data.get('ticket_content', '')
+        level = data.get('level', 'actionable')
+        
+        # Initialize GroomRoom
+        groomroom = GroomRoom()
+        
+        # Determine input content
+        if ticket_number:
+            # Use ticket number to fetch from Jira
+            content = ticket_number
+        else:
+            # Use provided content
+            content = ticket_content
+        
+        # Generate analysis
+        result = groomroom.analyze_ticket(content, mode=level)
+        
+        # Format response
         analysis = {
-            'groom': f"GroomRoom analysis for: {ticket_content[:50]}... (Level: {level})",
+            'groom': result.get('formatted_output', str(result)),
             'level': level,
-            'ticket_number': None,
-            'issues_found': [],
-            'suggestions': []
+            'ticket_number': ticket_number,
+            'sprint_readiness': result.get('SprintReadiness', 0),
+            'type': result.get('Type', 'Unknown'),
+            'issues_found': result.get('DefinitionOfReady', {}).get('MissingFields', []),
+            'suggestions': result.get('Recommendations', [])
         }
         
         return jsonify({
