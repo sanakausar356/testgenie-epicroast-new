@@ -166,6 +166,7 @@ def api_health():
     })
 
 @app.route('/api/groomroom', methods=['POST'])
+@app.route('/api/groomroom/generate', methods=['POST'])  # Support old endpoint for compatibility
 def generate_groom():
     """Generate GroomRoom analysis using the actual GroomRoom service"""
     try:
