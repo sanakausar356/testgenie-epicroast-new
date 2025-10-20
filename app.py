@@ -188,7 +188,18 @@ def generate_groom():
             content = ticket_content
         
         # Generate analysis
-        result = groomroom.analyze_ticket(content, mode=level)
+        try:
+            result = groomroom.analyze_ticket(content, mode=level)
+        except Exception as e:
+            # If Jira integration fails, provide helpful error message
+            if ticket_number and "Could not fetch ticket" in str(e):
+                return jsonify({
+                    'success': False,
+                    'error': f'Jira integration not configured. Please paste the ticket content manually or configure Jira credentials in Railway environment variables.',
+                    'suggestion': 'Add JIRA_URL, JIRA_USERNAME, and JIRA_API_TOKEN to Railway environment variables'
+                }), 400
+            else:
+                raise e
         
         # Format response based on mode
         if level == 'insight':

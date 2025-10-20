@@ -79,7 +79,11 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
         setTimeout(() => setShowSuccess(false), 3000)
       } else {
         console.log('Error in response:', response.error)
-        setError(response.error || 'Failed to generate groom analysis')
+        let errorMessage = response.error || 'Failed to generate groom analysis'
+        if (response.suggestion) {
+          errorMessage += `\n\n💡 Suggestion: ${response.suggestion}`
+        }
+        setError(errorMessage)
       }
     } catch (err) {
       console.error('Exception in handleGenerate:', err)
