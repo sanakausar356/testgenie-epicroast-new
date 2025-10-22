@@ -268,9 +268,9 @@ def generate_groom():
             # Use provided content
             content = ticket_content
         
-        # Generate analysis
+        # Generate analysis using enhanced response generator
         try:
-            result = groomroom.analyze_ticket(content, mode=level)
+            result = groomroom.generate_enhanced_response(content, mode=level)
         except Exception as e:
             # If Jira integration fails, provide helpful error message
             if ticket_number and "Could not fetch ticket" in str(e):
@@ -282,30 +282,27 @@ def generate_groom():
             else:
                 raise e
         
-        # Check if result is already formatted (has mode and display_format keys)
-        if 'mode' in result and 'display_format' in result:
-            # Result is already formatted, extract the formatted text
-            formatted_output = _extract_formatted_text(result, level)
+        # Handle enhanced response format
+        if 'markdown' in result and 'data' in result:
+            # New enhanced response format
+            analysis = {
+                'markdown': result['markdown'],
+                'data': result['data'],
+                'level': level,
+                'ticket_number': ticket_number
+            }
         else:
-            # Result is raw, format it
-            if level == 'insight':
-                formatted_output = _format_insight_for_display(result)
-            elif level == 'actionable':
-                formatted_output = _format_actionable_for_display(result)
-            elif level == 'summary':
-                formatted_output = _format_summary_for_display(result)
-            else:
-                formatted_output = str(result)
-        
-        analysis = {
-            'groom': formatted_output,
-            'level': level,
-            'ticket_number': ticket_number,
-            'sprint_readiness': result.get('SprintReadiness', result.get('readiness_score', 0)),
-            'type': result.get('Type', result.get('ticket_key', 'Unknown')),
-            'issues_found': result.get('DefinitionOfReady', {}).get('MissingFields', []),
-            'suggestions': result.get('Recommendations', [])
-        }
+            # Fallback to old format for compatibility
+            formatted_output = str(result)
+            analysis = {
+                'groom': formatted_output,
+                'level': level,
+                'ticket_number': ticket_number,
+                'sprint_readiness': result.get('SprintReadiness', result.get('readiness_score', 0)),
+                'type': result.get('Type', result.get('ticket_key', 'Unknown')),
+                'issues_found': result.get('DefinitionOfReady', {}).get('MissingFields', []),
+                'suggestions': result.get('Recommendations', [])
+            }
         
         return jsonify({
             'success': True,

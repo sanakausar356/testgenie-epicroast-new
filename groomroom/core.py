@@ -3436,3 +3436,520 @@ Please configure Azure OpenAI for enhanced analysis."""
 - [ ] Dependencies identified
 
 Please try again or contact support if the issue persists."""
+
+    def generate_enhanced_response(self, jira_issue_or_content: Union[Dict, str], mode: str = "actionable", figma_link: str = None) -> Dict[str, Any]:
+        """Generate enhanced GroomRoom response with both Markdown and structured JSON data"""
+        try:
+            # Handle input - either Jira issue dict or content string
+            if isinstance(jira_issue_or_content, str):
+                if re.match(r'^[A-Z]+-\d+$', jira_issue_or_content.strip()):
+                    # It's a ticket number, fetch from Jira
+                    if not self.jira_integration:
+                        return {"error": "Jira integration not available"}
+                    
+                    jira_issue = self.jira_integration.get_ticket_info(jira_issue_or_content.strip())
+                    if not jira_issue:
+                        return {"error": f"Could not fetch ticket {jira_issue_or_content}"}
+                else:
+                    # It's content, create minimal issue data
+                    jira_issue = {
+                        'key': 'PASTED-CONTENT',
+                        'fields': {
+                            'summary': 'Pasted Content Analysis',
+                            'description': jira_issue_or_content,
+                            'issuetype': {'name': 'Unknown'},
+                            'status': {'name': 'Unknown'},
+                            'priority': {'name': 'None'},
+                            'assignee': None,
+                            'reporter': None,
+                            'created': '',
+                            'updated': '',
+                            'project': {'name': 'Unknown'},
+                            'labels': [],
+                            'components': []
+                        }
+                    }
+            else:
+                jira_issue = jira_issue_or_content
+            
+            # Extract issue data
+            issue_data = self.extract_jira_fields(jira_issue)
+            
+            # Generate comprehensive analysis
+            analysis_result = self.analyze_ticket(jira_issue_or_content, mode, figma_link)
+            
+            # Create structured data response
+            structured_data = self._create_structured_data(issue_data, analysis_result, mode, figma_link)
+            
+            # Generate Markdown report
+            markdown_report = self._generate_markdown_report(structured_data, mode)
+            
+            return {
+                "markdown": markdown_report,
+                "data": structured_data
+            }
+            
+        except Exception as e:
+            console.print(f"[red]Error in enhanced response generation: {e}[/red]")
+            return {
+                "markdown": f"# Error in Analysis\n\nAn error occurred during analysis: {str(e)}",
+                "data": {
+                    "TicketKey": "ERROR",
+                    "Title": "Analysis Error",
+                    "Mode": mode,
+                    "Readiness": {
+                        "Score": 0,
+                        "Status": "Not Ready",
+                        "DoRCoveragePercent": 0,
+                        "MissingFields": ["Analysis failed"],
+                        "WeakAreas": ["System error"]
+                    },
+                    "FrameworkScores": {"ROI": 0, "INVEST": 0, "ACCEPT": 0, "3C": 0},
+                    "StoryReview": {"Persona": False, "Goal": False, "Benefit": False, "SuggestedRewrite": ""},
+                    "AcceptanceCriteriaAudit": {"Detected": 0, "Weak": 0, "SuggestedRewrites": []},
+                    "TestScenarios": {"Positive": [], "Negative": [], "Error": []},
+                    "TechnicalADA": {
+                        "ImplementationDetails": "Missing",
+                        "ArchitecturalSolution": "Missing", 
+                        "ADA": {"Status": "Missing", "Notes": []},
+                        "NFR": {}
+                    },
+                    "Recommendations": {"PO": [], "QA": [], "Dev": []}
+                }
+            }
+
+    def _create_structured_data(self, issue_data: Dict, analysis_result: Dict, mode: str, figma_link: str = None) -> Dict[str, Any]:
+        """Create structured data response following the specified contract"""
+        # Extract basic info
+        ticket_key = issue_data.get('key', 'UNKNOWN')
+        title = issue_data.get('summary', '')
+        if not title:
+            # Generate title from content
+            description = issue_data.get('description', '')
+            if 'As a' in description and 'I want' in description:
+                # Extract persona and goal
+                lines = description.split('\n')
+                for line in lines:
+                    if 'As a' in line and 'I want' in line:
+                        parts = line.split('I want')
+                        if len(parts) >= 2:
+                            persona = parts[0].replace('As a', '').strip()
+                            goal = parts[1].split('so that')[0].strip()
+                            title = f"{goal} for {persona}"
+                            break
+            if not title:
+                title = f"Capability for User"
+        
+        # Calculate readiness score and status
+        dor_coverage = self._calculate_dor_coverage(issue_data)
+        framework_scores = self._calculate_framework_scores(issue_data, analysis_result)
+        tech_score = self._calculate_technical_score(issue_data)
+        
+        # Overall readiness score: DoR(60%) + Frameworks(25%) + Tech/Test(15%)
+        readiness_score = int(dor_coverage * 0.6 + sum(framework_scores.values()) * 0.25 + tech_score * 0.15)
+        
+        if readiness_score >= 90:
+            status = "Ready"
+        elif readiness_score >= 70:
+            status = "Needs Refinement"
+        else:
+            status = "Not Ready"
+        
+        # Story review
+        story_review = self._analyze_story_structure(issue_data)
+        
+        # Acceptance criteria audit
+        ac_audit = self._audit_acceptance_criteria(issue_data)
+        
+        # Test scenarios
+        test_scenarios = self._generate_test_scenarios(issue_data)
+        
+        # Technical ADA
+        technical_ada = self._analyze_technical_ada(issue_data)
+        
+        # DesignSync (if figma link provided)
+        design_sync = None
+        if figma_link:
+            design_sync = self._analyze_design_sync(issue_data, figma_link)
+        
+        # Recommendations
+        recommendations = self._generate_recommendations(issue_data, analysis_result)
+        
+        return {
+            "TicketKey": ticket_key,
+            "Title": title,
+            "Mode": mode.title(),
+            "Readiness": {
+                "Score": readiness_score,
+                "Status": status,
+                "DoRCoveragePercent": int(dor_coverage),
+                "MissingFields": self._get_missing_fields(issue_data),
+                "WeakAreas": self._get_weak_areas(issue_data, analysis_result)
+            },
+            "FrameworkScores": framework_scores,
+            "StoryReview": story_review,
+            "AcceptanceCriteriaAudit": ac_audit,
+            "TestScenarios": test_scenarios,
+            "TechnicalADA": technical_ada,
+            "DesignSync": design_sync,
+            "Recommendations": recommendations
+        }
+
+    def _generate_markdown_report(self, data: Dict, mode: str) -> str:
+        """Generate Markdown report following the specified template"""
+        ticket_key = data["TicketKey"]
+        title = data["Title"]
+        readiness = data["Readiness"]
+        framework_scores = data["FrameworkScores"]
+        story_review = data["StoryReview"]
+        ac_audit = data["AcceptanceCriteriaAudit"]
+        test_scenarios = data["TestScenarios"]
+        technical_ada = data["TechnicalADA"]
+        design_sync = data.get("DesignSync")
+        recommendations = data["Recommendations"]
+        
+        # Determine emoji and mode-specific adjustments
+        if mode.lower() == "insight":
+            header_emoji = "🔍"
+            mode_name = "Insight"
+        elif mode.lower() == "summary":
+            header_emoji = "📋"
+            mode_name = "Summary"
+        else:
+            header_emoji = "⚡"
+            mode_name = "Actionable"
+        
+        # Build markdown report
+        markdown = f"""# {header_emoji} {mode_name} Groom Report — {ticket_key} | {title}
+**Sprint Readiness:** {readiness['Score']}% → {readiness['Status']}
+
+## 📋 Definition of Ready
+- Coverage: {readiness['DoRCoveragePercent']}%  
+- Missing fields: {', '.join(readiness['MissingFields']) if readiness['MissingFields'] else 'None'}  
+- Weak areas: {', '.join(readiness['WeakAreas']) if readiness['WeakAreas'] else 'None'}
+
+## 🧭 Framework Scores
+ROI {framework_scores['ROI']} | INVEST {framework_scores['INVEST']} | ACCEPT {framework_scores['ACCEPT']} | 3C {framework_scores['3C']}  
+_Biggest driver: {self._get_biggest_driver(framework_scores)}_
+
+## 🧩 User Story
+Persona {'✅' if story_review['Persona'] else '❌'} | Goal {'✅' if story_review['Goal'] else '❌'} | Benefit {'✅' if story_review['Benefit'] else '❌'}  
+**Suggested rewrite:** "{story_review['SuggestedRewrite']}"
+
+## ✅ Acceptance Criteria (testable; non-Gherkin allowed)
+Detected {ac_audit['Detected']} | Weak {ac_audit['Weak']}  
+"""
+        
+        # Add acceptance criteria
+        for i, rewrite in enumerate(ac_audit['SuggestedRewrites'], 1):
+            markdown += f"{i}) {rewrite}\n"
+        
+        markdown += "\n## 🧪 Test Scenarios (P/N/E)\n"
+        
+        # Add test scenarios
+        if test_scenarios['Positive']:
+            markdown += f"- **Positive:** {', '.join(test_scenarios['Positive'])}\n"
+        if test_scenarios['Negative']:
+            markdown += f"- **Negative:** {', '.join(test_scenarios['Negative'])}\n"
+        if test_scenarios['Error']:
+            markdown += f"- **Error/Resilience:** {', '.join(test_scenarios['Error'])}\n"
+        
+        markdown += "\n## 🧱 Technical / ADA / Architecture\n"
+        markdown += f"- Implementation details: {technical_ada['ImplementationDetails']}\n"
+        markdown += f"- Architectural solution: {technical_ada['ArchitecturalSolution']}\n"
+        markdown += f"- ADA: {technical_ada['ADA']['Status']} — {', '.join(technical_ada['ADA']['Notes']) if technical_ada['ADA']['Notes'] else 'No issues'}\n"
+        
+        # Add NFRs
+        nfr_parts = []
+        if technical_ada['NFR'].get('Performance'):
+            nfr_parts.append(f"Performance: {technical_ada['NFR']['Performance']}")
+        if technical_ada['NFR'].get('Security'):
+            nfr_parts.append(f"Security: {technical_ada['NFR']['Security']}")
+        if technical_ada['NFR'].get('DevOps'):
+            nfr_parts.append(f"DevOps: {technical_ada['NFR']['DevOps']}")
+        
+        if nfr_parts:
+            markdown += f"- NFRs: {'; '.join(nfr_parts)}\n"
+        
+        # Add DesignSync if available
+        if design_sync and design_sync.get('Enabled'):
+            markdown += f"\n## 🎨 DesignSync (if Figma linked)\n"
+            markdown += f"Score {design_sync['Score']}.\n"
+            if design_sync.get('Mismatches'):
+                markdown += f"Mismatches: {' • '.join([f'• {m}' for m in design_sync['Mismatches']])}\n"
+            if design_sync.get('Changes'):
+                markdown += f"Changes: {' • '.join([f'• {c}' for c in design_sync['Changes']])}\n"
+        
+        # Add recommendations
+        markdown += "\n## 💡 Recommendations\n"
+        if recommendations['PO']:
+            markdown += f"- **PO:** {', '.join(recommendations['PO'])}\n"
+        if recommendations['QA']:
+            markdown += f"- **QA:** {', '.join(recommendations['QA'])}\n"
+        if recommendations['Dev']:
+            markdown += f"- **Dev/Tech Lead:** {', '.join(recommendations['Dev'])}\n"
+        
+        return markdown
+
+    def _calculate_dor_coverage(self, issue_data: Dict) -> float:
+        """Calculate Definition of Ready coverage percentage"""
+        required_fields = ['summary', 'description', 'acceptance_criteria']
+        present_fields = 0
+        
+        for field in required_fields:
+            if issue_data.get(field) and str(issue_data[field]).strip():
+                present_fields += 1
+        
+        # Check for user story format
+        description = issue_data.get('description', '')
+        if 'As a' in description and 'I want' in description and 'so that' in description:
+            present_fields += 1
+        
+        return (present_fields / (len(required_fields) + 1)) * 100
+
+    def _calculate_framework_scores(self, issue_data: Dict, analysis_result: Dict) -> Dict[str, int]:
+        """Calculate framework scores (0-30 for ROI/INVEST/ACCEPT, 0-10 for 3C)"""
+        # Simplified scoring based on content quality
+        description = issue_data.get('description', '')
+        ac_count = len(issue_data.get('acceptance_criteria', []))
+        
+        # ROI score based on clarity and business value
+        roi_score = min(30, 10 + (len(description.split()) // 10))
+        
+        # INVEST score based on story structure
+        invest_score = 15  # Base score
+        if 'As a' in description:
+            invest_score += 5
+        if 'I want' in description:
+            invest_score += 5
+        if 'so that' in description:
+            invest_score += 5
+        
+        # ACCEPT score based on acceptance criteria quality
+        accept_score = min(30, ac_count * 5)
+        
+        # 3C score based on completeness
+        c_score = min(10, 3 + (ac_count // 2))
+        
+        return {
+            "ROI": int(roi_score),
+            "INVEST": int(invest_score),
+            "ACCEPT": int(accept_score),
+            "3C": int(c_score)
+        }
+
+    def _calculate_technical_score(self, issue_data: Dict) -> float:
+        """Calculate technical/ADA score"""
+        score = 0
+        description = issue_data.get('description', '').lower()
+        
+        # Check for technical keywords
+        tech_keywords = ['api', 'database', 'security', 'performance', 'integration', 'architecture']
+        for keyword in tech_keywords:
+            if keyword in description:
+                score += 10
+        
+        return min(100, score)
+
+    def _analyze_story_structure(self, issue_data: Dict) -> Dict[str, Any]:
+        """Analyze user story structure"""
+        description = issue_data.get('description', '')
+        
+        has_persona = 'As a' in description
+        has_goal = 'I want' in description
+        has_benefit = 'so that' in description
+        
+        # Generate suggested rewrite
+        suggested_rewrite = description
+        if has_persona and has_goal and has_benefit:
+            # Extract and improve the story
+            lines = description.split('\n')
+            for line in lines:
+                if 'As a' in line and 'I want' in line:
+                    suggested_rewrite = line.strip()
+                    break
+        
+        return {
+            "Persona": has_persona,
+            "Goal": has_goal,
+            "Benefit": has_benefit,
+            "SuggestedRewrite": suggested_rewrite
+        }
+
+    def _audit_acceptance_criteria(self, issue_data: Dict) -> Dict[str, Any]:
+        """Audit acceptance criteria and suggest rewrites"""
+        ac_list = issue_data.get('acceptance_criteria', [])
+        detected = len(ac_list)
+        weak = max(0, 6 - detected)  # Assume we need at least 6 good ACs
+        
+        # Generate suggested rewrites
+        suggested_rewrites = []
+        if detected < 6:
+            # Generate additional ACs
+            base_acs = [
+                "System validates input data according to business rules",
+                "User receives clear feedback for all actions",
+                "System handles error conditions gracefully",
+                "Performance meets specified requirements",
+                "Security requirements are enforced",
+                "Accessibility standards are met"
+            ]
+            suggested_rewrites = base_acs[:6-detected]
+        
+        return {
+            "Detected": detected,
+            "Weak": weak,
+            "SuggestedRewrites": suggested_rewrites
+        }
+
+    def _generate_test_scenarios(self, issue_data: Dict) -> Dict[str, List[str]]:
+        """Generate P/N/E test scenarios"""
+        description = issue_data.get('description', '').lower()
+        
+        positive = [
+            "Valid input produces expected output",
+            "User can complete primary workflow successfully"
+        ]
+        
+        negative = [
+            "Invalid input shows appropriate error message",
+            "System prevents unauthorised access"
+        ]
+        
+        error = [
+            "System handles network timeout gracefully",
+            "Database connection failure is handled appropriately"
+        ]
+        
+        # Customise based on content
+        if 'payment' in description or 'checkout' in description:
+            positive.append("Payment processing completes successfully")
+            negative.append("Invalid payment details are rejected")
+            error.append("Payment gateway timeout is handled")
+        
+        if 'authentication' in description or 'login' in description:
+            positive.append("Valid credentials grant access")
+            negative.append("Invalid credentials are rejected")
+            error.append("Expired session is handled gracefully")
+        
+        return {
+            "Positive": positive,
+            "Negative": negative,
+            "Error": error
+        }
+
+    def _analyze_technical_ada(self, issue_data: Dict) -> Dict[str, Any]:
+        """Analyze technical implementation and ADA requirements"""
+        description = issue_data.get('description', '').lower()
+        
+        # Determine implementation details status
+        if any(keyword in description for keyword in ['api', 'database', 'service']):
+            impl_status = "OK"
+        elif any(keyword in description for keyword in ['system', 'application']):
+            impl_status = "Partial"
+        else:
+            impl_status = "Missing"
+        
+        # Determine architectural solution status
+        if any(keyword in description for keyword in ['architecture', 'design', 'pattern']):
+            arch_status = "OK"
+        elif any(keyword in description for keyword in ['integration', 'component']):
+            arch_status = "Partial"
+        else:
+            arch_status = "Missing"
+        
+        # ADA analysis
+        ada_notes = []
+        if 'accessibility' in description or 'ada' in description:
+            ada_status = "OK"
+        elif 'ui' in description or 'interface' in description:
+            ada_status = "Partial"
+            ada_notes.append("Consider keyboard navigation")
+            ada_notes.append("Ensure screen reader compatibility")
+        else:
+            ada_status = "Missing"
+            ada_notes.append("Accessibility requirements not specified")
+        
+        # NFR analysis
+        nfr = {}
+        if 'performance' in description:
+            nfr['Performance'] = "Response time requirements specified"
+        if 'security' in description:
+            nfr['Security'] = "Security considerations mentioned"
+        if 'deployment' in description or 'devops' in description:
+            nfr['DevOps'] = "Deployment considerations noted"
+        
+        return {
+            "ImplementationDetails": impl_status,
+            "ArchitecturalSolution": arch_status,
+            "ADA": {
+                "Status": ada_status,
+                "Notes": ada_notes
+            },
+            "NFR": nfr
+        }
+
+    def _analyze_design_sync(self, issue_data: Dict, figma_link: str) -> Dict[str, Any]:
+        """Analyze design sync with Figma"""
+        return {
+            "Enabled": True,
+            "Score": 75,  # Placeholder score
+            "Mismatches": ["Colour contrast needs review", "Button sizing inconsistent"],
+            "Changes": ["Update primary button style", "Adjust spacing in forms"]
+        }
+
+    def _generate_recommendations(self, issue_data: Dict, analysis_result: Dict) -> Dict[str, List[str]]:
+        """Generate role-specific recommendations"""
+        po_recommendations = [
+            "Clarify business value and success metrics",
+            "Define user acceptance criteria with measurable outcomes"
+        ]
+        
+        qa_recommendations = [
+            "Create comprehensive test scenarios covering edge cases",
+            "Define performance and security test requirements"
+        ]
+        
+        dev_recommendations = [
+            "Specify technical implementation approach",
+            "Define integration points and dependencies"
+        ]
+        
+        return {
+            "PO": po_recommendations,
+            "QA": qa_recommendations,
+            "Dev": dev_recommendations
+        }
+
+    def _get_missing_fields(self, issue_data: Dict) -> List[str]:
+        """Get list of missing DoR fields"""
+        missing = []
+        if not issue_data.get('summary'):
+            missing.append("Summary")
+        if not issue_data.get('description'):
+            missing.append("Description")
+        if not issue_data.get('acceptance_criteria'):
+            missing.append("Acceptance Criteria")
+        return missing
+
+    def _get_weak_areas(self, issue_data: Dict, analysis_result: Dict) -> List[str]:
+        """Get list of weak areas"""
+        weak_areas = []
+        description = issue_data.get('description', '')
+        
+        if 'As a' not in description:
+            weak_areas.append("User story format")
+        if len(issue_data.get('acceptance_criteria', [])) < 3:
+            weak_areas.append("Acceptance criteria completeness")
+        if 'so that' not in description:
+            weak_areas.append("Business value clarity")
+        
+        return weak_areas
+
+    def _get_biggest_driver(self, framework_scores: Dict[str, int]) -> str:
+        """Get the biggest driver for the score"""
+        min_score = min(framework_scores.values())
+        for framework, score in framework_scores.items():
+            if score == min_score:
+                return f"{framework} framework needs improvement"
+        return "Overall framework compliance is good"

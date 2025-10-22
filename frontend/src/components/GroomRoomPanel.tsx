@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Zap, Download, Copy, Share2, CheckCircle, AlertCircle, Search, Sparkles } from 'lucide-react'
 import { generateGroom } from '../services/api'
+import ReportTabs from './groom/ReportTabs'
 
 interface GroomRoomPanelProps {
   sharedTicketNumber: string
@@ -19,6 +20,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
   const [level, setLevel] = useState('actionable')
   const [figmaLink, setFigmaLink] = useState('')
   const [results, setResults] = useState('')
+  const [responseData, setResponseData] = useState<any>(null)
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [validationError, setValidationError] = useState('')
@@ -72,8 +74,23 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
       console.log('Groom content preview:', response.data?.groom?.substring(0, 200) || 'No content')
       
       if (response.success) {
-        console.log('Setting results to:', response.data.groom)
-        setResults(response.data.groom)
+        console.log('Response data:', response.data)
+        
+        // Handle new enhanced response format
+        if (response.data.markdown && response.data.data) {
+          console.log('Using enhanced response format')
+          setResults(response.data.markdown)
+          setResponseData(response.data.data)
+        } else if (response.data.groom) {
+          console.log('Using legacy response format')
+          setResults(response.data.groom)
+          setResponseData(null)
+        } else {
+          console.log('No valid response format found')
+          setResults('No analysis content available')
+          setResponseData(null)
+        }
+        
         if (ticketNumber) {
           setSharedTicketNumber(ticketNumber)
         }
@@ -336,11 +353,16 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-6 max-h-[600px] overflow-y-auto shadow-sm">
-            <div className="prose prose-sm max-w-none">
-              {formatResults(results)}
+          {/* Use new ReportTabs component for enhanced response, fallback to old format */}
+          {responseData ? (
+            <ReportTabs markdown={results} data={responseData} />
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg p-6 max-h-[600px] overflow-y-auto shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                {formatResults(results)}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
