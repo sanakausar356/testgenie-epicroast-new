@@ -1,31 +1,52 @@
 #!/usr/bin/env python3
-print("Starting minimal test...")
+"""
+Minimal test for enhanced GroomRoom
+"""
 
-try:
-    print("Testing basic imports...")
-    import os
-    import sys
-    print("Basic imports successful")
+def test_enhanced_features():
+    """Test the enhanced GroomRoom features"""
+    print("🧪 Testing Enhanced GroomRoom Features")
+    print("=" * 50)
     
-    print("Testing GroomRoom import...")
-    from groomroom.core import GroomRoom
-    print("GroomRoom import successful")
-    
-    print("Testing GroomRoom initialization...")
-    groomroom = GroomRoom()
-    print("GroomRoom initialization successful")
-    
-    print("Testing methods...")
-    methods = ['generate_groom_analysis', 'get_groom_level_prompt']
-    for method in methods:
-        if hasattr(groomroom, method):
-            print(f"Method {method} exists")
-        else:
-            print(f"Method {method} missing")
-    
-    print("Minimal test completed successfully!")
-    
-except Exception as e:
-    print(f"Error occurred: {e}")
-    import traceback
-    traceback.print_exc()
+    try:
+        # Test import
+        from groomroom.core import GroomRoom
+        print("✅ Import successful")
+        
+        # Test initialization
+        groomroom = GroomRoom()
+        print("✅ Initialization successful")
+        
+        # Test enhanced methods exist
+        enhanced_methods = [
+            'audit_acceptance_criteria_enhanced',
+            'generate_comprehensive_test_scenarios', 
+            'analyze_frameworks_enhanced',
+            'calculate_readiness_enhanced',
+            '_generate_role_tagged_recommendations',
+            'generate_enhanced_output',
+            'analyze_batch_tickets',
+            'apply_length_guardrails'
+        ]
+        
+        for method in enhanced_methods:
+            if hasattr(groomroom, method):
+                print(f"✅ {method} exists")
+            else:
+                print(f"❌ {method} missing")
+                return False
+        
+        print("\n🎉 All enhanced features are present!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return False
+
+if __name__ == "__main__":
+    success = test_enhanced_features()
+    if success:
+        print("\n✅ Enhanced GroomRoom is ready!")
+    else:
+        print("\n❌ Enhanced GroomRoom has issues")
+        exit(1)

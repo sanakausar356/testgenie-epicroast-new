@@ -132,6 +132,86 @@ Status: {status_emoji} {status_text}"""
     
     return output
 
+def _extract_formatted_text(result, level):
+    """Extract formatted text from already-formatted GroomRoom result"""
+    if level == 'actionable':
+        return _format_actionable_from_structured(result)
+    elif level == 'insight':
+        return _format_insight_from_structured(result)
+    elif level == 'summary':
+        return _format_summary_from_structured(result)
+    else:
+        return str(result)
+
+def _format_actionable_from_structured(result):
+    """Format actionable output from structured result"""
+    readiness = result.get('readiness_score', 0)
+    status_emoji = "✅" if readiness >= 90 else "⚠️" if readiness >= 70 else "❌"
+    status_text = "Ready for Dev" if readiness >= 90 else "Needs Refinement" if readiness >= 70 else "Not Ready"
+    
+    output = f"""⚡ Actionable Groom Report ({result.get('ticket_key', 'Unknown')})
+Readiness: {readiness}% | Status: {status_emoji} {status_text}
+
+🧩 User Story"""
+    
+    sections = result.get('sections', {})
+    user_story = sections.get('user_story', {})
+    persona_found = user_story.get('persona_goal_found', False)
+    benefit_clarity = user_story.get('benefit_clarity', 'Unclear')
+    
+    output += f"\n- Persona/Goal found {'✅' if persona_found else '❌'}"
+    output += f"\n- Benefit {benefit_clarity.lower()}"
+    
+    if user_story.get('suggested_rewrite'):
+        output += f"\n- Suggested rewrite provided"
+    
+    output += f"\n\n✅ Acceptance Criteria"
+    ac_section = sections.get('acceptance_criteria', {})
+    detected = ac_section.get('detected_count', 0)
+    need_rewriting = ac_section.get('need_rewriting', 0)
+    output += f"\n- {detected} detected | {need_rewriting} need rewriting for measurability"
+    
+    suggested_rewrites = ac_section.get('suggested_rewrites', [])
+    if suggested_rewrites:
+        output += "\nSuggested rewrite examples:"
+        for i, rewrite in enumerate(suggested_rewrites[:2], 1):
+            output += f"\n{i}. \"{rewrite}\""
+    
+    output += f"\n\n🧪 QA Scenarios"
+    qa_section = sections.get('qa_scenarios', {})
+    test_scenarios = qa_section.get('suggested_scenarios', [])
+    if test_scenarios:
+        for scenario in test_scenarios[:2]:
+            output += f"\n- {scenario}"
+    
+    output += f"\n\n🧱 Technical / ADA"
+    tech_section = sections.get('technical_ada', {})
+    if tech_section.get('missing_architectural_solution'):
+        output += "\n- Missing Architectural Solution link"
+    if tech_section.get('missing_ada_criteria'):
+        output += "\n- No ADA criteria for contrast or keyboard focus"
+    
+    return output
+
+def _format_insight_from_structured(result):
+    """Format insight output from structured result"""
+    # For now, return a simple insight format
+    readiness = result.get('readiness_score', 0)
+    status = "Ready for Dev" if readiness >= 90 else "Needs minor refinement" if readiness >= 70 else "Not Ready"
+    
+    return f"""🔍 Insight Analysis ({result.get('ticket_key', 'Unknown')})
+Readiness: {readiness}% ({status})
+Status: {'✅' if readiness >= 90 else '⚠️' if readiness >= 70 else '❌'} {status}"""
+
+def _format_summary_from_structured(result):
+    """Format summary output from structured result"""
+    readiness = result.get('readiness_score', 0)
+    status_emoji = "✅" if readiness >= 90 else "⚠️" if readiness >= 70 else "❌"
+    status_text = "Ready for Dev" if readiness >= 90 else "Needs Refinement" if readiness >= 70 else "Not Ready"
+    
+    return f"""📋 Summary — {result.get('ticket_key', 'Unknown')} | Sprint Readiness: {readiness}%
+Status: {status_emoji} {status_text}"""
+
 @app.route('/')
 def home():
     return jsonify({
@@ -202,22 +282,27 @@ def generate_groom():
             else:
                 raise e
         
-        # Format response based on mode
-        if level == 'insight':
-            formatted_output = _format_insight_for_display(result)
-        elif level == 'actionable':
-            formatted_output = _format_actionable_for_display(result)
-        elif level == 'summary':
-            formatted_output = _format_summary_for_display(result)
+        # Check if result is already formatted (has mode and display_format keys)
+        if 'mode' in result and 'display_format' in result:
+            # Result is already formatted, extract the formatted text
+            formatted_output = _extract_formatted_text(result, level)
         else:
-            formatted_output = str(result)
+            # Result is raw, format it
+            if level == 'insight':
+                formatted_output = _format_insight_for_display(result)
+            elif level == 'actionable':
+                formatted_output = _format_actionable_for_display(result)
+            elif level == 'summary':
+                formatted_output = _format_summary_for_display(result)
+            else:
+                formatted_output = str(result)
         
         analysis = {
             'groom': formatted_output,
             'level': level,
             'ticket_number': ticket_number,
-            'sprint_readiness': result.get('SprintReadiness', 0),
-            'type': result.get('Type', 'Unknown'),
+            'sprint_readiness': result.get('SprintReadiness', result.get('readiness_score', 0)),
+            'type': result.get('Type', result.get('ticket_key', 'Unknown')),
             'issues_found': result.get('DefinitionOfReady', {}).get('MissingFields', []),
             'suggestions': result.get('Recommendations', [])
         }

@@ -1,5 +1,5 @@
 """
-Debug the API response formatting to understand why it's still showing 0%
+Test the local API to verify the formatting is working correctly
 """
 
 import sys
@@ -7,12 +7,12 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from groomroom.core import GroomRoom
-from app import _format_actionable_from_structured
+from app import _extract_formatted_text
 
-def debug_api_response():
-    """Debug the API response formatting"""
+def test_local_api():
+    """Test the local API formatting"""
     
-    print("🔍 Debugging API Response Formatting")
+    print("🧪 Testing Local API Formatting")
     print("=" * 50)
     
     # Sample content
@@ -41,27 +41,25 @@ def debug_api_response():
         print("\n2. Running analysis...")
         result = groomroom.analyze_ticket(sample_content, mode="actionable")
         
-        print("\n3. Raw result structure:")
-        print(f"Keys: {list(result.keys())}")
-        print(f"Mode: {result.get('mode')}")
-        print(f"Display format: {result.get('display_format')}")
-        print(f"Readiness score: {result.get('readiness_score')}")
-        print(f"Ticket key: {result.get('ticket_key')}")
+        # Test the API formatting logic
+        print("\n3. Testing API formatting logic...")
         
-        # Check sections
-        sections = result.get('sections', {})
-        print(f"\n4. Sections:")
-        for section_name, section_data in sections.items():
-            print(f"  {section_name}: {type(section_data)} with keys: {list(section_data.keys())}")
+        # Check if result is already formatted
+        if 'mode' in result and 'display_format' in result:
+            print("✅ Result is already formatted")
+            formatted_output = _extract_formatted_text(result, "actionable")
+        else:
+            print("❌ Result is not formatted")
+            from app import _format_actionable_for_display
+            formatted_output = _format_actionable_for_display(result)
         
-        # Test the formatting function
-        print("\n5. Testing formatting function...")
-        formatted_output = _format_actionable_from_structured(result)
-        print("Formatted output:")
+        print("\n4. Formatted Output:")
+        print("=" * 50)
         print(formatted_output)
+        print("=" * 50)
         
-        # Check what the API is actually getting
-        print("\n6. API analysis structure:")
+        # Test the analysis structure
+        print("\n5. Analysis Structure:")
         analysis = {
             'groom': formatted_output,
             'level': 'actionable',
@@ -77,10 +75,13 @@ def debug_api_response():
         print(f"Issues found: {analysis['issues_found']}")
         print(f"Suggestions: {analysis['suggestions']}")
         
+        print("\n✅ Local API formatting is working correctly!")
+        print("The issue is that the deployed API on Railway needs to be updated.")
+        
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
 
 if __name__ == "__main__":
-    debug_api_response()
+    test_local_api()

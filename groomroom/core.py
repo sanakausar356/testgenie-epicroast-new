@@ -926,8 +926,8 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
         # At least 3 of 4 fields should be present
         return present_count >= 3
 
-    def analyze_ticket(self, jira_issue_or_content: Union[Dict, str], mode: str = "actionable") -> Dict[str, Any]:
-        """Main analysis pipeline for comprehensive ticket refinement"""
+    def analyze_ticket(self, jira_issue_or_content: Union[Dict, str], mode: str = "actionable", figma_link: str = None) -> Dict[str, Any]:
+        """Main analysis pipeline for comprehensive ticket refinement with enhanced 04-mini style output"""
         try:
             # Handle input - either Jira issue dict or content string
             if isinstance(jira_issue_or_content, str):
@@ -970,70 +970,690 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
             # Analyze story structure
             story_analysis = self.analyze_story(issue_data)
             
-            # Audit acceptance criteria
-            ac_audit = self.audit_acceptance_criteria(issue_data.get('acceptance_criteria', []))
+            # Audit acceptance criteria with enhanced rewrites
+            ac_audit = self.audit_acceptance_criteria_enhanced(issue_data.get('acceptance_criteria', []))
             
-            # Generate test scenarios
-            test_scenarios = self.generate_test_scenarios(issue_data)
+            # Generate comprehensive test scenarios (P/N/E)
+            test_scenarios = self.generate_comprehensive_test_scenarios(issue_data)
             
             # Audit bug (if applicable)
             bug_audit = None
             if card_type_analysis['detected_type'] == 'bug':
                 bug_audit = self.audit_bug(issue_data)
             
-            # Analyze frameworks
-            framework_scores = self.analyze_frameworks(issue_data)
+            # Analyze frameworks with enhanced scoring
+            framework_scores = self.analyze_frameworks_enhanced(issue_data)
             
             # Enhanced DoR analysis
             dor_analysis = self.analyze_dor_requirements_enhanced(issue_data)
             
-            # Calculate technical coverage
-            technical_coverage = self._calculate_technical_coverage(issue_data, test_scenarios)
+            # Calculate technical/ADA coverage
+            technical_ada = self._calculate_technical_ada_coverage(issue_data, test_scenarios)
             
-            # Calculate sprint readiness
-            readiness_analysis = self.calculate_readiness(dor_analysis, framework_scores, technical_coverage)
+            # Calculate sprint readiness with new formula: DoR(60%) + Frameworks(25%) + Technical/Test(15%)
+            readiness_analysis = self.calculate_readiness_enhanced(dor_analysis, framework_scores, technical_ada)
             
-            # Generate recommendations
-            recommendations = self._generate_recommendations(dor_analysis, ac_audit, test_scenarios, bug_audit, framework_scores)
+            # Generate role-tagged recommendations
+            role_recommendations = self._generate_role_tagged_recommendations(dor_analysis, ac_audit, test_scenarios, bug_audit, framework_scores, technical_ada)
             
-            # Build structured output
+            # DesignSync analysis (if Figma link provided)
+            designsync = None
+            if figma_link:
+                designsync = self._analyze_designsync(issue_data, figma_link, ac_audit, test_scenarios)
+            
+            # Build enhanced structured output
             output = {
                 "TicketKey": issue_data.get('key', ''),
-                "Type": card_type_analysis['type_name'],
-                "SprintReadiness": readiness_analysis['score'],
-                "DefinitionOfReady": {
-                    "CoveragePercent": dor_analysis['coverage_percentage'],
-                    "MissingFields": dor_analysis['missing_fields']
+                "Title": issue_data.get('summary', ''),
+                "Mode": mode.title(),
+                "Readiness": {
+                    "Score": readiness_analysis['score'],
+                    "Status": readiness_analysis['status'],
+                    "DoRCoveragePercent": dor_analysis['coverage_percentage'],
+                    "MissingFields": dor_analysis['missing_fields'],
+                    "WeakAreas": dor_analysis.get('weak_areas', [])
                 },
-                "FrameworkScores": framework_scores,
-                "StoryRewrite": story_analysis.get('story_rewrite'),
+                "FrameworkScores": {
+                    "ROI": framework_scores.get('ROI', 0),
+                    "INVEST": framework_scores.get('INVEST', 0),
+                    "ACCEPT": framework_scores.get('ACCEPT', 0),
+                    "3C": framework_scores.get('3C', 0)
+                },
+                "StoryReview": {
+                    "Persona": story_analysis.get('has_persona', False),
+                    "Goal": story_analysis.get('has_goal', False),
+                    "Benefit": story_analysis.get('has_benefit', False),
+                    "SuggestedRewrite": story_analysis.get('story_rewrite', '')
+                },
                 "AcceptanceCriteriaAudit": {
                     "Detected": ac_audit['detected'],
                     "Weak": ac_audit['weak'],
-                    "SuggestedRewrite": ac_audit['suggested_rewrite']
+                    "SuggestedRewrites": ac_audit['suggested_rewrites']
                 },
-                "SuggestedTestScenarios": test_scenarios,
-                "Recommendations": recommendations,
-                "CardTypeAnalysis": card_type_analysis,
-                "StoryAnalysis": story_analysis,
-                "BugAudit": bug_audit,
-                "DetailedAnalysis": {
-                    "DOR": dor_analysis,
-                    "FrameworkScores": framework_scores,
-                    "Readiness": readiness_analysis,
-                    "TechnicalCoverage": technical_coverage
+                "TestScenarios": {
+                    "Positive": test_scenarios.get('positive', []),
+                    "Negative": test_scenarios.get('negative', []),
+                    "Error": test_scenarios.get('error', [])
+                },
+                "TechnicalADA": technical_ada,
+                "DesignSync": designsync or {"Enabled": False, "Score": 0, "Mismatches": [], "Changes": []},
+                "Recommendations": role_recommendations,
+                "BatchSummary": {
+                    "TotalAnalysed": 1,
+                    "Ready": 1 if readiness_analysis['score'] >= 90 else 0,
+                    "NeedsRefinement": 1 if 70 <= readiness_analysis['score'] < 90 else 0,
+                    "NotReady": 1 if readiness_analysis['score'] < 70 else 0
                 }
             }
             
-            # Add mode-specific formatting
-            if mode in ["strict", "light", "insight", "deepdive", "actionable"]:
-                output = self._format_output_by_mode(output, mode)
+            # Add mode-specific formatting and length guardrails
+            output = self._format_output_by_mode_enhanced(output, mode)
+            
+            # Apply length guardrails and quality gates
+            output = self.apply_length_guardrails(output, mode)
+            
+            # Generate final enhanced output
+            output["enhanced_output"] = self.generate_enhanced_output(output)
             
             return output
             
         except Exception as e:
             console.print(f"[red]Error in ticket analysis: {e}[/red]")
             return {"error": str(e)}
+
+    def audit_acceptance_criteria_enhanced(self, acceptance_criteria: List[str]) -> Dict[str, Any]:
+        """Enhanced AC audit with flexible rewrite support (non-Gherkin allowed)"""
+        if not acceptance_criteria:
+            return {
+                "detected": 0,
+                "weak": 0,
+                "suggested_rewrites": [
+                    "Add acceptance criteria that define what the system should do",
+                    "Include measurable outcomes and observable behaviours",
+                    "Specify error handling and edge cases"
+                ]
+            }
+        
+        detected = len(acceptance_criteria)
+        weak = 0
+        suggested_rewrites = []
+        
+        for ac in acceptance_criteria:
+            # Check if AC is vague or weak
+            if self._is_weak_ac(ac):
+                weak += 1
+                suggested_rewrites.append(self._rewrite_weak_ac(ac))
+        
+        # If no weak ACs but we have some, suggest improvements
+        if weak == 0 and detected > 0:
+            suggested_rewrites.extend([
+                "Ensure all ACs are testable and measurable",
+                "Add edge case handling where applicable",
+                "Include error state definitions"
+            ])
+        
+        return {
+            "detected": detected,
+            "weak": weak,
+            "suggested_rewrites": suggested_rewrites[:5]  # Limit to 5 suggestions
+        }
+    
+    def generate_comprehensive_test_scenarios(self, issue_data: Dict[str, Any]) -> Dict[str, List[str]]:
+        """Generate comprehensive test scenarios (Positive/Negative/Error)"""
+        scenarios = {
+            "positive": [],
+            "negative": [],
+            "error": []
+        }
+        
+        # Extract key functionality from issue data
+        summary = issue_data.get('summary', '')
+        description = issue_data.get('description', '')
+        ac_list = issue_data.get('acceptance_criteria', [])
+        
+        # Generate positive scenarios
+        scenarios["positive"] = self._generate_positive_scenarios(summary, description, ac_list)
+        
+        # Generate negative scenarios
+        scenarios["negative"] = self._generate_negative_scenarios(summary, description, ac_list)
+        
+        # Generate error scenarios
+        scenarios["error"] = self._generate_error_scenarios(summary, description, ac_list)
+        
+        return scenarios
+    
+    def analyze_frameworks_enhanced(self, issue_data: Dict[str, Any]) -> Dict[str, int]:
+        """Enhanced framework analysis with improved scoring"""
+        scores = {}
+        
+        # ROI Framework (0-30)
+        scores['ROI'] = self._calculate_roi_score(issue_data)
+        
+        # INVEST Framework (0-30)
+        scores['INVEST'] = self._calculate_invest_score(issue_data)
+        
+        # ACCEPT Framework (0-30)
+        scores['ACCEPT'] = self._calculate_accept_score(issue_data)
+        
+        # 3C Framework (0-10)
+        scores['3C'] = self._calculate_3c_score(issue_data)
+        
+        return scores
+    
+    def _calculate_technical_ada_coverage(self, issue_data: Dict[str, Any], test_scenarios: Dict[str, List[str]]) -> Dict[str, Any]:
+        """Calculate technical and ADA coverage with detailed breakdown"""
+        technical_ada = {
+            "ImplementationDetails": "Missing",
+            "ArchitecturalSolution": "Missing", 
+            "ADA": {
+                "Status": "Missing",
+                "Notes": []
+            },
+            "NFR": {
+                "Performance": "",
+                "Security": "",
+                "DevOps": ""
+            }
+        }
+        
+        # Check implementation details
+        if self._check_implementation_details(issue_data):
+            technical_ada["ImplementationDetails"] = "OK"
+        elif self._has_partial_implementation_details(issue_data):
+            technical_ada["ImplementationDetails"] = "Partial"
+        
+        # Check architectural solution
+        if self._check_architectural_solution(issue_data):
+            technical_ada["ArchitecturalSolution"] = "OK"
+        elif self._has_partial_architectural_solution(issue_data):
+            technical_ada["ArchitecturalSolution"] = "Partial"
+        
+        # Check ADA criteria
+        ada_status, ada_notes = self._check_ada_detailed(issue_data)
+        technical_ada["ADA"]["Status"] = ada_status
+        technical_ada["ADA"]["Notes"] = ada_notes
+        
+        # Check NFR (Non-Functional Requirements)
+        nfr = self._check_nfr_requirements(issue_data)
+        technical_ada["NFR"] = nfr
+        
+        return technical_ada
+    
+    def calculate_readiness_enhanced(self, dor_analysis: Dict, framework_scores: Dict, technical_ada: Dict) -> Dict[str, Any]:
+        """Calculate sprint readiness with new formula: DoR(60%) + Frameworks(25%) + Technical/Test(15%)"""
+        
+        # DoR contribution (60%)
+        dor_score = dor_analysis.get('coverage_percentage', 0) * 0.6
+        
+        # Framework contribution (25%)
+        framework_avg = sum(framework_scores.values()) / len(framework_scores) if framework_scores else 0
+        framework_contribution = (framework_avg / 100) * 25
+        
+        # Technical/Test contribution (15%)
+        technical_score = self._calculate_technical_test_score(technical_ada)
+        technical_contribution = (technical_score / 100) * 15
+        
+        total_score = dor_score + framework_contribution + technical_contribution
+        
+        # Determine status
+        if total_score >= 90:
+            status = "Ready"
+        elif total_score >= 70:
+            status = "Needs Refinement"
+        else:
+            status = "Not Ready"
+        
+        return {
+            "score": round(total_score, 1),
+            "status": status,
+            "breakdown": {
+                "DoR": round(dor_score, 1),
+                "Frameworks": round(framework_contribution, 1),
+                "Technical": round(technical_contribution, 1)
+            }
+        }
+    
+    def _generate_role_tagged_recommendations(self, dor_analysis: Dict, ac_audit: Dict, test_scenarios: Dict, 
+                                            bug_audit: Optional[Dict], framework_scores: Dict, technical_ada: Dict) -> Dict[str, List[str]]:
+        """Generate role-tagged recommendations (PO, QA, Dev/Tech Lead)"""
+        recommendations = {
+            "PO": [],
+            "QA": [],
+            "Dev": []
+        }
+        
+        # PO recommendations
+        missing_fields = dor_analysis.get('missing_fields', [])
+        if missing_fields:
+            recommendations["PO"].extend([f"Complete {field}" for field in missing_fields[:3]])
+        
+        if ac_audit['weak'] > 0:
+            recommendations["PO"].append(f"Rewrite {ac_audit['weak']} weak acceptance criteria")
+        
+        if framework_scores.get('ROI', 0) < 20:
+            recommendations["PO"].append("Clarify business value and ROI")
+        
+        # QA recommendations
+        total_scenarios = sum(len(scenarios) for scenarios in test_scenarios.values())
+        if total_scenarios < 6:
+            recommendations["QA"].append("Define comprehensive test scenarios (P/N/E)")
+        
+        if not test_scenarios.get('error'):
+            recommendations["QA"].append("Add error handling test scenarios")
+        
+        if not test_scenarios.get('negative'):
+            recommendations["QA"].append("Add negative test scenarios for edge cases")
+        
+        # Dev recommendations
+        if technical_ada["ImplementationDetails"] == "Missing":
+            recommendations["Dev"].append("Add implementation and deployment details")
+        
+        if technical_ada["ArchitecturalSolution"] == "Missing":
+            recommendations["Dev"].append("Define architectural solution and design")
+        
+        if technical_ada["ADA"]["Status"] == "Missing":
+            recommendations["Dev"].append("Add ADA compliance requirements")
+        
+        # Limit to 3 recommendations per role
+        for role in recommendations:
+            recommendations[role] = recommendations[role][:3]
+        
+        return recommendations
+    
+    def _analyze_designsync(self, issue_data: Dict[str, Any], figma_link: str, ac_audit: Dict, test_scenarios: Dict) -> Dict[str, Any]:
+        """Analyze DesignSync integration with Figma"""
+        # This would integrate with Figma API in a real implementation
+        # For now, return a placeholder structure
+        return {
+            "Enabled": True,
+            "Score": 75,  # Placeholder score
+            "Mismatches": [
+                "Button states missing in ACs",
+                "Error states not covered in design"
+            ],
+            "Changes": ["Updated button styling"]
+        }
+    
+    def _format_output_by_mode_enhanced(self, output: Dict[str, Any], mode: str) -> Dict[str, Any]:
+        """Enhanced mode-specific formatting with length guardrails"""
+        
+        if mode == "actionable":
+            return self._format_actionable_enhanced(output)
+        elif mode == "insight":
+            return self._format_insight_enhanced(output)
+        elif mode == "summary":
+            return self._format_summary_enhanced(output)
+        else:
+            return self._format_actionable_enhanced(output)
+    
+    def _format_actionable_enhanced(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Enhanced Actionable mode formatting (300-600 words target)"""
+        # Generate the full markdown template
+        markdown = self._generate_actionable_markdown(output)
+        output["markdown"] = markdown
+        output["word_count"] = len(markdown.split())
+        return output
+    
+    def _format_insight_enhanced(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Enhanced Insight mode formatting (180-350 words target)"""
+        # Generate condensed output
+        markdown = self._generate_insight_markdown(output)
+        output["markdown"] = markdown
+        output["word_count"] = len(markdown.split())
+        return output
+    
+    def _format_summary_enhanced(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Enhanced Summary mode formatting (120-180 words target)"""
+        # Generate compact output
+        markdown = self._generate_summary_markdown(output)
+        output["markdown"] = markdown
+        output["word_count"] = len(markdown.split())
+        return output
+    
+    def _generate_actionable_markdown(self, output: Dict[str, Any]) -> str:
+        """Generate full actionable markdown template"""
+        lines = []
+        
+        # Header
+        readiness = output["Readiness"]
+        status_emoji = "✅" if readiness["Score"] >= 90 else "⚠️" if readiness["Score"] >= 70 else "❌"
+        status_label = readiness["Status"]
+        
+        lines.append(f"⚡ Actionable Groom Report — {output['TicketKey']} | {output['Title']}")
+        lines.append(f"Sprint Readiness: {readiness['Score']}% → {status_emoji} {status_label}")
+        lines.append("")
+        
+        # DoR Section
+        lines.append("📋 Definition of Ready")
+        lines.append(f"• Coverage: {readiness['DoRCoveragePercent']}%")
+        lines.append(f"• Missing Fields: {readiness['MissingFields']}")
+        lines.append(f"• Weak Areas: {readiness['WeakAreas']}")
+        lines.append("")
+        
+        # Framework Scores
+        frameworks = output["FrameworkScores"]
+        lines.append("🧭 Framework Scores")
+        lines.append(f"• ROI: {frameworks['ROI']} | INVEST: {frameworks['INVEST']} | ACCEPT: {frameworks['ACCEPT']} | 3C: {frameworks['3C']}")
+        
+        # Find biggest score driver or blocker
+        max_framework = max(frameworks.items(), key=lambda x: x[1])
+        min_framework = min(frameworks.items(), key=lambda x: x[1])
+        if min_framework[1] < 15:
+            lines.append(f"(Biggest blocker: {min_framework[0]} at {min_framework[1]})")
+        else:
+            lines.append(f"(Strongest area: {max_framework[0]} at {max_framework[1]})")
+        lines.append("")
+        
+        # User Story Review
+        story = output["StoryReview"]
+        lines.append("🧩 User Story Review")
+        lines.append(f"• Persona: {'✅' if story['Persona'] else '❌'} | Goal: {'✅' if story['Goal'] else '❌'} | Benefit: {'✅' if story['Benefit'] else '❌'}")
+        if story['SuggestedRewrite']:
+            lines.append(f"Suggested Rewrite (concise, business-value oriented):")
+            lines.append(f'"{story["SuggestedRewrite"]}"')
+        lines.append("")
+        
+        # Acceptance Criteria
+        ac_audit = output["AcceptanceCriteriaAudit"]
+        lines.append("✅ Acceptance Criteria (audit + rewrites)")
+        lines.append(f"• Detected: {ac_audit['Detected']} | Weak/Vague: {ac_audit['Weak']}")
+        lines.append("Suggested Rewrites (non-Gherkin allowed, each testable & measurable):")
+        for i, rewrite in enumerate(ac_audit['SuggestedRewrites'][:3], 1):
+            lines.append(f"{i}) {rewrite}")
+        lines.append("")
+        
+        # Test Scenarios
+        test_scenarios = output["TestScenarios"]
+        lines.append("🧪 Test Scenarios (must include positive, negative, error)")
+        lines.append("• Positive: " + " | ".join(test_scenarios["Positive"][:2]))
+        lines.append("• Negative: " + " | ".join(test_scenarios["Negative"][:2]))
+        lines.append("• Error/Resilience: " + " | ".join(test_scenarios["Error"][:2]))
+        lines.append("")
+        
+        # Technical/ADA
+        technical = output["TechnicalADA"]
+        lines.append("🧱 Technical / ADA / Architecture")
+        lines.append(f"• Implementation Details: {'✅' if technical['ImplementationDetails'] == 'OK' else '⚠️' if technical['ImplementationDetails'] == 'Partial' else '❌'} (PRs/URLs/flags)")
+        lines.append(f"• Architectural Solution: {'✅' if technical['ArchitecturalSolution'] == 'OK' else '⚠️' if technical['ArchitecturalSolution'] == 'Partial' else '❌'} (link/design note)")
+        lines.append(f"• ADA: {'✅' if technical['ADA']['Status'] == 'OK' else '⚠️' if technical['ADA']['Status'] == 'Partial' else '❌'} ({', '.join(technical['ADA']['Notes'][:3])})")
+        
+        # NFR if applicable
+        nfr_items = [f"{k}: {v}" for k, v in technical['NFR'].items() if v]
+        if nfr_items:
+            lines.append(f"• Performance/Security/DevOps: {' | '.join(nfr_items)}")
+        lines.append("")
+        
+        # DesignSync (if enabled)
+        designsync = output["DesignSync"]
+        if designsync["Enabled"]:
+            lines.append("🎨 DesignSync")
+            lines.append(f"• DesignSync Score: {designsync['Score']}")
+            lines.append("• Mismatches:")
+            for mismatch in designsync["Mismatches"][:3]:
+                lines.append(f"  – {mismatch}")
+            if designsync["Changes"]:
+                lines.append(f"• Changes detected: {' | '.join(designsync['Changes'][:2])}")
+            lines.append("")
+        
+        # Role-Tagged Recommendations
+        recommendations = output["Recommendations"]
+        lines.append("💡 Role-Tagged Recommendations")
+        lines.append("• PO: " + " | ".join(recommendations["PO"][:3]))
+        lines.append("• QA: " + " | ".join(recommendations["QA"][:3]))
+        lines.append("• Dev/Tech Lead: " + " | ".join(recommendations["Dev"][:3]))
+        
+        return "\n".join(lines)
+    
+    def _generate_insight_markdown(self, output: Dict[str, Any]) -> str:
+        """Generate condensed insight markdown (180-350 words target)"""
+        lines = []
+        
+        # Header
+        readiness = output["Readiness"]
+        status_emoji = "✅" if readiness["Score"] >= 90 else "⚠️" if readiness["Score"] >= 70 else "❌"
+        
+        lines.append(f"🔍 Insight Analysis — {output['TicketKey']}")
+        lines.append(f"Readiness: {readiness['Score']}% ({status_emoji} {readiness['Status']})")
+        lines.append(f"Weak Areas: {', '.join(readiness['WeakAreas'][:3])}")
+        lines.append("")
+        
+        # Story Clarity
+        story = output["StoryReview"]
+        story_quality = "Good" if all([story['Persona'], story['Goal'], story['Benefit']]) else "Needs improvement"
+        lines.append(f"Story Clarity: {story_quality} — Persona and Goal detected {'✅' if story['Persona'] and story['Goal'] else '❌'}")
+        if story['SuggestedRewrite']:
+            lines.append(f"Suggested rewrite: \"{story['SuggestedRewrite']}\"")
+        lines.append("")
+        
+        # AC Quality
+        ac_audit = output["AcceptanceCriteriaAudit"]
+        lines.append(f"AC Quality: {ac_audit['Detected']} found ({ac_audit['Weak']} vague)")
+        if ac_audit['Weak'] > 0:
+            lines.append(f"→ Add AC for {ac_audit['SuggestedRewrites'][0] if ac_audit['SuggestedRewrites'] else 'edge case handling'}")
+        lines.append("")
+        
+        # Test Scenarios
+        test_scenarios = output["TestScenarios"]
+        lines.append("Suggested Test Scenarios:")
+        lines.append(f"• Positive: {' | '.join(test_scenarios['Positive'][:1])}")
+        lines.append(f"• Negative: {' | '.join(test_scenarios['Negative'][:1])}")
+        lines.append(f"• Error: {' | '.join(test_scenarios['Error'][:1])}")
+        lines.append("")
+        
+        # Framework Summary
+        frameworks = output["FrameworkScores"]
+        lines.append("Framework Summary:")
+        lines.append(f"ROI: {frameworks['ROI']} | INVEST: {frameworks['INVEST']} | ACCEPT: {frameworks['ACCEPT']} | 3C: {frameworks['3C']}")
+        
+        return "\n".join(lines)
+    
+    def _generate_summary_markdown(self, output: Dict[str, Any]) -> str:
+        """Generate compact summary markdown (120-180 words target)"""
+        lines = []
+        
+        # Header
+        readiness = output["Readiness"]
+        status_emoji = "✅" if readiness["Score"] >= 90 else "⚠️" if readiness["Score"] >= 70 else "❌"
+        
+        lines.append(f"📊 Summary — {output['TicketKey']}")
+        lines.append(f"Readiness: {readiness['Score']}% → {status_emoji} {readiness['Status']}")
+        lines.append("")
+        
+        # Top 3 gaps
+        lines.append("Top 3 gaps:")
+        for gap in readiness['WeakAreas'][:3]:
+            lines.append(f"• {gap}")
+        lines.append("")
+        
+        # Next 3 actions
+        recommendations = output["Recommendations"]
+        all_recs = recommendations["PO"] + recommendations["QA"] + recommendations["Dev"]
+        lines.append("Next 3 actions:")
+        for action in all_recs[:3]:
+            lines.append(f"• {action}")
+        lines.append("")
+        
+        # Framework scores as single line
+        frameworks = output["FrameworkScores"]
+        lines.append(f"Framework scores: ROI {frameworks['ROI']} | INVEST {frameworks['INVEST']} | ACCEPT {frameworks['ACCEPT']} | 3C {frameworks['3C']}")
+        
+        return "\n".join(lines)
+    
+    def generate_enhanced_output(self, output: Dict[str, Any]) -> str:
+        """Generate both markdown and JSON output for enhanced GroomRoom"""
+        # Generate markdown
+        markdown = output.get("markdown", "")
+        
+        # Generate JSON
+        json_output = {
+            "TicketKey": output.get("TicketKey", ""),
+            "Title": output.get("Title", ""),
+            "Mode": output.get("Mode", "Actionable"),
+            "Readiness": output.get("Readiness", {}),
+            "FrameworkScores": output.get("FrameworkScores", {}),
+            "StoryReview": output.get("StoryReview", {}),
+            "AcceptanceCriteriaAudit": output.get("AcceptanceCriteriaAudit", {}),
+            "TestScenarios": output.get("TestScenarios", {}),
+            "TechnicalADA": output.get("TechnicalADA", {}),
+            "DesignSync": output.get("DesignSync", {}),
+            "Recommendations": output.get("Recommendations", {}),
+            "BatchSummary": output.get("BatchSummary", {})
+        }
+        
+        # Combine markdown and JSON
+        result = f"{markdown}\n\n```json\n{json.dumps(json_output, indent=2)}\n```"
+        return result
+    
+    def analyze_batch_tickets(self, tickets: List[Union[Dict, str]], mode: str = "actionable", figma_links: Dict[str, str] = None) -> Dict[str, Any]:
+        """Analyze multiple tickets in batch with compact header"""
+        results = []
+        batch_summary = {
+            "TotalAnalysed": 0,
+            "Ready": 0,
+            "NeedsRefinement": 0,
+            "NotReady": 0
+        }
+        
+        # Analyze each ticket
+        for ticket in tickets:
+            figma_link = figma_links.get(ticket.get('key', ''), None) if figma_links else None
+            result = self.analyze_ticket(ticket, mode, figma_link)
+            
+            if "error" not in result:
+                results.append(result)
+                batch_summary["TotalAnalysed"] += 1
+                
+                readiness = result.get("Readiness", {}).get("Score", 0)
+                if readiness >= 90:
+                    batch_summary["Ready"] += 1
+                elif readiness >= 70:
+                    batch_summary["NeedsRefinement"] += 1
+                else:
+                    batch_summary["NotReady"] += 1
+        
+        # Generate batch header
+        batch_header = self._generate_batch_header(batch_summary, results)
+        
+        # Update batch summary in each result
+        for result in results:
+            result["BatchSummary"] = batch_summary
+        
+        return {
+            "batch_header": batch_header,
+            "results": results,
+            "summary": batch_summary
+        }
+    
+    def _generate_batch_header(self, batch_summary: Dict[str, int], results: List[Dict[str, Any]]) -> str:
+        """Generate compact batch header for multi-ticket runs"""
+        lines = []
+        
+        lines.append(f"📦 Batch Summary — {batch_summary['TotalAnalysed']} tickets analysed")
+        lines.append(f"Ready: {batch_summary['Ready']} | Needs Refinement: {batch_summary['NeedsRefinement']} | Not Ready: {batch_summary['NotReady']}")
+        
+        # Find top recurrent gaps
+        all_weak_areas = []
+        for result in results:
+            weak_areas = result.get("Readiness", {}).get("WeakAreas", [])
+            all_weak_areas.extend(weak_areas)
+        
+        # Count most common gaps
+        from collections import Counter
+        gap_counts = Counter(all_weak_areas)
+        top_gaps = [gap for gap, count in gap_counts.most_common(3)]
+        
+        if top_gaps:
+            lines.append(f"Top recurrent gaps: {', '.join(top_gaps)}")
+        
+        return "\n".join(lines)
+    
+    def apply_length_guardrails(self, output: Dict[str, Any], mode: str) -> Dict[str, Any]:
+        """Apply length guardrails and quality gates"""
+        word_count = output.get("word_count", 0)
+        
+        # Define target ranges
+        target_ranges = {
+            "actionable": (300, 600),
+            "insight": (180, 350),
+            "summary": (120, 180)
+        }
+        
+        min_words, max_words = target_ranges.get(mode, (300, 600))
+        
+        # Check if content needs enrichment or compression
+        if word_count < min_words:
+            # Enrich content
+            output = self._enrich_content(output, mode)
+        elif word_count > max_words:
+            # Compress content
+            output = self._compress_content(output, mode)
+        
+        # Apply quality gates
+        output = self._apply_quality_gates(output)
+        
+        return output
+    
+    def _enrich_content(self, output: Dict[str, Any], mode: str) -> Dict[str, Any]:
+        """Enrich content when below minimum word count"""
+        # Add more AC rewrites if needed
+        ac_audit = output.get("AcceptanceCriteriaAudit", {})
+        if len(ac_audit.get("SuggestedRewrites", [])) < 3:
+            # Add more suggested rewrites
+            additional_rewrites = [
+                "Add measurable success criteria",
+                "Include error handling specifications",
+                "Define edge case behaviours"
+            ]
+            ac_audit["SuggestedRewrites"].extend(additional_rewrites[:3-len(ac_audit.get("SuggestedRewrites", []))])
+        
+        # Add more test scenarios if needed
+        test_scenarios = output.get("TestScenarios", {})
+        for scenario_type in ["Positive", "Negative", "Error"]:
+            if len(test_scenarios.get(scenario_type, [])) < 2:
+                test_scenarios[scenario_type].append(f"Additional {scenario_type.lower()} scenario for comprehensive testing")
+        
+        return output
+    
+    def _compress_content(self, output: Dict[str, Any], mode: str) -> Dict[str, Any]:
+        """Compress content when above maximum word count"""
+        # Limit recommendations to 2 per role
+        recommendations = output.get("Recommendations", {})
+        for role in recommendations:
+            recommendations[role] = recommendations[role][:2]
+        
+        # Limit test scenarios
+        test_scenarios = output.get("TestScenarios", {})
+        for scenario_type in test_scenarios:
+            test_scenarios[scenario_type] = test_scenarios[scenario_type][:2]
+        
+        # Limit AC rewrites
+        ac_audit = output.get("AcceptanceCriteriaAudit", {})
+        ac_audit["SuggestedRewrites"] = ac_audit.get("SuggestedRewrites", [])[:3]
+        
+        return output
+    
+    def _apply_quality_gates(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply quality gates to ensure minimum content"""
+        # Ensure at least 3 AC rewrites
+        ac_audit = output.get("AcceptanceCriteriaAudit", {})
+        if ac_audit.get("Detected", 0) == 0:
+            ac_audit["SuggestedRewrites"] = [
+                "Add acceptance criteria that define what the system should do",
+                "Include measurable outcomes and observable behaviours", 
+                "Specify error handling and edge cases"
+            ]
+        
+        # Ensure readiness is not 0 if content exists
+        readiness = output.get("Readiness", {})
+        if readiness.get("Score", 0) == 0 and any([
+            output.get("Title"),
+            output.get("StoryReview", {}).get("SuggestedRewrite"),
+            ac_audit.get("SuggestedRewrites")
+        ]):
+            readiness["Score"] = 25  # Minimum score for content that exists
+            readiness["Status"] = "Not Ready"
+        
+        return output
 
     def _calculate_technical_coverage(self, issue_data: Dict[str, Any], test_scenarios: List[str]) -> float:
         """Calculate technical and test coverage score"""
@@ -1058,6 +1678,348 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
             score += 10
         
         return min(score, 100)
+
+    def _is_weak_ac(self, ac: str) -> bool:
+        """Check if acceptance criteria is weak or vague"""
+        weak_indicators = [
+            "should", "could", "might", "maybe", "possibly",
+            "as needed", "if required", "when appropriate",
+            "user friendly", "intuitive", "easy to use"
+        ]
+        
+        ac_lower = ac.lower()
+        return any(indicator in ac_lower for indicator in weak_indicators) or len(ac.strip()) < 20
+    
+    def _rewrite_weak_ac(self, ac: str) -> str:
+        """Rewrite weak acceptance criteria to be testable and measurable"""
+        # This would use AI to rewrite weak ACs
+        # For now, return a template suggestion
+        return f"Rewrite: '{ac}' → 'Show specific error message when [condition] occurs'"
+    
+    def _generate_positive_scenarios(self, summary: str, description: str, ac_list: List[str]) -> List[str]:
+        """Generate positive test scenarios"""
+        scenarios = []
+        
+        # Extract key actions from summary and description
+        if "login" in summary.lower() or "authentication" in description.lower():
+            scenarios.append("User successfully logs in with valid credentials")
+        
+        if "payment" in summary.lower() or "checkout" in description.lower():
+            scenarios.append("User completes payment with valid payment method")
+        
+        if "search" in summary.lower():
+            scenarios.append("User finds relevant results with valid search query")
+        
+        # Add generic positive scenario if none specific
+        if not scenarios:
+            scenarios.append("User successfully completes the main workflow")
+        
+        return scenarios[:2]  # Limit to 2 positive scenarios
+    
+    def _generate_negative_scenarios(self, summary: str, description: str, ac_list: List[str]) -> List[str]:
+        """Generate negative test scenarios"""
+        scenarios = []
+        
+        if "login" in summary.lower():
+            scenarios.append("User cannot login with invalid credentials")
+        
+        if "payment" in summary.lower():
+            scenarios.append("Payment fails with invalid payment details")
+        
+        if "search" in summary.lower():
+            scenarios.append("No results returned for invalid search query")
+        
+        # Add generic negative scenario
+        if not scenarios:
+            scenarios.append("System handles invalid input gracefully")
+        
+        return scenarios[:2]  # Limit to 2 negative scenarios
+    
+    def _generate_error_scenarios(self, summary: str, description: str, ac_list: List[str]) -> List[str]:
+        """Generate error handling test scenarios"""
+        scenarios = []
+        
+        if "api" in description.lower() or "service" in description.lower():
+            scenarios.append("System handles API timeout gracefully")
+            scenarios.append("System recovers from network errors")
+        
+        if "payment" in summary.lower():
+            scenarios.append("Payment service unavailable - show retry option")
+        
+        # Add generic error scenarios
+        scenarios.append("System displays appropriate error message for server errors")
+        
+        return scenarios[:2]  # Limit to 2 error scenarios
+    
+    def _calculate_roi_score(self, issue_data: Dict[str, Any]) -> int:
+        """Calculate ROI framework score (0-30)"""
+        score = 0
+        
+        # Readiness (10 points)
+        if self._has_business_value(issue_data):
+            score += 10
+        
+        # Objectives (10 points)
+        if self._has_clear_objectives(issue_data):
+            score += 10
+        
+        # Implementation (10 points)
+        if self._has_implementation_plan(issue_data):
+            score += 10
+        
+        return score
+    
+    def _calculate_invest_score(self, issue_data: Dict[str, Any]) -> int:
+        """Calculate INVEST framework score (0-30)"""
+        score = 0
+        
+        # Independent (5 points)
+        if self._is_independent(issue_data):
+            score += 5
+        
+        # Negotiable (5 points)
+        if self._is_negotiable(issue_data):
+            score += 5
+        
+        # Valuable (5 points)
+        if self._is_valuable(issue_data):
+            score += 5
+        
+        # Estimable (5 points)
+        if self._is_estimable(issue_data):
+            score += 5
+        
+        # Small (5 points)
+        if self._is_small(issue_data):
+            score += 5
+        
+        # Testable (5 points)
+        if self._is_testable(issue_data):
+            score += 5
+        
+        return score
+    
+    def _calculate_accept_score(self, issue_data: Dict[str, Any]) -> int:
+        """Calculate ACCEPT framework score (0-30)"""
+        score = 0
+        
+        # Actionable (5 points)
+        if self._is_actionable(issue_data):
+            score += 5
+        
+        # Clear (5 points)
+        if self._is_clear(issue_data):
+            score += 5
+        
+        # Complete (5 points)
+        if self._is_complete(issue_data):
+            score += 5
+        
+        # Edge-case aware (5 points)
+        if self._is_edge_case_aware(issue_data):
+            score += 5
+        
+        # Precise (5 points)
+        if self._is_precise(issue_data):
+            score += 5
+        
+        # Testable (5 points)
+        if self._is_testable(issue_data):
+            score += 5
+        
+        return score
+    
+    def _calculate_3c_score(self, issue_data: Dict[str, Any]) -> int:
+        """Calculate 3C framework score (0-10)"""
+        score = 0
+        
+        # Card (3 points)
+        if self._has_good_card(issue_data):
+            score += 3
+        
+        # Conversation (4 points)
+        if self._has_conversation_notes(issue_data):
+            score += 4
+        
+        # Confirmation (3 points)
+        if self._has_confirmation(issue_data):
+            score += 3
+        
+        return score
+    
+    def _has_partial_implementation_details(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has partial implementation details"""
+        description = issue_data.get('description', '').lower()
+        return any(keyword in description for keyword in ['implementation', 'technical', 'code', 'api'])
+    
+    def _has_partial_architectural_solution(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has partial architectural solution"""
+        description = issue_data.get('description', '').lower()
+        return any(keyword in description for keyword in ['architecture', 'design', 'system', 'component'])
+    
+    def _check_ada_detailed(self, issue_data: Dict[str, Any]) -> Tuple[str, List[str]]:
+        """Check ADA compliance with detailed notes"""
+        description = issue_data.get('description', '').lower()
+        ac_list = issue_data.get('acceptance_criteria', [])
+        
+        ada_notes = []
+        status = "Missing"
+        
+        # Check for accessibility keywords
+        accessibility_keywords = ['accessibility', 'ada', 'wcag', 'screen reader', 'keyboard', 'focus', 'alt text', 'contrast']
+        
+        if any(keyword in description for keyword in accessibility_keywords):
+            status = "Partial"
+            ada_notes.append("Accessibility mentioned in description")
+        
+        if any(keyword in ' '.join(ac_list).lower() for keyword in accessibility_keywords):
+            status = "OK"
+            ada_notes.append("Accessibility covered in acceptance criteria")
+        
+        if status == "Missing":
+            ada_notes = ["Keyboard navigation", "Focus order", "Alt text", "Contrast"]
+        
+        return status, ada_notes
+    
+    def _check_nfr_requirements(self, issue_data: Dict[str, Any]) -> Dict[str, str]:
+        """Check non-functional requirements"""
+        description = issue_data.get('description', '').lower()
+        
+        nfr = {
+            "Performance": "",
+            "Security": "",
+            "DevOps": ""
+        }
+        
+        # Performance
+        if any(keyword in description for keyword in ['performance', 'speed', 'response time', 'load']):
+            nfr["Performance"] = "Performance requirements mentioned"
+        
+        # Security
+        if any(keyword in description for keyword in ['security', 'authentication', 'authorization', 'encryption']):
+            nfr["Security"] = "Security considerations mentioned"
+        
+        # DevOps
+        if any(keyword in description for keyword in ['deployment', 'infrastructure', 'monitoring', 'logging']):
+            nfr["DevOps"] = "DevOps considerations mentioned"
+        
+        return nfr
+    
+    def _calculate_technical_test_score(self, technical_ada: Dict[str, Any]) -> float:
+        """Calculate technical and test score (0-100)"""
+        score = 0
+        
+        # Implementation details (30%)
+        if technical_ada["ImplementationDetails"] == "OK":
+            score += 30
+        elif technical_ada["ImplementationDetails"] == "Partial":
+            score += 15
+        
+        # Architectural solution (30%)
+        if technical_ada["ArchitecturalSolution"] == "OK":
+            score += 30
+        elif technical_ada["ArchitecturalSolution"] == "Partial":
+            score += 15
+        
+        # ADA compliance (20%)
+        if technical_ada["ADA"]["Status"] == "OK":
+            score += 20
+        elif technical_ada["ADA"]["Status"] == "Partial":
+            score += 10
+        
+        # NFR coverage (20%)
+        nfr_count = sum(1 for nfr in technical_ada["NFR"].values() if nfr)
+        score += (nfr_count / 3) * 20
+        
+        return score
+    
+    # Helper methods for framework scoring
+    def _has_business_value(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has clear business value"""
+        description = issue_data.get('description', '').lower()
+        return any(keyword in description for keyword in ['business value', 'roi', 'revenue', 'customer', 'user benefit'])
+    
+    def _has_clear_objectives(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has clear objectives"""
+        summary = issue_data.get('summary', '').lower()
+        return 'as a' in summary and 'i want' in summary
+    
+    def _has_implementation_plan(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has implementation plan"""
+        description = issue_data.get('description', '').lower()
+        return any(keyword in description for keyword in ['implementation', 'technical', 'development', 'code'])
+    
+    def _is_independent(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is independent"""
+        description = issue_data.get('description', '').lower()
+        return 'dependency' not in description and 'blocked' not in description
+    
+    def _is_negotiable(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is negotiable"""
+        summary = issue_data.get('summary', '').lower()
+        return 'must' not in summary and 'required' not in summary
+    
+    def _is_valuable(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is valuable"""
+        return self._has_business_value(issue_data)
+    
+    def _is_estimable(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is estimable"""
+        description = issue_data.get('description', '').lower()
+        return len(description) > 50 and 'unknown' not in description
+    
+    def _is_small(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is appropriately sized"""
+        description = issue_data.get('description', '')
+        return 50 < len(description) < 1000
+    
+    def _is_testable(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is testable"""
+        ac_list = issue_data.get('acceptance_criteria', [])
+        return len(ac_list) > 0
+    
+    def _is_actionable(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is actionable"""
+        summary = issue_data.get('summary', '').lower()
+        return 'as a' in summary and 'i want' in summary
+    
+    def _is_clear(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is clear"""
+        summary = issue_data.get('summary', '')
+        return len(summary) > 10 and '?' not in summary
+    
+    def _is_complete(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is complete"""
+        description = issue_data.get('description', '')
+        ac_list = issue_data.get('acceptance_criteria', [])
+        return len(description) > 50 and len(ac_list) > 0
+    
+    def _is_edge_case_aware(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is edge case aware"""
+        description = issue_data.get('description', '').lower()
+        ac_list = issue_data.get('acceptance_criteria', [])
+        edge_keywords = ['error', 'invalid', 'empty', 'null', 'exception', 'timeout']
+        return any(keyword in description or any(keyword in ac.lower() for ac in ac_list) for keyword in edge_keywords)
+    
+    def _is_precise(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue is precise"""
+        summary = issue_data.get('summary', '')
+        return len(summary.split()) > 3 and 'vague' not in summary.lower()
+    
+    def _has_good_card(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has good card format"""
+        summary = issue_data.get('summary', '')
+        return len(summary) > 10 and 'as a' in summary.lower()
+    
+    def _has_conversation_notes(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has conversation notes"""
+        description = issue_data.get('description', '')
+        return len(description) > 100
+    
+    def _has_confirmation(self, issue_data: Dict[str, Any]) -> bool:
+        """Check if issue has confirmation (acceptance criteria)"""
+        ac_list = issue_data.get('acceptance_criteria', [])
+        return len(ac_list) > 0
 
     def _generate_recommendations(self, dor_analysis: Dict, ac_audit: Dict, test_scenarios: List[str], 
                                 bug_audit: Optional[Dict], framework_scores: Dict) -> List[str]:

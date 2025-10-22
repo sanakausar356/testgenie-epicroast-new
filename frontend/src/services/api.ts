@@ -6,6 +6,7 @@ interface ApiResponse<T = any> {
   success: boolean
   data?: T
   error?: string
+  suggestion?: string
 }
 
 interface TestGenieRequest {
@@ -73,7 +74,7 @@ export const generateGroom = async (request: GroomRoomRequest): Promise<ApiRespo
       timestamp
     }
     
-    console.log('API: Making request to /groomroom with:', requestWithTimestamp)
+    console.log('API: Making request to /groomroom with:', requestWithTimestamp, 'v2.0')
     
     const response = await fetch(`${API_BASE_URL}/groomroom`, {
       method: 'POST',
