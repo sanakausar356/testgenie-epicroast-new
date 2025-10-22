@@ -25,6 +25,7 @@ interface GroomRoomRequest {
   ticket_number?: string
   ticket_content?: string
   level?: string
+  figma_link?: string
 }
 
 export const generateTestScenarios = async (request: TestGenieRequest): Promise<ApiResponse> => {

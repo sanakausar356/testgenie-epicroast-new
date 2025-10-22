@@ -17,6 +17,7 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
   const [ticketNumber, setTicketNumber] = useState(sharedTicketNumber)
   const [ticketContent, setTicketContent] = useState('')
   const [level, setLevel] = useState('actionable')
+  const [figmaLink, setFigmaLink] = useState('')
   const [results, setResults] = useState('')
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
@@ -60,7 +61,8 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
       const response = await generateGroom({
         ticket_number: ticketNumber,
         ticket_content: ticketContent,
-        level
+        level,
+        figma_link: figmaLink || undefined
       })
       
       console.log('Response received:', response)
@@ -248,6 +250,23 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
             {level === 'insight' && 'Balanced analysis — highlights clarity, ACs, QA scenarios.'}
             {level === 'actionable' && 'Full prescriptive refinement guidance, includes rewrites.'}
             {level === 'summary' && 'Concise overview for leads and dashboards.'}
+          </p>
+        </div>
+
+        {/* Figma Link (Optional) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            🎨 Figma Link (Optional)
+          </label>
+          <input
+            type="url"
+            value={figmaLink}
+            onChange={(e) => setFigmaLink(e.target.value)}
+            placeholder="https://figma.com/design/..."
+            className="beach-input w-full"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Add a Figma design link for DesignSync analysis and design validation
           </p>
         </div>
 
