@@ -338,32 +338,34 @@ def generate_groom():
         print(f"Request ID: {request_id}")
         print(f"Ticket content preview: {ticket_content[:200]}...")
         
-        # Use the safe run_analysis method with fallback
+        # Use the new enhanced analyze_ticket method
         try:
-            if hasattr(groomroom, 'run_analysis'):
-                result = groomroom.run_analysis(ticket_content, level=level)
-                print("Using run_analysis method with fallback")
-                
-                # Handle both structured and string responses
-                if isinstance(result, dict):
-                    if 'error' in result:
-                        groom = f"Error: {result['error']}"
-                    elif 'llm_analysis' in result:
-                        groom = result['llm_analysis']
-                    elif 'message' in result:
-                        groom = result['message']
-                    else:
-                        # Return structured data as JSON string for now
-                        import json
-                        groom = json.dumps(result, indent=2)
+            # Get figma_link from request if provided
+            figma_link = data.get('figma_link', None)
+            
+            # Call the enhanced analyze_ticket method
+            result = groomroom.analyze_ticket(ticket_content, mode=level, figma_link=figma_link)
+            print("Using enhanced analyze_ticket method")
+            
+            # Handle the enhanced result structure
+            if isinstance(result, dict):
+                if 'error' in result:
+                    groom = f"Error: {result['error']}"
+                elif 'enhanced_output' in result:
+                    # Return the enhanced markdown + JSON output
+                    groom = result['enhanced_output']
+                elif 'markdown' in result:
+                    # Return just the markdown if available
+                    groom = result['markdown']
                 else:
-                    groom = str(result)
+                    # Return structured data as JSON string
+                    import json
+                    groom = json.dumps(result, indent=2)
             else:
-                groom = groomroom.generate_groom_analysis(ticket_content, level=level)
-                print("Falling back to standard groom analysis method")
+                groom = str(result)
         except Exception as e:
-            groom = f"Error in analysis: {str(e)}"
-            print(f"Analysis failed: {e}")
+            groom = f"Error in enhanced analysis: {str(e)}"
+            print(f"Enhanced analysis failed: {e}")
         print(f"Enhanced groom analysis generated, length={len(groom) if groom else 0}")
         print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
         print(f"Response preview: {groom[:200] if groom else 'None'}...")
@@ -458,7 +460,17 @@ def generate_concise_groom():
         print(f"Request ID: {request_id}")
         print(f"Ticket content preview: {ticket_content[:200]}...")
         
-        groom = groomroom.generate_concise_groom_analysis(ticket_content)
+        # Use enhanced analyze_ticket method with summary mode for concise output
+        try:
+            result = groomroom.analyze_ticket(ticket_content, mode="summary")
+            if isinstance(result, dict) and 'enhanced_output' in result:
+                groom = result['enhanced_output']
+            elif isinstance(result, dict) and 'markdown' in result:
+                groom = result['markdown']
+            else:
+                groom = str(result)
+        except Exception as e:
+            groom = f"Error in concise analysis: {str(e)}"
         print(f"Concise groom analysis generated, length={len(groom) if groom else 0}")
         print(f"Response preview: {groom[:200] if groom else 'None'}...")
         
