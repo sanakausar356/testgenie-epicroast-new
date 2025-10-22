@@ -334,7 +334,10 @@ class GroomRoom:
             'detected_benefit': detected_benefit,
             'story_quality_score': story_quality_score,
             'story_rewrite': story_rewrite,
-            'has_clear_structure': story_quality_score >= 70
+            'has_clear_structure': story_quality_score >= 70,
+            'has_persona': bool(detected_persona),
+            'has_goal': bool(detected_goal),
+            'has_benefit': bool(detected_benefit)
         }
 
     def audit_acceptance_criteria(self, acceptance_criteria: List[str]) -> Dict[str, Any]:
@@ -828,6 +831,9 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
         
         dor_analysis['coverage_percentage'] = (len(dor_analysis['present_fields']) / len(self.dor_requirements)) * 100
         dor_analysis['weighted_score'] = (weighted_score / total_weight) * 100 if total_weight > 0 else 0
+        
+        # Add weak areas for enhanced output
+        dor_analysis['weak_areas'] = dor_analysis['missing_fields'][:5]  # Top 5 missing fields
         
         return dor_analysis
 
