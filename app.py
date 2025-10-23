@@ -323,6 +323,94 @@ def generate_groom():
             'error': str(e)
         }), 500
 
+@app.route('/api/groomroom/vnext/analyze', methods=['POST'])
+def analyze_ticket_vnext():
+    """Analyze ticket using GroomRoom vNext"""
+    try:
+        data = request.get_json()
+        ticket_data = data.get('ticket_data', {})
+        mode = data.get('mode', 'Actionable')
+        
+        # Import GroomRoom vNext
+        try:
+            from groomroom.core_vnext import GroomRoomVNext
+            groomroom = GroomRoomVNext()
+            result = groomroom.analyze_ticket(ticket_data, mode)
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'markdown': result.markdown,
+                    'json_data': result.data
+                }
+            })
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'GroomRoom vNext not available'
+            }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/groomroom/vnext/batch', methods=['POST'])
+def analyze_batch_vnext():
+    """Analyze multiple tickets using GroomRoom vNext"""
+    try:
+        data = request.get_json()
+        tickets = data.get('tickets', [])
+        mode = data.get('mode', 'Summary')
+        
+        # Import GroomRoom vNext
+        try:
+            from groomroom.core_vnext import GroomRoomVNext
+            groomroom = GroomRoomVNext()
+            
+            results = []
+            for ticket in tickets:
+                result = groomroom.analyze_ticket(ticket, mode)
+                results.append({
+                    'ticket_key': result.data.get('TicketKey', 'Unknown'),
+                    'readiness_score': result.data.get('Readiness', {}).get('Score', 0),
+                    'status': result.data.get('Readiness', {}).get('Status', 'Not Ready'),
+                    'design_links': result.data.get('DesignLinks', []),
+                    'summary': result.markdown[:200] + '...' if len(result.markdown) > 200 else result.markdown
+                })
+            
+            # Generate batch summary
+            ready_count = sum(1 for r in results if r['status'] == 'Ready')
+            needs_refinement = sum(1 for r in results if r['status'] == 'Needs Refinement')
+            not_ready = sum(1 for r in results if r['status'] == 'Not Ready')
+            avg_score = sum(r['readiness_score'] for r in results) // len(results) if results else 0
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'results': results,
+                    'summary': {
+                        'total_tickets': len(results),
+                        'ready': ready_count,
+                        'needs_refinement': needs_refinement,
+                        'not_ready': not_ready,
+                        'average_score': avg_score
+                    }
+                }
+            })
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'GroomRoom vNext not available'
+            }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/testgenie/generate', methods=['POST'])
 def generate_tests():
     """Generate test cases using TestGenie"""
