@@ -1,18 +1,17 @@
-
+#!/usr/bin/env python3
 """
-Test the GroomRoom API with sample content instead of Jira ticket
+Simple API test for GroomRoom
 """
 
 import requests
 import json
 
-def test_groomroom_api_with_content():
-    """Test the GroomRoom API with sample ticket content"""
-    
+def test_groomroom_api():
+    """Test the GroomRoom API"""
     url = "https://backend-production-83c6.up.railway.app/api/groomroom"
     
-    # Sample ticket content
-    sample_content = """
+    # Simple test content
+    test_content = """
     As a customer, I want to apply discount codes at checkout so that I can save money on my purchases.
     
     Acceptance Criteria:
@@ -20,15 +19,10 @@ def test_groomroom_api_with_content():
     - System validates the code against active promotions
     - Discount is applied to the total order amount
     - User sees confirmation of applied discount
-    
-    Test Scenarios:
-    - Valid code applies correct discount
-    - Invalid code shows error message
-    - Expired code shows appropriate message
     """
     
     payload = {
-        "ticket_content": sample_content,
+        "ticket_content": test_content,
         "level": "actionable"
     }
     
@@ -36,40 +30,38 @@ def test_groomroom_api_with_content():
         "Content-Type": "application/json"
     }
     
-    print("🧪 Testing GroomRoom API with Sample Content")
-    print("=" * 60)
+    print("🧪 Testing GroomRoom API")
+    print("=" * 40)
     print(f"URL: {url}")
     print(f"Level: {payload['level']}")
-    print(f"Content: {sample_content[:100]}...")
     print()
     
     try:
         print("📡 Making API request...")
-        response = requests.post(url, json=payload, headers=headers, timeout=60)
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         print(f"Status Code: {response.status_code}")
         print()
         
         if response.status_code == 200:
-            print("✅ Success! Response:")
+            print("✅ Success! Response received")
             try:
                 data = response.json()
-                print(json.dumps(data, indent=2))
-                
-                # Extract the groom analysis
-                groom_content = data.get('data', {}).get('groom', '')
-                print("\n" + "="*60)
-                print("📋 GROOM ANALYSIS OUTPUT:")
-                print("="*60)
-                print(groom_content)
-                
+                print("Response structure:")
+                print(f"- success: {data.get('success', 'N/A')}")
+                if 'data' in data:
+                    print(f"- data keys: {list(data['data'].keys())}")
+                    if 'groom' in data['data']:
+                        groom_content = data['data']['groom']
+                        print(f"- groom content length: {len(groom_content)}")
+                        print(f"- groom preview: {groom_content[:200]}...")
             except Exception as e:
                 print(f"Error parsing JSON: {e}")
                 print("Raw response:")
-                print(response.text)
+                print(response.text[:500])
         else:
             print(f"❌ Error {response.status_code}:")
-            print(response.text)
+            print(response.text[:500])
             
     except requests.exceptions.Timeout:
         print("⏰ Request timed out")
@@ -79,4 +71,4 @@ def test_groomroom_api_with_content():
         print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
-    test_groomroom_api_with_content()
+    test_groomroom_api()
