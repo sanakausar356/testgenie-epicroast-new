@@ -248,76 +248,100 @@ def api_health():
 @app.route('/api/groomroom', methods=['POST'])
 @app.route('/api/groomroom/generate', methods=['POST'])  # Support old endpoint for compatibility
 def generate_groom():
-    """Generate GroomRoom analysis using the actual GroomRoom service"""
+    """Generate GroomRoom analysis using GroomRoom vNext with 3 levels"""
     try:
-        from groomroom.core import GroomRoom
-        
         data = request.get_json()
         ticket_number = data.get('ticket_number', '')
         ticket_content = data.get('ticket_content', '')
         level = data.get('level', 'actionable')
+        figma_link = data.get('figma_link', None)
         
-        # Initialize GroomRoom
-        groomroom = GroomRoom()
+        # Validate level (only allow 3 levels)
+        valid_levels = ['insight', 'actionable', 'summary']
+        if level not in valid_levels:
+            level = 'actionable'  # Default to actionable
         
-        # Determine input content
-        if ticket_number:
-            # Use ticket number to fetch from Jira
-            content = ticket_number
-        else:
-            # Use provided content
-            content = ticket_content
-        
-        # Use the new enhanced analyze_ticket method
+        # Try to use GroomRoom vNext first
         try:
-            # Get figma_link from request if provided
-            figma_link = data.get('figma_link', None)
+            from groomroom.core_vnext import GroomRoomVNext
             
-            # Call the enhanced analyze_ticket method
+            # Create ticket data structure
+            if ticket_number:
+                # For Jira ticket numbers, create a basic structure
+                ticket_data = {
+                    'key': ticket_number,
+                    'fields': {
+                        'summary': f'Ticket {ticket_number}',
+                        'description': ticket_content or f'Analysis for ticket {ticket_number}',
+                        'issuetype': {'name': 'Story'}
+                    }
+                }
+            else:
+                # For pasted content, create a structure
+                ticket_data = {
+                    'key': 'PASTED-CONTENT',
+                    'fields': {
+                        'summary': 'Pasted Content Analysis',
+                        'description': ticket_content,
+                        'issuetype': {'name': 'Story'}
+                    }
+                }
+            
+            # Initialize GroomRoom vNext
+            groomroom = GroomRoomVNext()
+            result = groomroom.analyze_ticket(ticket_data, level.title())
+            
+            # Return the markdown result
+            groom = result.markdown
+            
+            print(f"GroomRoom vNext analysis completed for level: {level}")
+            
+        except ImportError:
+            # Fallback to original GroomRoom if vNext not available
+            from groomroom.core import GroomRoom
+            
+            groomroom = GroomRoom()
+            
+            # Determine input content
+            if ticket_number:
+                content = ticket_number
+            else:
+                content = ticket_content
+            
+            # Call the original analyze_ticket method
             result = groomroom.analyze_ticket(content, mode=level, figma_link=figma_link)
-            print("Using enhanced analyze_ticket method")
             
-            # Handle the enhanced result structure
+            # Handle the result structure
             if isinstance(result, dict):
                 if 'error' in result:
                     groom = f"Error: {result['error']}"
                 elif 'enhanced_output' in result:
-                    # Return the enhanced markdown + JSON output
                     groom = result['enhanced_output']
                 elif 'markdown' in result:
-                    # Return just the markdown if available
                     groom = result['markdown']
                 else:
-                    # Return structured data as JSON string
                     import json
                     groom = json.dumps(result, indent=2)
             else:
                 groom = str(result)
-        except Exception as e:
-            # If Jira integration fails, provide helpful error message
-            if ticket_number and "Could not fetch ticket" in str(e):
-                return jsonify({
-                    'success': False,
-                    'error': f'Jira integration not configured. Please paste the ticket content manually or configure Jira credentials in Railway environment variables.',
-                    'suggestion': 'Add JIRA_URL, JIRA_USERNAME, and JIRA_API_TOKEN to Railway environment variables'
-                }), 400
-            else:
-                groom = f"Error in enhanced analysis: {str(e)}"
-                print(f"Enhanced analysis failed: {e}")
+            
+            print(f"Fallback GroomRoom analysis completed for level: {level}")
         
-        print(f"Enhanced groom analysis generated, length={len(groom) if groom else 0}")
-        print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
-        print(f"Response preview: {groom[:200] if groom else 'None'}...")
+        print(f"Groom analysis generated, length={len(groom) if groom else 0}")
+        print(f"Level used: {level}")
         
         return jsonify({
             'success': True,
             'data': {
                 'groom': groom,
                 'level': level,
-                'ticket_number': ticket_number if ticket_number else None
+                'ticket_number': ticket_number if ticket_number else None,
+                'figma_link': figma_link
             }
         })
+        
     except Exception as e:
+        print(f"Error in generate_groom: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
