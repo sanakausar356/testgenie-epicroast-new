@@ -9,11 +9,6 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": "vite",
-  "functions": {
-    "app/api/**/*.py": {
-      "runtime": "python3.9"
-    }
-  },
   "env": {
     "VITE_API_URL": "https://backend-production-83c6.up.railway.app"
   }

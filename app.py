@@ -261,9 +261,9 @@ def generate_groom():
         if level not in valid_levels:
             level = 'actionable'  # Default to actionable
         
-        # Try to use GroomRoom vNext first
+        # Try to use GroomRoom No-Scoring implementation first
         try:
-            from groomroom.core_vnext import GroomRoomVNext
+            from groomroom.core_no_scoring import GroomRoomNoScoring
             
             # Create ticket data structure
             if ticket_number:
@@ -287,8 +287,8 @@ def generate_groom():
                     }
                 }
             
-            # Initialize GroomRoom vNext
-            groomroom = GroomRoomVNext()
+            # Initialize GroomRoom No-Scoring
+            groomroom = GroomRoomNoScoring()
             result = groomroom.analyze_ticket(ticket_data, level.title())
             
             # Return the markdown result
