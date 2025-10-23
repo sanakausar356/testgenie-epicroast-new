@@ -268,9 +268,31 @@ def generate_groom():
             # Use provided content
             content = ticket_content
         
-        # Generate analysis using enhanced response generator
+        # Use the new enhanced analyze_ticket method
         try:
-            result = groomroom.generate_enhanced_response(content, mode=level)
+            # Get figma_link from request if provided
+            figma_link = data.get('figma_link', None)
+            
+            # Call the enhanced analyze_ticket method
+            result = groomroom.analyze_ticket(content, mode=level, figma_link=figma_link)
+            print("Using enhanced analyze_ticket method")
+            
+            # Handle the enhanced result structure
+            if isinstance(result, dict):
+                if 'error' in result:
+                    groom = f"Error: {result['error']}"
+                elif 'enhanced_output' in result:
+                    # Return the enhanced markdown + JSON output
+                    groom = result['enhanced_output']
+                elif 'markdown' in result:
+                    # Return just the markdown if available
+                    groom = result['markdown']
+                else:
+                    # Return structured data as JSON string
+                    import json
+                    groom = json.dumps(result, indent=2)
+            else:
+                groom = str(result)
         except Exception as e:
             # If Jira integration fails, provide helpful error message
             if ticket_number and "Could not fetch ticket" in str(e):
@@ -280,33 +302,20 @@ def generate_groom():
                     'suggestion': 'Add JIRA_URL, JIRA_USERNAME, and JIRA_API_TOKEN to Railway environment variables'
                 }), 400
             else:
-                raise e
+                groom = f"Error in enhanced analysis: {str(e)}"
+                print(f"Enhanced analysis failed: {e}")
         
-        # Handle enhanced response format
-        if 'markdown' in result and 'data' in result:
-            # New enhanced response format
-            analysis = {
-                'markdown': result['markdown'],
-                'data': result['data'],
-                'level': level,
-                'ticket_number': ticket_number
-            }
-        else:
-            # Fallback to old format for compatibility
-            formatted_output = str(result)
-            analysis = {
-                'groom': formatted_output,
-                'level': level,
-                'ticket_number': ticket_number,
-                'sprint_readiness': result.get('SprintReadiness', result.get('readiness_score', 0)),
-                'type': result.get('Type', result.get('ticket_key', 'Unknown')),
-                'issues_found': result.get('DefinitionOfReady', {}).get('MissingFields', []),
-                'suggestions': result.get('Recommendations', [])
-            }
+        print(f"Enhanced groom analysis generated, length={len(groom) if groom else 0}")
+        print(f"Contains fallback message: {'temporarily unavailable' in groom if groom else False}")
+        print(f"Response preview: {groom[:200] if groom else 'None'}...")
         
         return jsonify({
             'success': True,
-            'data': analysis
+            'data': {
+                'groom': groom,
+                'level': level,
+                'ticket_number': ticket_number if ticket_number else None
+            }
         })
     except Exception as e:
         return jsonify({
