@@ -10,12 +10,18 @@ from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 from rich.console import Console
 import requests
+import re
+from bs4 import BeautifulSoup
+
 
 # Load environment variables
 load_dotenv()
 
 # Initialize Rich console
 console = Console()
+_FIGMA_RE = re.compile(r'https?://(?:www\.)?figma\.com/[^\s)>\]]+', re.IGNORECASE)
+_LINK_WORD_RE = re.compile(r'\b(figma|design|prototype|link)\b', re.IGNORECASE)
+
 
 class JiraIntegration:
     """Jira integration for fetching ticket information using REST API"""
@@ -119,6 +125,37 @@ class JiraIntegration:
                 
         except Exception as e:
             console.print(f"[red]Error fetching field mappings: {e}[/red]")
+
+    def _html_to_text(self, html: str):
+            if not html:
+                return "", []
+            soup = BeautifulSoup(html, "html5lib")
+            links = []
+            for a in soup.find_all("a"):
+                href = (a.get("href") or "").strip()
+                data_href = (a.get("data-href") or "").strip()
+                text = (a.get_text() or "").strip()
+
+                candidates = [href, data_href]
+
+                for link in candidates:
+                    if link and (_FIGMA_RE.search(link) or _LINK_WORD_RE.search(text)):
+                        links.append(link)
+                        # Fallback: check raw HTML if Figma link is inside encoded or hidden tags
+            raw_html = str(soup)
+            links += _FIGMA_RE.findall(raw_html)
+
+
+            for bad in soup(["script","style"]):
+                bad.decompose()
+            text = soup.get_text("\n", strip=True)
+            links += _FIGMA_RE.findall(text)
+            seen, uniq = set(), []
+            for u in links:
+                if u not in seen:
+                    uniq.append(u); seen.add(u)
+            return text, uniq
+
     
     def get_field_id_by_name(self, field_name: str) -> Optional[str]:
         """Get field ID by field name"""
@@ -150,7 +187,7 @@ class JiraIntegration:
         
         # Add custom fields by name
         custom_field_names = [
-            'Test Scenarios', 'Story Points', 'Acceptance Criteria',
+            'Test Scenarios', 'Story Points', 'User Story', 'Acceptance Criteria',
             'Agile Team', 'Architectural Solution', 'ADA Acceptance Criteria',
             'Performance Impact', 'Components', 'Brands', 'Figma Reference Status',
             'Cross-browser/Device Testing Scope'
@@ -174,7 +211,9 @@ class JiraIntegration:
             'Accept': 'application/json'
         }
         
-        response = requests.get(f"{self.base_url}/rest/api/3/myself", headers=headers, timeout=5)
+        # Disable proxy to avoid corporate proxy issues
+        proxies = {'http': None, 'https': None}
+        response = requests.get(f"{self.base_url}/rest/api/3/myself", headers=headers, timeout=5, proxies=proxies)
         response.raise_for_status()
     
     def is_available(self) -> bool:
@@ -240,7 +279,9 @@ class JiraIntegration:
         }
         
         try:
-            response = requests.get(f"{self.base_url}{endpoint}", headers=headers, timeout=10)
+            # Disable proxy to avoid corporate proxy issues
+            proxies = {'http': None, 'https': None}
+            response = requests.get(f"{self.base_url}{endpoint}", headers=headers, timeout=10, proxies=proxies)
             console.print(f"[blue]Response status: {response.status_code}[/blue]")
             
             # Check if response is successful
@@ -274,40 +315,43 @@ class JiraIntegration:
         if not self.is_available():
             console.print("[red]Jira integration is not available[/red]")
             return None
-        
+
         try:
             # Clean ticket number
             clean_ticket = ticket_number.upper().strip()
             console.print(f"[blue]Fetching ticket {clean_ticket}...[/blue]")
-            
+
             # Get required field IDs dynamically
             required_fields = self.get_required_field_ids()
             fields_param = ','.join(required_fields)
-            
+
             console.print(f"[blue]Requesting fields: {fields_param}[/blue]")
-            
-            # Fetch the issue with dynamic field selection
-            endpoint = f"/rest/api/3/issue/{clean_ticket}?fields={fields_param}"
+
+            # ✅ Use expand to get rendered HTML + names mapping
+            endpoint = (
+                f"/rest/api/3/issue/{clean_ticket}"
+                f"?fields={fields_param}&expand=renderedFields,names,transitions,changelog"
+            )
             issue_data = self._make_request(endpoint)
-            
+
             console.print(f"[blue]API response received: {issue_data is not None}[/blue]")
-            
+
             if issue_data is None:
                 console.print(f"[red]Ticket {ticket_number} not found or access denied[/red]")
                 return None
-            
+
             console.print(f"[blue]Issue data keys: {list(issue_data.keys()) if issue_data else 'None'}[/blue]")
-            
+
             # Extract relevant information
             fields = issue_data.get('fields', {})
             console.print(f"[blue]Fields data: {fields is not None}[/blue]")
-            
+
             if not fields:
                 console.print(f"[red]No fields data found in ticket {ticket_number}[/red]")
                 return None
-            
+
             console.print(f"[blue]Creating ticket info...[/blue]")
-            
+
             # Safely get nested values with explicit None checks
             status_obj = fields.get('status')
             priority_obj = fields.get('priority')
@@ -315,20 +359,26 @@ class JiraIntegration:
             reporter_obj = fields.get('reporter')
             issue_type_obj = fields.get('issuetype')
             project_obj = fields.get('project')
-            
-            # Safely extract description
-            raw_description = fields.get('description')
-            if raw_description is None:
-                description = ''
-            elif isinstance(raw_description, dict):
-                # Handle Atlassian Document Format
-                if raw_description.get('type') == 'doc':
+
+            # ✅ Prefer rendered HTML description → clean text + collect Figma links
+            rendered = (issue_data or {}).get('renderedFields') or {}
+            desc_html = rendered.get('description') or ""
+            description = ""
+            figma_links: List[str] = []
+
+            if desc_html:
+                # requires _html_to_text helper
+                description, figma_links = self._html_to_text(desc_html)
+            else:
+                # fallback to raw/ADF
+                raw_description = fields.get('description')
+                if raw_description is None:
+                    description = ''
+                elif isinstance(raw_description, dict) and raw_description.get('type') == 'doc':
                     description = self._extract_adf_content(raw_description)
                 else:
-                    description = str(raw_description)
-            else:
-                description = str(raw_description)
-            
+                    description = str(raw_description or "")
+
             # Extract custom fields dynamically
             custom_fields = {}
             for field_name, field_info in self.field_mappings.items():
@@ -338,7 +388,7 @@ class JiraIntegration:
                     if field_value is not None:
                         custom_fields[field_name] = field_value
                         console.print(f"[blue]Found custom field: {field_name} = {field_value}[/blue]")
-            
+
             ticket_info = {
                 'key': issue_data.get('key', ''),
                 'summary': fields.get('summary', ''),
@@ -354,33 +404,83 @@ class JiraIntegration:
                 'labels': fields.get('labels', []),
                 'components': [c.get('name', '') for c in fields.get('components', [])],
                 'comments': [],
-                'custom_fields': custom_fields  # Add custom fields to ticket info
+                'custom_fields': custom_fields,  # dynamic customs
+                # ✅ add design flags
+                'figma_links': figma_links,
+                'has_figma': bool(figma_links),
             }
-            
+
             console.print(f"[blue]Ticket info created successfully[/blue]")
-            
+
             # Fetch comments
             comments_endpoint = f"/rest/api/3/issue/{clean_ticket}/comment"
             comments_data = self._make_request(comments_endpoint)
-            
+
             if comments_data:
                 for comment in comments_data.get('comments', []):
-                    # Handle comment body (could be ADF or plain text)
+                    # ✅ Prefer renderedBody (HTML) → clean text
+                    rendered_body = comment.get('renderedBody')
                     body = comment.get('body', '')
-                    if isinstance(body, dict) and body.get('type') == 'doc':
-                        # Extract text from ADF comment
+
+                    if rendered_body:
+                        body, _ = self._html_to_text(rendered_body)
+                    elif isinstance(body, dict) and body.get('type') == 'doc':
                         body = self._extract_adf_content(body)
-                    
+                    else:
+                        body = str(body or "")
+
                     ticket_info['comments'].append({
                         'author': comment.get('author', {}).get('displayName', 'Unknown'),
                         'body': body,
                         'created': comment.get('created', '')
                     })
-            
+
             return ticket_info
-            
+
         except Exception as e:
             console.print(f"[red]Unexpected error fetching ticket {ticket_number}: {e}[/red]")
+            return None
+
+    def fetch_ticket(self, ticket_number: str) -> Optional[Dict[str, Any]]:
+        """Fetch raw Jira ticket data for GroomRoom analysis"""
+        if not self.is_available():
+            console.print("[red]Jira integration is not available[/red]")
+            return None
+
+        try:
+            # Clean ticket number
+            clean_ticket = ticket_number.upper().strip()
+            console.print(f"Fetching ticket {clean_ticket}...")
+
+            # Get required field IDs dynamically
+            required_fields = self.get_required_field_ids()
+            fields_param = ','.join(required_fields)
+
+            console.print(f"Requesting fields: {fields_param}")
+
+            # Use expand to get rendered HTML + names mapping
+            endpoint = (
+                f"/rest/api/3/issue/{clean_ticket}"
+                f"?fields={fields_param}&expand=renderedFields,names,transitions,changelog"
+            )
+            issue_data = self._make_request(endpoint)
+
+            console.print(f"Response status: {200 if issue_data else 'Failed'}")
+            console.print(f"API response received: {issue_data is not None}")
+
+            if issue_data is None:
+                console.print(f"Ticket {ticket_number} not found or access denied")
+                return None
+
+            console.print(f"Issue data keys: {list(issue_data.keys()) if issue_data else 'None'}")
+            console.print(f"Fields data: {issue_data.get('fields') is not None}")
+            console.print("Ticket info created successfully")
+            
+            # Return raw issue data for GroomRoom to process
+            return issue_data
+
+        except Exception as e:
+            console.print(f"Unexpected error fetching ticket {ticket_number}: {e}")
             return None
     
     def format_ticket_for_display(self, ticket_info: Dict[str, Any]) -> str:
@@ -550,9 +650,12 @@ Comment {i} by {comment['author']}:
                 'Content-Type': 'application/json'
             }
             
+            # Disable proxy to avoid corporate proxy issues
+            proxies = {'http': None, 'https': None}
             response = requests.post(f"{self.base_url}{endpoint}", 
                                    headers=headers, 
-                                   params=params)
+                                   params=params,
+                                   proxies=proxies)
             response.raise_for_status()
             
             data = response.json()
@@ -637,9 +740,12 @@ Comment {i} by {comment['author']}:
                 'Accept': 'application/json'
             }
             
+            # Disable proxy to avoid corporate proxy issues
+            proxies = {'http': None, 'https': None}
             response = requests.get(f"{self.base_url}{endpoint}", 
                                    headers=headers, 
-                                   params=params)
+                                   params=params,
+                                   proxies=proxies)
             response.raise_for_status()
             
             console.print(f"[blue]Response status: {response.status_code}[/blue]")
@@ -811,6 +917,46 @@ Comment {i} by {comment['author']}:
         except Exception as e:
             console.print(f"[red]Error fetching all fields: {e}[/red]")
             return []
+    def build_rich_context(self, ticket_number: str) -> Dict[str, Any]:
+            issue = self.get_ticket_info(ticket_number)
+            if not issue:
+                return {"corpus": f"[{ticket_number}] (not found)", "meta": {}, "issue": None}
+            parts = []
+            key = issue.get("key",""); summary = issue.get("summary","")
+            parts.append(f"[{key}] {summary}".strip())
+            labels = issue.get("labels") or []; components = issue.get("components") or []
+            if labels: parts.append(f"Labels: {', '.join(labels)}")
+            if components: parts.append(f"Components: {', '.join(components)}")
+            figs = issue.get("figma_links") or []
+            if figs: parts.append("Design: " + ", ".join(figs))
+            desc = issue.get("description") or ""
+            if desc: parts.append("\nDescription:\n" + desc)
+            cf = issue.get("custom_fields") or {}
+            if cf:
+                parts.append("\nCustom Fields:")
+                for k, v in cf.items():
+                    if isinstance(v, dict):
+                        val = v.get("value") or v.get("name") or v.get("displayName") or str(v)
+                    elif isinstance(v, list):
+                        val = ", ".join([str(x.get('value') or x.get('name') or x) for x in v])
+                    else:
+                        val = str(v)
+                    if val: parts.append(f"- {k}: {val}")
+            comments = issue.get("comments") or []
+            if comments:
+                parts.append("\nRecent Comments:")
+                for c in comments[-5:]:
+                    parts.append(f"- {c.get('author','Unknown')}: {c.get('body','').strip()[:500]}")
+            corpus = "\n".join(parts).strip()
+            meta = {
+                "key": key,
+                "labels": labels,
+                "components": components,
+                "figma_links": figs,
+                "has_figma": bool(figs),
+            }
+            return {"corpus": corpus, "meta": meta, "issue": issue}
+
 
     def _get_mock_dashboard_cards(self) -> list:
         """Get mock dashboard cards for fallback"""

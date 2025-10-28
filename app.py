@@ -7,12 +7,25 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+import os
+import sys 
+
+ # ⬅️ add this
+
+# ensure project root on sys.path so we can import groomroom/* and jira_integration.py
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT not in sys.path:
+    sys.path.append(ROOT)
+
+from jira_integration import JiraIntegration  # ⬅️ add this
+
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+jira = JiraIntegration() 
 
 def _format_insight_for_display(result):
     """Format insight mode output for display"""
@@ -248,104 +261,136 @@ def api_health():
 @app.route('/api/groomroom', methods=['POST'])
 @app.route('/api/groomroom/generate', methods=['POST'])  # Support old endpoint for compatibility
 def generate_groom():
-    """Generate GroomRoom analysis using GroomRoom vNext with 3 levels"""
+    """Generate GroomRoom analysis (rich Jira context → markdown)."""
     try:
-        data = request.get_json()
-        ticket_number = data.get('ticket_number', '')
-        ticket_content = data.get('ticket_content', '')
-        level = data.get('level', 'actionable')
-        figma_link = data.get('figma_link', None)
+        data = request.get_json(force=True) or {}
+        ticket_number = (data.get('ticket_number') or '').strip()
+        ticket_content = (data.get('ticket_content') or '').strip()
+        level = (data.get('level') or 'actionable').strip().lower()
+        figma_link = (data.get('figma_link') or '').strip() or None
+
+        # normalize level
+        if level not in ('insight', 'actionable', 'summary'):
+            level = 'actionable'
+
+        # Fetch from Jira if ticket_number provided, otherwise use pasted content
+        ticket_data = None
         
-        # Validate level (only allow 3 levels)
-        valid_levels = ['insight', 'actionable', 'summary']
-        if level not in valid_levels:
-            level = 'actionable'  # Default to actionable
+        if ticket_number:
+            # Fetch directly from Jira using fetch_ticket
+            if hasattr(jira, "fetch_ticket"):
+                print(f"Fetching ticket {ticket_number}...")
+                jira_ticket = jira.fetch_ticket(ticket_number)
+                if not jira_ticket:
+                    return jsonify({"success": False, "error": f"Could not fetch ticket {ticket_number}"}), 404, {'Content-Type': 'application/json; charset=utf-8'}
+                # Pass real Jira ticket data to core_no_scoring
+                ticket_data = jira_ticket
+                print(f"Ticket info created successfully")
+            else:
+                # Fallback: build corpus and create fake ticket_data
+                if hasattr(jira, "build_rich_context"):
+                    rich = jira.build_rich_context(ticket_number)
+                    if not rich or not rich.get("issue"):
+                        return jsonify({"success": False, "error": f"Could not fetch ticket {ticket_number}"}), 404, {'Content-Type': 'application/json; charset=utf-8'}
+                    content = rich["corpus"]
+                    if ticket_content:
+                        content = f"{content}\n\nUser Paste:\n{ticket_content}"
+                    ticket_data = {
+                        'key': ticket_number,
+                        'fields': {
+                            'summary': f'Ticket {ticket_number}',
+                            'description': content,
+                            'issuetype': {'name': 'Story'}
+                        }
+                    }
+                else:
+                    return jsonify({"success": False, "error": "Jira integration not available"}), 500, {'Content-Type': 'application/json; charset=utf-8'}
         
-        # Try to use GroomRoom No-Scoring implementation first
+        elif figma_link:
+            # Fetch from Figma using figma_link
+            try:
+                from figma_integration import extract_figma_as_ticket
+                print(f"📋 Extracting Figma design from: {figma_link}")
+                ticket_data = extract_figma_as_ticket(figma_link)
+                print(f"✅ Figma extraction completed: {ticket_data['key']}")
+            except Exception as figma_error:
+                return jsonify({
+                    "success": False, 
+                    "error": f"Figma extraction failed: {str(figma_error)}"
+                }), 400, {'Content-Type': 'application/json; charset=utf-8'}
+        
+        else:
+            # Use pasted content
+            if not ticket_content:
+                return jsonify({"success": False, "error": "Provide 'ticket_content', 'ticket_number', or 'figma_link'"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
+            ticket_data = {
+                'key': 'PASTED-CONTENT',
+                'fields': {
+                    'summary': 'Pasted Content Analysis',
+                    'description': ticket_content,
+                    'issuetype': {'name': 'Story'}
+                }
+            }
+
+        groom = None
+
+        # 1) Try No-Scoring implementation
         try:
             from groomroom.core_no_scoring import GroomRoomNoScoring
-            
-            # Create ticket data structure
-            if ticket_number:
-                # For Jira ticket numbers, create a basic structure
-                ticket_data = {
-                    'key': ticket_number,
-                    'fields': {
-                        'summary': f'Ticket {ticket_number}',
-                        'description': ticket_content or f'Analysis for ticket {ticket_number}',
-                        'issuetype': {'name': 'Story'}
-                    }
-                }
-            else:
-                # For pasted content, create a structure
-                ticket_data = {
-                    'key': 'PASTED-CONTENT',
-                    'fields': {
-                        'summary': 'Pasted Content Analysis',
-                        'description': ticket_content,
-                        'issuetype': {'name': 'Story'}
-                    }
-                }
-            
-            # Initialize GroomRoom No-Scoring
-            groomroom = GroomRoomNoScoring()
-            result = groomroom.analyze_ticket(ticket_data, level.title())
-            
-            # Return the markdown result
-            groom = result.markdown
-            
-            print(f"GroomRoom vNext analysis completed for level: {level}")
-            
-        except ImportError:
-            # Fallback to original GroomRoom if vNext not available
-            from groomroom.core import GroomRoom
-            
-            groomroom = GroomRoom()
-            
-            # Determine input content
-            if ticket_number:
-                content = ticket_number
-            else:
-                content = ticket_content
-            
-            # Call the original analyze_ticket method
-            result = groomroom.analyze_ticket(content, mode=level, figma_link=figma_link)
-            
-            # Handle the result structure
-            if isinstance(result, dict):
-                if 'error' in result:
-                    groom = f"Error: {result['error']}"
-                elif 'enhanced_output' in result:
-                    groom = result['enhanced_output']
-                elif 'markdown' in result:
-                    groom = result['markdown']
-                else:
-                    import json
-                    groom = json.dumps(result, indent=2)
-            else:
+            gr = GroomRoomNoScoring()
+
+            result = gr.analyze_ticket(ticket_data, level.title())
+
+            # prefer attribute .markdown, else dict key, else stringify
+            groom = getattr(result, "markdown", None)
+            if groom is None and isinstance(result, dict):
+                groom = result.get("markdown")
+            if groom is None:
                 groom = str(result)
-            
-            print(f"Fallback GroomRoom analysis completed for level: {level}")
-        
+
+            print(f"GroomRoom No-Scoring analysis completed for level: {level}")
+
+        except Exception as _no_scoring_err:
+            # 2) Fallback to original GroomRoom
+            try:
+                from groomroom.core import GroomRoom
+                gr = GroomRoom()
+
+                result = gr.analyze_ticket(content, mode=level, figma_link=figma_link)
+
+                if isinstance(result, dict):
+                    if 'error' in result:
+                        groom = f"Error: {result['error']}"
+                    elif 'markdown' in result:                 # new patched core.py
+                        groom = result['markdown']
+                    elif 'enhanced_output' in result:          # legacy core output
+                        groom = result['enhanced_output']
+                    else:
+                        import json
+                        groom = json.dumps(result, indent=2)
+                else:
+                    groom = str(result)
+
+                print(f"GroomRoom fallback analysis completed for level: {level}")
+            except Exception as e2:
+                print("Fallback failed:", e2)
+                # surface the original no-scoring error if both fail
+                raise _no_scoring_err
+
         print(f"Groom analysis generated, length={len(groom) if groom else 0}")
-        print(f"Level used: {level}")
-        
         return jsonify({
             'success': True,
             'data': {
                 'groom': groom,
                 'level': level,
-                'ticket_number': ticket_number if ticket_number else None,
+                'ticket_number': ticket_number or None,
                 'figma_link': figma_link
             }
-        })
-        
+        }), 200, {'Content-Type': 'application/json; charset=utf-8'}
+
     except Exception as e:
         print(f"Error in generate_groom: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500, {'Content-Type': 'application/json; charset=utf-8'}
 
 @app.route('/api/groomroom/vnext/analyze', methods=['POST'])
 def analyze_ticket_vnext():
@@ -463,6 +508,7 @@ def generate_tests():
         }), 500
 
 @app.route('/api/epicroast/roast', methods=['POST'])
+@app.route('/api/epicroast/generate', methods=['POST'])
 def roast_ticket():
     """Generate EpicRoast analysis"""
     try:

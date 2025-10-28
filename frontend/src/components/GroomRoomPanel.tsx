@@ -42,8 +42,8 @@ export const GroomRoomPanel: React.FC<GroomRoomPanelProps> = ({
   }, [sharedTicketNumber, ticketNumber])
 
   const validateInputs = () => {
-    if (!ticketNumber && !ticketContent.trim()) {
-      setValidationError('Please provide either a ticket number or ticket content')
+    if (!ticketNumber && !ticketContent.trim() && !figmaLink.trim()) {
+      setValidationError('Please provide either a ticket number, ticket content, or Figma link')
       return false
     }
     setValidationError('')

@@ -1,231 +1,360 @@
-# 🚀 Deployment Guide - Enhanced GroomRoom
+# 🚀 TestGenie Deployment Guide (Vercel + Render)
 
-## Overview
-This guide will help you deploy the enhanced GroomRoom application to both Vercel (frontend) and Railway (backend).
+**Deployment Method:** Option 1 - Easiest & Free
+- **Frontend:** Vercel (Free tier)
+- **Backend:** Render (Free tier)
 
-## Prerequisites
-- Node.js 18+ installed
-- Python 3.8+ installed
-- Git repository with all changes committed
-- Vercel account (free)
-- Railway account (free)
+**Total Time:** 15-20 minutes
 
-## 🎯 Deployment Steps
+---
 
-### 1. **Deploy Backend to Railway**
+## 📋 Pre-Deployment Checklist
 
-#### Option A: Using Railway CLI (Recommended)
+Before deploying, make sure you have:
+
+- ✅ GitHub account
+- ✅ Vercel account (sign up at: https://vercel.com)
+- ✅ Render account (sign up at: https://render.com)
+- ✅ Jira API credentials (URL, Email, API Token)
+- ✅ OpenAI API key
+- ✅ Figma token (optional)
+
+---
+
+## STEP 1: Push Code to GitHub
+
+### 1.1 Initialize Git (if not already done)
+
 ```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login to Railway
-railway login
-
-# Link to existing project or create new one
-railway link
-
-# Deploy
-railway up
+cd C:\Users\IbtasamAli\Downloads\TestGenie
+git init
 ```
 
-#### Option B: Using Python Script
+### 1.2 Add all files
+
 ```bash
-python deploy_to_railway.py
+git add .
 ```
 
-#### Option C: Manual Railway Deployment
-1. Go to [Railway.app](https://railway.app)
-2. Create new project
-3. Connect your GitHub repository
-4. Railway will automatically detect the Python app and deploy
+### 1.3 Commit changes
 
-### 2. **Deploy Frontend to Vercel**
-
-#### Option A: Using Vercel CLI (Recommended)
 ```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Deploy to Vercel
-vercel --prod
+git commit -m "Ready for deployment - TestGenie v1.0"
 ```
 
-#### Option B: Using Python Script
+### 1.4 Create GitHub Repository
+
+1. Go to: https://github.com/new
+2. Repository name: `TestGenie`
+3. Description: `AI-powered Jira ticket analysis tool`
+4. Visibility: **Private** (recommended) or Public
+5. DO NOT initialize with README (already have one)
+6. Click "Create repository"
+
+### 1.5 Push to GitHub
+
 ```bash
-python deploy_to_vercel.py
+# Replace YOUR_USERNAME with your GitHub username
+git remote add origin https://github.com/YOUR_USERNAME/TestGenie.git
+git branch -M main
+git push -u origin main
 ```
 
-#### Option C: Manual Vercel Deployment
-1. Go to [Vercel.com](https://vercel.com)
-2. Import your GitHub repository
-3. Set build settings:
-   - Framework: Vite
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Install Command: `npm install`
-4. Deploy
+**✅ Checkpoint:** Your code should now be visible on GitHub!
 
-### 3. **Update API Endpoint**
+---
 
-After Railway deployment, update the frontend API endpoint:
+## STEP 2: Deploy Backend to Render
 
-1. Get your Railway backend URL (e.g., `https://your-app.up.railway.app`)
-2. Update `frontend/vercel.json`:
+### 2.1 Create New Web Service
+
+1. Go to: https://dashboard.render.com
+2. Click **"New +"** button (top right)
+3. Select **"Web Service"**
+
+### 2.2 Connect GitHub Repository
+
+1. Click **"Connect account"** if first time
+2. Select **"TestGenie"** repository
+3. Click **"Connect"**
+
+### 2.3 Configure Web Service
+
+Fill in these settings:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `testgenie-backend` |
+| **Region** | Choose closest to you (e.g., Oregon, Frankfurt) |
+| **Branch** | `main` |
+| **Root Directory** | `TestGenie` |
+| **Runtime** | `Python 3` |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `gunicorn app:app --bind 0.0.0.0:$PORT` |
+| **Instance Type** | `Free` |
+
+### 2.4 Add Environment Variables
+
+Click **"Advanced"** → **"Add Environment Variable"**
+
+Add these one by one:
+
+```
+PORT=8080
+JIRA_URL=https://your-company.atlassian.net
+JIRA_EMAIL=your-email@company.com
+JIRA_API_TOKEN=your_jira_api_token_here
+OPENAI_API_KEY=sk-your-openai-api-key-here
+FIGMA_TOKEN=figd_your_figma_token_here
+NO_PROXY=*
+PYTHONDONTWRITEBYTECODE=1
+PYTHONIOENCODING=utf-8
+```
+
+**How to get these tokens:** See `ENV_SETUP.md` file
+
+### 2.5 Deploy
+
+1. Click **"Create Web Service"**
+2. Wait 3-5 minutes for deployment
+3. Monitor the logs - should see: `✅ Build successful`
+
+### 2.6 Get Backend URL
+
+Once deployed, you'll see:
+```
+Your service is live at https://testgenie-backend.onrender.com
+```
+
+**Copy this URL!** You'll need it for frontend deployment.
+
+### 2.7 Test Backend
+
+Open in browser: `https://testgenie-backend.onrender.com/api/health`
+
+Should see:
 ```json
 {
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://your-app.up.railway.app/api/$1"
-    }
-  ]
+  "status": "healthy",
+  "service": "TestGenie & EpicRoast with GroomRoom",
+  "version": "1.0"
 }
 ```
-3. Redeploy frontend to Vercel
 
-## 🔧 Environment Variables
+**✅ Checkpoint:** Backend is live!
 
-### Railway Backend Environment Variables
-Set these in your Railway project dashboard:
+---
 
-```bash
-# Azure OpenAI Configuration
-AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+## STEP 3: Deploy Frontend to Vercel
 
-# Jira Configuration
-JIRA_URL=https://your-domain.atlassian.net
-JIRA_USERNAME=your-email@domain.com
-JIRA_API_TOKEN=your-api-token
+### 3.1 Create New Project
 
-# Python Configuration
-PYTHONPATH=.
-PORT=8080
+1. Go to: https://vercel.com/new
+2. Click **"Import Git Repository"**
+3. Select **"TestGenie"** repository
+4. Click **"Import"**
+
+### 3.2 Configure Project
+
+Fill in these settings:
+
+| Setting | Value |
+|---------|-------|
+| **Framework Preset** | `Vite` (should auto-detect) |
+| **Root Directory** | Click **"Edit"** → Set to: `TestGenie/frontend` |
+| **Build Command** | `npm run build` (auto-detected) |
+| **Output Directory** | `dist` (auto-detected) |
+| **Install Command** | `npm install` (auto-detected) |
+
+### 3.3 Add Environment Variable
+
+Click **"Environment Variables"** section
+
+Add this:
+
+| Name | Value |
+|------|-------|
+| `VITE_API_URL` | `https://testgenie-backend.onrender.com/api` |
+
+**Important:** Replace with YOUR backend URL from Step 2.6
+
+### 3.4 Deploy
+
+1. Click **"Deploy"**
+2. Wait 2-3 minutes
+3. Monitor build logs - should see: `✅ Build completed`
+
+### 3.5 Get Frontend URL
+
+Once deployed, you'll see:
+```
+🎉 Your project is live at https://testgenie.vercel.app
 ```
 
-### Vercel Frontend Environment Variables
-No additional environment variables needed for frontend.
+**✅ Checkpoint:** Frontend is live!
 
-## 🧪 Testing Deployment
+---
 
-### 1. **Test Backend (Railway)**
+## STEP 4: Test Full Deployment
+
+### 4.1 Open Your App
+
+Go to: `https://testgenie.vercel.app` (or your custom URL)
+
+### 4.2 Test GroomRoom
+
+1. Click **"GroomRoom"** tab
+2. Enter ticket ID: `ODCD-34544` (or any valid ticket)
+3. Select Mode: **Actionable**
+4. Click **"Analyze"**
+5. Should see full groom report in 5-10 seconds
+
+### 4.3 Test EpicRoast
+
+1. Click **"EpicRoast"** tab
+2. Paste some ticket content
+3. Select Theme: **Medium**
+4. Click **"Roast It!"**
+5. Should see roast analysis
+
+### 4.4 Test Figma Integration
+
+1. Go to **"GroomRoom"** tab
+2. Paste a Figma link in the optional field
+3. Click **"Analyze"**
+4. Should extract design data
+
+**✅ All working? Congratulations! 🎉**
+
+---
+
+## 🎯 Post-Deployment Tasks
+
+### Custom Domain (Optional)
+
+#### For Vercel (Frontend):
+1. Go to: Project Settings → Domains
+2. Add your domain (e.g., `testgenie.yourcompany.com`)
+3. Update DNS records as shown
+4. Wait 24-48 hours for DNS propagation
+
+#### For Render (Backend):
+1. Go to: Web Service → Settings → Custom Domains
+2. Add your backend domain (e.g., `api.testgenie.yourcompany.com`)
+3. Update DNS records
+4. Update `VITE_API_URL` in Vercel to use new backend domain
+
+---
+
+## 🔄 Auto-Deployment (CI/CD)
+
+Good news! Both platforms support auto-deployment:
+
+### On Git Push:
 ```bash
-# Health check
-curl https://your-app.up.railway.app/health
+# Make changes to code
+git add .
+git commit -m "Feature: Added new functionality"
+git push origin main
 
-# API health check
-curl https://your-app.up.railway.app/api/health
-
-# Test GroomRoom endpoint
-curl -X POST https://your-app.up.railway.app/api/groomroom/generate \
-  -H "Content-Type: application/json" \
-  -d '{"ticket_content": "Test ticket content"}'
+# Automatically:
+# 1. Render rebuilds backend (3-5 min)
+# 2. Vercel rebuilds frontend (2-3 min)
+# 3. Both go live automatically
 ```
 
-### 2. **Test Frontend (Vercel)**
-1. Visit your Vercel URL
-2. Test the GroomRoom panel
-3. Verify API calls are working
+**No manual deployment needed!** ✅
 
-## 🎯 Expected Results
+---
 
-### Backend (Railway)
-- ✅ Health endpoint returns `{"status": "healthy"}`
-- ✅ API health shows all services status
-- ✅ GroomRoom analysis returns structured JSON
-- ✅ Jira field mapping works automatically
-- ✅ Enhanced analysis with DOR, AC review, test scenarios
+## 🐛 Troubleshooting
 
-### Frontend (Vercel)
-- ✅ React app loads successfully
-- ✅ GroomRoom panel displays
-- ✅ API calls to Railway backend work
-- ✅ Analysis results display properly
+### Issue: Backend shows "Application Error"
 
-## 🚨 Troubleshooting
+**Solution:**
+1. Go to Render → Your Service → Logs
+2. Check for errors (missing env variables, import errors)
+3. Fix and push changes to GitHub
+4. Render will auto-redeploy
 
-### Common Issues
+### Issue: Frontend shows "Network Error"
 
-#### Railway Deployment Issues
-```bash
-# Check Railway logs
-railway logs
+**Solution:**
+1. Check `VITE_API_URL` is correct in Vercel
+2. Test backend health: `https://your-backend.onrender.com/api/health`
+3. Check CORS settings in `app.py` (should allow all origins)
 
-# Check Railway status
-railway status
+### Issue: Jira tickets not fetching
 
-# Redeploy
-railway up
+**Solution:**
+1. Verify Jira credentials in Render environment variables
+2. Check Jira API token is not expired
+3. Test Jira connection: `https://your-backend.onrender.com/api/health`
+
+### Issue: Render "Free tier - Spins down with inactivity"
+
+**Note:** Render free tier sleeps after 15 min of inactivity
+- **First request:** May take 30-60 seconds (cold start)
+- **Subsequent requests:** Fast (< 1 second)
+
+**Solution:** Upgrade to Render paid plan ($7/month) for always-on service
+
+---
+
+## 📊 Monitoring & Logs
+
+### View Backend Logs:
+1. Go to: https://dashboard.render.com
+2. Click on your service
+3. Click **"Logs"** tab
+4. See real-time logs
+
+### View Frontend Logs:
+1. Go to: https://vercel.com/dashboard
+2. Click on your project
+3. Click **"Deployments"** → Latest deployment → **"Build Logs"**
+
+---
+
+## 💰 Cost Breakdown
+
+| Service | Plan | Cost | Limits |
+|---------|------|------|--------|
+| **Vercel** | Free | $0/month | 100 GB bandwidth, unlimited deployments |
+| **Render** | Free | $0/month | 750 hours/month, sleeps after 15 min inactivity |
+| **GitHub** | Free | $0/month | Unlimited public/private repos |
+| **TOTAL** | | **$0/month** | ✅ Perfect for MVP/Demo |
+
+### Upgrade Options (if needed):
+
+- **Vercel Pro:** $20/month (more bandwidth, custom domains)
+- **Render Starter:** $7/month (always-on, no sleep)
+
+---
+
+## 🎉 You're Done!
+
+Your TestGenie app is now:
+- ✅ **Live** on the internet
+- ✅ **Secure** (HTTPS enabled)
+- ✅ **Auto-deploying** on git push
+- ✅ **Free** to run
+
+**Share your app:**
+```
+Frontend: https://testgenie.vercel.app
+Backend API: https://testgenie-backend.onrender.com/api
 ```
 
-#### Vercel Deployment Issues
-```bash
-# Check Vercel logs
-vercel logs
+---
 
-# Check build locally
-cd frontend
-npm run build
+## 📞 Need Help?
 
-# Redeploy
-vercel --prod
-```
+If you run into issues:
+1. Check **Troubleshooting** section above
+2. View deployment logs (Render/Vercel dashboards)
+3. Test backend health endpoint
+4. Verify environment variables are set correctly
 
-#### API Connection Issues
-1. Verify Railway backend URL is correct in `vercel.json`
-2. Check CORS settings in backend
-3. Verify environment variables are set
-4. Check Railway logs for errors
+**Happy Deploying! 🚀**
 
-### Environment Variable Issues
-- Ensure all required environment variables are set in Railway
-- Check that Jira credentials are valid
-- Verify Azure OpenAI configuration
-
-## 📊 Deployment Checklist
-
-### Backend (Railway)
-- [ ] Railway CLI installed and logged in
-- [ ] Environment variables configured
-- [ ] Deployment successful
-- [ ] Health endpoint responding
-- [ ] GroomRoom API working
-- [ ] Jira field mapping functional
-
-### Frontend (Vercel)
-- [ ] Vercel CLI installed and logged in
-- [ ] Dependencies installed
-- [ ] Build successful
-- [ ] Deployment successful
-- [ ] API endpoint updated
-- [ ] Frontend connecting to backend
-
-## 🎉 Success!
-
-Once both deployments are complete:
-
-1. **Backend URL**: `https://your-app.up.railway.app`
-2. **Frontend URL**: `https://your-app.vercel.app`
-3. **Enhanced GroomRoom**: Fully functional with automatic Jira field detection
-4. **API Integration**: Frontend successfully calling Railway backend
-
-Your enhanced GroomRoom application is now live and ready to use! 🚀
-
-## 📞 Support
-
-If you encounter any issues:
-1. Check the logs in Railway and Vercel dashboards
-2. Verify environment variables are set correctly
-3. Test endpoints individually
-4. Check network connectivity between services

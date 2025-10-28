@@ -11,6 +11,7 @@ from typing import Optional, Dict, List, Any, Tuple, Union
 from dotenv import load_dotenv
 from rich.console import Console
 import openai
+
 try:
     from jira_integration import JiraIntegration
     from jira_field_mapper import JiraFieldMapper
@@ -1008,60 +1009,155 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
                 designsync = self._analyze_designsync(issue_data, figma_link, ac_audit, test_scenarios)
             
             # Build enhanced structured output
-            output = {
-                "TicketKey": issue_data.get('key', ''),
-                "Title": issue_data.get('summary', ''),
-                "Mode": mode.title(),
-                "Readiness": {
-                    "Score": readiness_analysis['score'],
-                    "Status": readiness_analysis['status'],
-                    "DoRCoveragePercent": dor_analysis['coverage_percentage'],
-                    "MissingFields": dor_analysis['missing_fields'],
-                    "WeakAreas": dor_analysis.get('weak_areas', [])
-                },
-                "FrameworkScores": {
-                    "ROI": framework_scores.get('ROI', 0),
-                    "INVEST": framework_scores.get('INVEST', 0),
-                    "ACCEPT": framework_scores.get('ACCEPT', 0),
-                    "3C": framework_scores.get('3C', 0)
-                },
-                "StoryReview": {
-                    "Persona": story_analysis.get('has_persona', False),
-                    "Goal": story_analysis.get('has_goal', False),
-                    "Benefit": story_analysis.get('has_benefit', False),
-                    "SuggestedRewrite": story_analysis.get('story_rewrite', '')
-                },
-                "AcceptanceCriteriaAudit": {
-                    "Detected": ac_audit['detected'],
-                    "Weak": ac_audit['weak'],
-                    "SuggestedRewrites": ac_audit['suggested_rewrites']
-                },
-                "TestScenarios": {
-                    "Positive": test_scenarios.get('positive', []),
-                    "Negative": test_scenarios.get('negative', []),
-                    "Error": test_scenarios.get('error', [])
-                },
-                "TechnicalADA": technical_ada,
-                "DesignSync": designsync or {"Enabled": False, "Score": 0, "Mismatches": [], "Changes": []},
-                "Recommendations": role_recommendations,
-                "BatchSummary": {
-                    "TotalAnalysed": 1,
-                    "Ready": 1 if readiness_analysis['score'] >= 90 else 0,
-                    "NeedsRefinement": 1 if 70 <= readiness_analysis['score'] < 90 else 0,
-                    "NotReady": 1 if readiness_analysis['score'] < 70 else 0
-                }
+                        # ⛳️ Build Enhanced Groom markdown (no numeric framework acronyms in visible text)
+
+            def _pct(x):
+                try:
+                    return int(round(float(x)))
+                except Exception:
+                    return x
+
+            # Sprint Readiness text
+            readiness_score = _pct(readiness_analysis['score'])
+            if readiness_score >= 90:
+                readiness_status_text = "Ready"
+            elif readiness_score >= 70:
+                readiness_status_text = "Close, but has gaps"
+            else:
+                readiness_status_text = "Not Ready"
+
+            # Short title
+            title = issue_data.get('summary', '') or 'Groom Analysis'
+
+            # Story rewrite
+            story_rewrite = (story_analysis.get('story_rewrite') or "").strip()
+
+            # Gaps / Missing fields
+            missing_fields = dor_analysis.get('missing_fields', []) or []
+            weak_areas = dor_analysis.get('weak_areas', []) or []
+            gaps_lines = []
+            if missing_fields:
+                gaps_lines.append("**Missing fields:** " + ", ".join(missing_fields))
+            if weak_areas:
+                gaps_lines.append("**Weak areas:** " + ", ".join(weak_areas))
+            if not gaps_lines:
+                gaps_lines.append("No major blockers identified.")
+
+            # Acceptance Criteria (final, testable)
+            ac_detected = ac_audit.get('detected', []) or []
+            ac_rewrites = ac_audit.get('suggested_rewrites', []) or []
+            final_acs = ac_rewrites if ac_rewrites else ac_detected
+            if not final_acs:
+                final_acs = [
+                    "Define measurable acceptance criteria covering happy path, error handling, ADA states, and analytics/flag validation."
+                ]
+
+            # Test scenarios
+            pos = test_scenarios.get('positive', []) or []
+            neg = test_scenarios.get('negative', []) or []
+            err = test_scenarios.get('error', []) or []
+
+            # Tech/ADA notes (brief)
+            tech_notes = []
+            ada = technical_ada or {}
+            if ada.get('accessibility', {}).get('missing'):
+                tech_notes.append("Address ADA gaps (focus, labels, error messaging).")
+            if ada.get('performance', {}).get('risk'):
+                tech_notes.append("Call out performance risk and budgets.")
+            if ada.get('security', {}).get('risk'):
+                tech_notes.append("Clarify security requirements and threat cases.")
+            if not tech_notes:
+                tech_notes.append("No critical technical/ADA risks surfaced.")
+
+            # Role-tagged next actions (compact)
+            next_actions = []
+            recs = role_recommendations or {}
+            for role_key in ("PO", "Dev", "QA", "Analytics"):
+                items = recs.get(role_key) or recs.get(role_key.lower()) or []
+                if items:
+                    next_actions.append(f"- **{role_key}:** " + "; ".join(items[:3]))
+
+            # Ticket meta
+            key = issue_data.get('key', '')
+            key_part = f" — {key}" if key else ""
+            mode_text = (mode or "actionable").title()
+
+            # Build markdown
+            def _bullets(lines):
+                return "\n".join([f"- {x}" for x in lines if str(x).strip()])
+
+            def _numbered(lines):
+                out = []
+                for i, x in enumerate(lines, 1):
+                    x = str(x).strip()
+                    if x:
+                        out.append(f"{i}. {x}")
+                return "\n".join(out) if out else "1. (add acceptance criteria)"
+
+            md_parts = []
+            md_parts.append(f"# 📋 Enhanced Groom Analysis{key_part}")
+            md_parts.append(f"**Title:** {title}")
+            md_parts.append(f"**Sprint Readiness:** {readiness_status_text}")
+
+            # Ticket Summary (2–4 lines)
+            summary_lines = []
+            summary_lines.append(f"Mode: **{mode_text}**")
+            ct = self.detect_card_type(issue_data).get('detected_type', 'story').title()
+            summary_lines.append(f"Card Type: **{ct}**")
+            if issue_data.get('components'):
+                summary_lines.append("Components: " + ", ".join(issue_data['components']))
+            if issue_data.get('labels'):
+                summary_lines.append("Labels: " + ", ".join(issue_data['labels']))
+            md_parts.append("\n## 🔎 Ticket Summary\n" + _bullets(summary_lines))
+
+            # Readiness Gaps
+            md_parts.append("\n## 🚥 Readiness Gaps (blockers to pull into sprint)\n" + _bullets(gaps_lines))
+
+            # Suggested Story Rewrite
+            md_parts.append("\n## ✍️ Suggested Story Rewrite (paste into Description)\n" + (story_rewrite or "_Add a user story in 'As a, I want, So that' format._"))
+
+            # Acceptance Criteria (final, testable)
+            md_parts.append("\n## ✅ Acceptance Criteria (final, testable)\n" + _numbered(final_acs))
+
+            # Test Scenarios
+            scenario_blocks = []
+            if pos: scenario_blocks.append("**Happy path**\n" + _bullets(pos))
+            if neg: scenario_blocks.append("**Negative/validation**\n" + _bullets(neg))
+            if err: scenario_blocks.append("**Error/Resilience**\n" + _bullets(err))
+            if not scenario_blocks:
+                scenario_blocks.append("_Add positive, negative, and error scenarios aligned to ACs._")
+            md_parts.append("\n## 🧪 Test Scenarios (specific to this story)\n" + "\n\n".join(scenario_blocks))
+
+            # Tech / Implementation Notes
+            md_parts.append("\n## 🧱 Tech / Implementation Notes\n" + _bullets(tech_notes))
+
+            # Non-Goals (optional)
+            non_goals = []
+            if bug_audit and bug_audit.get('non_goals'):
+                non_goals = bug_audit['non_goals']
+            if non_goals:
+                md_parts.append("\n## 📌 Non-Goals\n" + _bullets(non_goals))
+
+            # Next Actions
+            if not next_actions:
+                next_actions = ["**PO:** Provide measurable ACs and success metrics.",
+                                "**Dev:** Outline technical approach and dependencies.",
+                                "**QA:** Draft edge/negative/ADA test cases aligned to AC.",
+                                "**Analytics:** Confirm tagging/flag validation."]
+            md_parts.append("\n## 🎯 Next Actions\n" + _bullets(next_actions))
+
+            md = "\n".join(md_parts).strip()
+
+            # Return unified shape (markdown + minimal meta).  NO numeric framework acronyms exposed.
+            meta = {
+                "key": key,
+                "readiness_status": readiness_status_text,
+                "readiness_score": readiness_score,   # keep numeric for UI bars if needed
+                "dor_coverage": _pct(dor_analysis.get('coverage_percentage', 0)),
+                "mode": mode_text
             }
-            
-            # Add mode-specific formatting and length guardrails
-            output = self._format_output_by_mode_enhanced(output, mode)
-            
-            # Apply length guardrails and quality gates
-            output = self.apply_length_guardrails(output, mode)
-            
-            # Generate final enhanced output
-            output["enhanced_output"] = self.generate_enhanced_output(output)
-            
-            return output
+            return {"markdown": md, "meta": meta}
+
             
         except Exception as e:
             console.print(f"[red]Error in ticket analysis: {e}[/red]")

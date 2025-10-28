@@ -1,6 +1,7 @@
 // API service for communicating with the Flask backend
 
-const API_BASE_URL = '/api'
+// Use environment variable for API URL, fallback to /api for local development
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -80,7 +81,8 @@ export const generateGroom = async (request: GroomRoomRequest): Promise<ApiRespo
     const response = await fetch(`${API_BASE_URL}/groomroom`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json; charset=utf-8',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
