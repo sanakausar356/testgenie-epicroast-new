@@ -235,6 +235,22 @@ class GroomRoom:
             console.print(f"[red]❌ Failed to initialize Azure OpenAI client: {e}[/red]")
             self.client = None
 
+    def _format_field_names(self, field_keys: List[str]) -> str:
+        """Convert field keys to human-readable labels"""
+        if not field_keys:
+            return 'None'
+        
+        readable_names = []
+        for key in field_keys:
+            # Use the 'name' from dor_requirements if available
+            if key in self.dor_requirements:
+                readable_names.append(self.dor_requirements[key]['name'])
+            else:
+                # Fallback: convert underscores to spaces and title case
+                readable_names.append(key.replace('_', ' ').title())
+        
+        return ', '.join(readable_names)
+
     def detect_card_type(self, issue_data: Dict[str, Any]) -> Dict[str, Any]:
         """Auto-detect card type and apply refinement rules"""
         issue_type = issue_data.get('issue_type', '').lower()
@@ -1037,7 +1053,7 @@ Format each as: "Type: Description" (e.g., "Positive: Verify user can login with
             weak_areas = dor_analysis.get('weak_areas', []) or []
             gaps_lines = []
             if missing_fields:
-                gaps_lines.append("**Missing fields:** " + ", ".join(missing_fields))
+                gaps_lines.append("**Missing fields:** " + self._format_field_names(missing_fields))
             if weak_areas:
                 gaps_lines.append("**Weak areas:** " + ", ".join(weak_areas))
             if not gaps_lines:

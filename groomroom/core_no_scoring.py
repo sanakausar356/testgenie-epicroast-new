@@ -76,6 +76,33 @@ class GroomRoomNoScoring:
             ]
         }
         
+        # Human-readable field labels for Definition of Ready output
+        self.field_labels = {
+            'user_story': 'User Story',
+            'acceptance_criteria': 'Acceptance Criteria',
+            'testing_steps': 'Testing Steps',
+            'ada_criteria': 'ADA Criteria',
+            'architectural_solution': 'Architectural Solution',
+            'architecture': 'Architecture',
+            'implementation_details': 'Implementation Details',
+            'implementation': 'Implementation',
+            'brands': 'Brands',
+            'components': 'Components',
+            'agile_team': 'Agile Team',
+            'story_points': 'Story Points',
+            'current_behaviour': 'Current Behaviour',
+            'steps_to_reproduce': 'Steps to Reproduce',
+            'expected_behaviour': 'Expected Behaviour',
+            'environment': 'Environment',
+            'links_to_story': 'Links to Story',
+            'severity_priority': 'Severity/Priority',
+            'outcome_definition': 'Outcome Definition',
+            'dependencies_links': 'Dependencies/Links',
+            'testing_validation': 'Testing Validation',
+            'kpi_metrics': 'KPI Metrics',
+            'non_functional': 'Non-Functional Requirements'
+        }
+        
         # Figma link patterns with anchor text detection
         self.figma_patterns = [
             r'https?://(?:www\.)?figma\.com/file/([A-Za-z0-9]+)/([^)\s]+)',
@@ -191,6 +218,28 @@ class GroomRoomNoScoring:
         self.banned_ac_phrases = [
             "valid input", "gracefully", "meets requirements", "works as expected"
         ]
+        
+        # ========================================
+        # Jira Status → Grooming Stage Mapping
+        # ========================================
+        # Toggle: Set to False to use readiness-based stage (original logic)
+        self.use_jira_status = True
+        
+        # Jira status mapping to grooming stages
+        self.status_mapping = {
+            'discovery': [
+                'to do', 'backlog', 'open', 'new', 'draft',
+                'pending', 'pending po review', 'awaiting approval'
+            ],
+            'grooming': [
+                'in progress', 'grooming', 'refinement', 'ready for grooming',
+                'in refinement', 'tech review', 'qa grooming', 'under review'
+            ],
+            'ready': [
+                'done', 'ready for dev', 'ready for development', 
+                'closed', 'resolved', 'ready', 'approved'
+            ]
+        }
 
     def setup_azure_openai(self):
         """Initialize Azure OpenAI client"""
@@ -206,6 +255,22 @@ class GroomRoomNoScoring:
                 print("Warning: Azure OpenAI credentials not configured")
         except Exception as e:
             print(f"Warning: Azure OpenAI setup failed: {e}")
+    
+    def _format_field_names(self, field_keys: List[str]) -> str:
+        """Convert field keys to human-readable labels"""
+        if not field_keys:
+            return 'None'
+        
+        readable_names = []
+        for key in field_keys:
+            # Use the field label if available, otherwise convert underscore to title case
+            if key in self.field_labels:
+                readable_names.append(self.field_labels[key])
+            else:
+                # Fallback: convert underscores to spaces and title case
+                readable_names.append(key.replace('_', ' ').title())
+        
+        return ', '.join(readable_names)
     
     def get_manual_figma_link(self, ticket_key: str) -> Optional[str]:
         """Get manually configured Figma link for a ticket"""
@@ -230,6 +295,8 @@ class GroomRoomNoScoring:
             'title': ticket_data.get('fields', {}).get('summary', ''),
             'description': ticket_data.get('fields', {}).get('description', ''),
             'issuetype': ticket_data.get('fields', {}).get('issuetype', {}).get('name', ''),
+            'status': ticket_data.get('fields', {}).get('status', {}).get('name', 'Unknown'),
+            'status_category': ticket_data.get('fields', {}).get('status', {}).get('statusCategory', {}).get('name', 'Unknown'),
             'fields': {},
             'design_links': [],
             'card_type': 'unknown'
@@ -251,43 +318,13 @@ class GroomRoomNoScoring:
             parsed['fields'][field_name] = content
         
         # Extract Figma links from multiple sources
-        parsed['design_links'] = []
-        
-        # 1. Extract from ADF structure directly (best source for hyperlinks)
-        if raw_description:
-            parsed['design_links'].extend(self.extract_figma_from_adf_structure(raw_description))
-        
-        # 2. Extract from ALL custom fields (Figma links can be anywhere)
-        fields_data = ticket_data.get('fields', {})
-        for field_key, field_value in fields_data.items():
-            if field_key.startswith('customfield_') and field_value:
-                parsed['design_links'].extend(self.extract_figma_from_adf_structure(field_value))
-        
         # 3. Fall back to text extraction if no links found
         if not parsed['design_links']:
             parsed['design_links'] = self.extract_figma_links_with_anchors(all_text)
-
+        
         # Deduplicate design links by URL
         seen_urls = set()
         unique_links = []
-        for link in parsed['design_links']:
-            if link.url not in seen_urls:
-                unique_links.append(link)
-                seen_urls.add(link.url)
-        parsed['design_links'] = unique_links
-        
-        # Check for manual Figma link configuration
-        if not parsed['design_links']:
-            manual_link = self.get_manual_figma_link(parsed['ticket_key'])
-            if manual_link:
-                parsed['design_links'].append(DesignLink(
-                    url=manual_link,
-                    file_key='',
-                    node_ids=None,
-                    title=None,
-                    anchor_text='Figma',
-                    section=None
-                ))
         
         # Parse additional Jira fields (custom fields and standard fields)
         fields = ticket_data.get('fields', {})
@@ -319,6 +356,58 @@ class GroomRoomNoScoring:
                 parsed['fields'][field_name] = parsed['fields'].get(field_name, '')
         
         return parsed
+
+    def get_grooming_stage(self, parsed_data: Dict[str, Any], dor: Dict[str, List[str]], readiness_percentage: int) -> str:
+        """
+        Determine grooming stage based on Jira status OR readiness percentage.
+        
+        Toggle behavior with self.use_jira_status:
+        - True: Use Jira status field mapping (Option 1)
+        - False: Use readiness-based logic (Original)
+        """
+        
+        # ========================================
+        # ORIGINAL LOGIC (Readiness-based)
+        # ========================================
+        if not self.use_jira_status:
+            # Original hard-coded logic based on DoR completeness
+            if 'user_story' in dor.get('present', []) and readiness_percentage >= 80:
+                return "🟢 **Ready For Dev**"
+            elif 'user_story' in dor.get('present', []):
+                return "🟡 **To Groom**"
+            else:
+                return "🔴 **In Discovery**"
+        
+        # ========================================
+        # NEW LOGIC (Jira Status-based)
+        # ========================================
+        jira_status = parsed_data.get('status', '').lower()
+        
+        # Critical validation: If User Story missing, force Discovery stage
+        if 'user_story' not in dor.get('present', []):
+            return "🔴 **In Discovery**"
+        
+        # Map Jira status to grooming stage
+        for stage, status_list in self.status_mapping.items():
+            if jira_status in status_list:
+                if stage == 'discovery':
+                    return "🔴 **In Discovery**"
+                elif stage == 'grooming':
+                    return "🟡 **To Groom**"
+                elif stage == 'ready':
+                    # Additional validation: Must have >= 80% readiness for "Ready"
+                    if readiness_percentage >= 80:
+                        return "🟢 **Ready For Dev**"
+                    else:
+                        return "🟡 **To Groom**"  # Downgrade if not ready enough
+        
+        # Fallback: Use readiness percentage if Jira status not recognized
+        if readiness_percentage >= 80:
+            return "🟢 **Ready For Dev**"
+        elif readiness_percentage >= 50:
+            return "🟡 **To Groom**"
+        else:
+            return "🔴 **In Discovery**"
 
     def detect_card_type(self, text: str, issuetype: str) -> str:
         """Detect card type from content and Jira issuetype"""
@@ -1044,41 +1133,77 @@ class GroomRoomNoScoring:
         return "Needs Refinement"
 
     def generate_suggested_rewrite(self, parsed_data: Dict[str, Any]) -> str:
-        """Generate non-generic suggested rewrite with domain terms"""
+        """Generate detailed, realistic user story rewrite (4-5+ lines minimum)"""
         current_story = parsed_data['fields'].get('user_story', '')
         description = self._extract_text_from_field(parsed_data.get('description', ''))
         title = parsed_data['title']
+        acceptance_criteria = parsed_data['fields'].get('acceptance_criteria', '')
         
         # Extract domain terms from the ticket
         domain_terms = self.extract_domain_terms(parsed_data)
         
         # If story exists and is well-formed, return it as-is
-        if current_story and 'as a' in current_story.lower() and 'i want' in current_story.lower() and 'so that' in current_story.lower():
-            # Story is already good!
+        if current_story and 'as a' in current_story.lower() and 'i want' in current_story.lower() and 'so that' in current_story.lower() and len(current_story) > 100:
+            # Story is already detailed and good!
             return current_story
         
-        # If story exists but needs improvement
+        # If story exists but needs improvement, enhance it
         if current_story and 'as a' in current_story.lower():
-            # Polish it but keep the core
-            return current_story
+            # Build upon existing story with more detail
+            persona = self.extract_persona(description, title)
+            goal = self.extract_goal(description, title)
+            benefit = self.extract_benefit(description, title)
+            
+            # Add context from acceptance criteria for detail
+            context_detail = ""
+            if acceptance_criteria and len(acceptance_criteria) > 20:
+                # Extract first key requirement for context
+                ac_lines = acceptance_criteria.split('\n')
+                if ac_lines:
+                    first_ac = ac_lines[0].strip('- •*1234567890.').strip()
+                    if len(first_ac) > 20:
+                        context_detail = f" This includes {first_ac.lower()}"
+            
+            # Create detailed, multi-line suggestion
+            detailed_story = f"As a {persona}, I want to {goal}, so that I can {benefit}.{context_detail}"
+            
+            # Add business value context if available from description
+            if 'revenue' in description.lower() or 'conversion' in description.lower() or 'engagement' in description.lower():
+                detailed_story += " This will improve user engagement and drive business outcomes by reducing friction in the user journey."
+            elif 'performance' in description.lower() or 'speed' in description.lower():
+                detailed_story += " This enhancement will optimize performance and deliver a faster, more responsive experience."
+            else:
+                detailed_story += " This improvement aligns with user needs and enhances overall product usability."
+            
+            return detailed_story
         
-        # Synthesize from description + domain terms
+        # Synthesize detailed story from description + domain terms + AC
         persona = self.extract_persona(description, title)
         goal = self.extract_goal(description, title)
         benefit = self.extract_benefit(description, title)
         
-        # Clean up goal and benefit
+        # NO TRUNCATION - keep full detail!
         goal = goal.replace(title, '').strip()
-        if len(goal) > 100:
-            goal = goal[:97] + '...'
-        if len(benefit) > 80:
-            benefit = benefit[:77] + '...'
         
-        # Ensure at least one domain term is included if available
+        # Ensure domain terms are included for realism
         if domain_terms and not any(term.lower() in f"{goal} {benefit}".lower() for term in domain_terms):
-            goal = f"{goal} with {domain_terms[0]}"
+            goal = f"{goal} using {domain_terms[0]}"
         
-        return f"As a {persona}, I want to {goal}, so that I can {benefit}."
+        # Build detailed, context-aware suggestion (4-5 lines minimum)
+        detailed_story = f"As a {persona}, I want to {goal}, so that I can {benefit}."
+        
+        # Add specific implementation context from description
+        if 'filter' in title.lower() or 'search' in title.lower():
+            detailed_story += " The enhanced filtering system will allow me to narrow down results efficiently, saving time and improving my shopping experience. This feature should be intuitive, responsive, and accessible across all devices."
+        elif 'checkout' in title.lower() or 'payment' in title.lower():
+            detailed_story += " By streamlining the checkout process, I can complete purchases faster with fewer steps, reducing cart abandonment and improving conversion rates. The flow should be secure, clear, and optimized for both desktop and mobile."
+        elif 'form' in title.lower() or 'input' in title.lower():
+            detailed_story += " Clear validation and helpful error messages will guide me through the form completion process, reducing frustration and submission errors. The interface should provide real-time feedback and support accessibility standards."
+        else:
+            # Generic but detailed enhancement
+            detailed_story += " This improvement will streamline my workflow, reduce unnecessary steps, and deliver a more intuitive experience. The implementation should follow best practices for usability, performance, and accessibility to ensure all users benefit."
+        
+        return detailed_story
 
     def extract_domain_terms(self, parsed_data: Dict[str, Any]) -> List[str]:
         """Extract domain-specific terms from ticket content"""
@@ -1101,7 +1226,7 @@ class GroomRoomNoScoring:
         return "user"
 
     def extract_goal(self, description: str, title: str) -> str:
-        """Extract main goal from content"""
+        """Extract main goal from content (NO truncation for detailed suggestions)"""
         text = f"{title} {description}".lower()
         
         # Look for "I want" pattern first
@@ -1120,17 +1245,14 @@ class GroomRoomNoScoring:
             if match:
                 verb = match.group(1)
                 object_phrase = match.group(2).strip()
-                # Limit length
-                if len(object_phrase) > 60:
-                    object_phrase = object_phrase[:57] + '...'
+                # NO TRUNCATION - keep full text for detailed suggestions!
                 return f"{verb} {object_phrase}"
         
         # Fallback to first meaningful sentence from title/description
         sentences = [s.strip() for s in title.split('.') if len(s.strip()) > 10]
         if sentences:
             goal = sentences[0]
-            if len(goal) > 80:
-                goal = goal[:77] + '...'
+            # NO TRUNCATION - keep full goal text!
             return goal
         
         return "achieve the desired functionality"
@@ -1155,8 +1277,7 @@ class GroomRoomNoScoring:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 benefit = match.group(1).strip()
-                if len(benefit) > 60:
-                    benefit = benefit[:57] + '...'
+                # NO TRUNCATION - keep full benefit text!
                 return benefit
         
         # Generic fallback based on ticket type
@@ -1578,6 +1699,100 @@ class GroomRoomNoScoring:
             'nfr_list': nfr_list
         }
 
+    def generate_professional_ac_suggestions(self, original_acs: List[str], parsed_data: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Generate detailed, professional rewrite suggestions for each acceptance criterion"""
+        suggestions = []
+        title = parsed_data.get('title', '').lower()
+        description = self._extract_text_from_field(parsed_data.get('description', ''))
+        
+        for i, original_ac in enumerate(original_acs):
+            if not original_ac or len(original_ac.strip()) < 5:
+                continue
+            
+            ac_lower = original_ac.lower()
+            
+            # Determine context and create professional rewrite
+            rewrite = ""
+            why_better = ""
+            
+            # Context-aware rewrites based on common patterns
+            if 'filter' in ac_lower or 'filter' in title:
+                if 'display' in ac_lower or 'show' in ac_lower:
+                    rewrite = f"Given a user is on the Product Listing Page (PLP) with available products\nWhen the user selects one or more filter options (Brand, Size, Color, Price, etc.)\nThen the product grid updates to display only matching items within 1 second\nAnd applied filters appear as removable tokens above the grid with '×' close buttons\nAnd the product count updates dynamically (e.g., 'Showing 24 of 156 results')\nAnd filter state is preserved in the URL for shareability and browser back/forward navigation\nAnd if no products match, a clear message is shown: 'No products match your filters. Try adjusting your selections.'\nAnd loading indicators are displayed during grid updates\nAnd on mobile (<768px), filters are accessible via a slide-out panel or modal\nAnd all filter interactions support keyboard navigation and screen reader announcements"
+                    why_better = "Covers core filter functionality with performance, UX, persistence, accessibility, and responsive design"
+                elif 'sticky' in ac_lower or 'fixed' in ac_lower:
+                    rewrite = f"Given a user is viewing the PLP and scrolls down beyond 200px\nWhen the page scroll position exceeds the filter bar's original position\nThen the filter bar remains fixed at the top of the viewport\nAnd maintains full filter functionality while sticky\nAnd collapses to a compact view on mobile devices (<768px width)\nAnd supports keyboard navigation for accessibility"
+                    why_better = "Defines scroll trigger point (200px), specifies sticky behavior, addresses responsive design, includes accessibility"
+                elif 'select' in ac_lower or 'click' in ac_lower or 'apply' in ac_lower:
+                    rewrite = f"Given a user is on the PLP with available filter options\nWhen they select one or more filter values (e.g., Brand: Nike, Size: Large)\nThen the selected filters are immediately applied without requiring a separate 'Apply' button\nAnd the product grid updates within 1 second to show matching products\nAnd filter selections are highlighted with active state styling\nAnd the URL updates to reflect current filter state for shareability"
+                    why_better = "Defines immediate application (no Apply button needed), specifies performance, includes visual feedback and URL state management"
+                else:
+                    rewrite = f"Given a user navigates to the Product Listing Page\nWhen the page loads with the new horizontal filter layout\nThen the top 5 most relevant filters are displayed prominently (Brand, Size, Color, Price, Category)\nAnd additional filters are accessible via a 'More Filters' expandable section\nAnd all filter interactions trigger product grid updates within 1 second\nAnd filter selections persist across page refreshes and browser back/forward navigation"
+                    why_better = "Specifies filter hierarchy (top 5 + More Filters), defines performance requirements, addresses navigation persistence"
+            
+            elif 'checkout' in ac_lower or 'payment' in ac_lower or 'checkout' in title:
+                if 'validate' in ac_lower or 'error' in ac_lower:
+                    rewrite = f"Given a user is on the checkout payment step\nWhen they enter payment information and submit the form\nThen all required fields are validated in real-time (<200ms per field)\nAnd specific, actionable error messages are displayed next to invalid fields\nAnd the submit button remains disabled until all validations pass\nAnd error messages support screen readers with appropriate ARIA labels"
+                    why_better = "Defines real-time validation timing, specifies error message placement and clarity, includes accessibility requirements"
+                elif 'submit' in ac_lower or 'complete' in ac_lower:
+                    rewrite = f"Given a user has completed all required checkout fields\nWhen they click the 'Complete Purchase' button\nThen a loading indicator is displayed immediately\nAnd the payment is processed within 3 seconds under normal conditions\nAnd a confirmation page is displayed upon successful payment\nAnd an order confirmation email is sent within 5 minutes\nAnd appropriate error handling is shown if payment fails with retry option"
+                    why_better = "Defines loading feedback, specifies performance expectations (3s processing), addresses success and failure paths with clear actions"
+                else:
+                    rewrite = f"Given a user has items in their cart and navigates to the checkout page\nWhen they reach the payment selection step\nThen all supported payment methods are displayed with clear icons (Credit Card, PayPal, Apple Pay)\nAnd the checkout form is pre-populated with saved billing/shipping information for logged-in users\nAnd guest checkout is available with minimal required fields\nAnd the total order amount is displayed prominently with itemized breakdown (subtotal, taxes, shipping, discounts)\nAnd all payment data is transmitted securely over HTTPS with PCI compliance\nAnd the interface is fully responsive (desktop, tablet, mobile) with WCAG 2.1 Level AA accessibility\nAnd form validation provides real-time feedback with specific error messages\nAnd loading states are shown during payment processing (typically 2-5 seconds)\nAnd error handling displays actionable messages for payment failures (declined card, timeout, insufficient funds)\nAnd successful payment redirects to confirmation page with order number and delivery date"
+                    why_better = "Covers payment methods, security, UX, accessibility, validation, error handling, and confirmation flow"
+            
+            elif 'form' in ac_lower or 'input' in ac_lower:
+                if 'validate' in ac_lower or 'validation' in ac_lower:
+                    rewrite = f"Given a user is filling out a form with required fields\nWhen they interact with each form field (on blur)\nThen inline validation occurs within 200ms to provide immediate feedback\nAnd error messages are specific and actionable (e.g., 'Email must include @' not 'Invalid email')\nAnd valid fields display a checkmark icon for positive confirmation\nAnd field validation errors are announced to screen readers"
+                    why_better = "Specifies validation timing and trigger (on blur), defines error message quality, includes positive feedback, addresses accessibility"
+                elif 'submit' in ac_lower:
+                    rewrite = f"Given a user has completed all form fields\nWhen they click the submit button\nThen client-side validation runs on all fields before submission\nAnd the submit button shows a loading state and is disabled during processing\nAnd the form submits within 2 seconds under normal network conditions\nAnd a clear success or error message is displayed after submission\nAnd the form does not lose user data if validation fails"
+                    why_better = "Defines validation sequence, includes loading state UX, specifies performance, addresses data persistence on errors"
+                else:
+                    rewrite = f"Given a user interacts with form fields\nWhen they enter or modify data in any field\nThen real-time character count is displayed for fields with length limits\nAnd contextual help text appears for complex fields (e.g., password requirements)\nAnd autocomplete suggestions are provided where applicable (e.g., address fields)\nAnd all fields support standard keyboard navigation (Tab, Shift+Tab, Enter)"
+                    why_better = "Adds helpful UX features (character count, help text, autocomplete), ensures keyboard accessibility"
+            
+            elif 'performance' in ac_lower or 'load' in ac_lower or 'speed' in ac_lower:
+                rewrite = f"Given a user navigates to the page under normal network conditions (3G or better)\nWhen the page begins to load\nThen the initial content is visible within 2 seconds (First Contentful Paint)\nAnd the page becomes fully interactive within 3.5 seconds (Time to Interactive)\nAnd images are optimized and lazy-loaded below the fold\nAnd smooth scrolling is maintained at 60fps\nAnd Core Web Vitals targets are met: LCP <2.5s, FID <100ms, CLS <0.1"
+                why_better = "Defines specific performance metrics (FCP, TTI, Core Web Vitals) with optimization strategies"
+            
+            elif 'accessibility' in ac_lower or 'ada' in ac_lower or 'screen reader' in ac_lower:
+                rewrite = f"Given a user navigates the interface using assistive technology\nWhen they interact with any interactive element\nThen all elements have appropriate ARIA labels and roles\nAnd keyboard navigation follows a logical tab order\nAnd focus indicators are clearly visible (3:1 contrast minimum)\nAnd all functionality is operable via keyboard alone (no mouse required)\nAnd color is not the sole means of conveying information (WCAG 2.1 Level AA compliance)"
+                why_better = "Specifies WCAG compliance level, defines contrast requirements, ensures keyboard-only operation, addresses multiple accessibility concerns"
+            
+            elif 'responsive' in ac_lower or 'mobile' in ac_lower or 'device' in ac_lower:
+                rewrite = f"Given a user accesses the interface on various devices (desktop, tablet, mobile)\nWhen the page renders on different screen sizes\nThen the layout adapts using responsive breakpoints (320px, 768px, 1024px)\nAnd touch targets are at least 44x44px on mobile for easy interaction\nAnd text remains readable without horizontal scrolling\nAnd functionality is consistent across devices (no feature degradation)\nAnd the interface is tested on iOS Safari, Android Chrome, and major desktop browsers"
+                why_better = "Defines breakpoints, touch target standards, and ensures cross-device consistency"
+            
+            elif 'display' in ac_lower or 'show' in ac_lower or 'visible' in ac_lower:
+                rewrite = f"Given the system needs to display information to the user\nWhen the relevant data is available\nThen the information is presented with clear visual hierarchy\nAnd loading states are shown for asynchronous data\nAnd empty states provide helpful guidance when no data exists\nAnd error states are clearly distinguished with appropriate icons and colors\nAnd all text maintains sufficient contrast (4.5:1 for normal text, 3:1 for large text)"
+                why_better = "Addresses UI states (loading, empty, error), visual hierarchy, and accessibility contrast"
+            
+            elif 'error' in ac_lower:
+                rewrite = f"Given an error occurs during user interaction or system processing\nWhen the error is detected by the system\nThen a user-friendly error message is displayed immediately\nAnd the message explains what went wrong in plain language (no technical jargon)\nAnd actionable next steps are provided (e.g., 'Try again' button, 'Contact support' link)\nAnd errors are logged with sufficient detail for debugging (error code, timestamp, user action)\nAnd critical errors are reported to monitoring systems for team awareness"
+                why_better = "Defines error message clarity and timing, provides user recovery path, includes logging and monitoring for developers"
+            
+            else:
+                # Generic professional rewrite - concise but comprehensive
+                rewrite = f"Given a user performs the action: '{original_ac.strip()}'\nWhen the user initiates the relevant interaction\nThen the system responds within 2 seconds with clear visual feedback (loading indicator, confirmation message)\nAnd upon success, a specific confirmation is displayed (e.g., 'Item added to cart' not generic 'Success')\nAnd if errors occur, user-friendly messages are shown with actionable next steps (e.g., 'Try again', 'Contact support')\nAnd the functionality works consistently across major browsers (Chrome, Firefox, Safari, Edge - latest 2 versions)\nAnd the interface is fully responsive on desktop, tablet, and mobile devices\nAnd all interactive elements are keyboard accessible with visible focus indicators\nAnd screen readers announce dynamic content updates appropriately (WCAG 2.1 Level AA)\nAnd user data is transmitted securely over HTTPS\nAnd the feature handles edge cases gracefully (network timeouts, invalid input, concurrent actions)"
+                why_better = "Converts vague requirement into testable format with performance, UX, error handling, cross-browser support, accessibility, and security"
+            
+            # Additional improvements based on common weak patterns
+            if 'should' in ac_lower or 'must' in ac_lower:
+                why_better += " | Removes vague modal verbs ('should', 'must') and replaces with specific, testable behaviors"
+            if any(word in ac_lower for word in ['appropriate', 'reasonable', 'good', 'properly']):
+                why_better += " | Eliminates subjective terms by defining specific, measurable criteria"
+            if len(original_ac.split()) < 8:
+                why_better += " | Expands brief requirement into detailed, comprehensive acceptance criterion with context and edge cases"
+            
+            suggestions.append({
+                'original': original_ac.strip(),
+                'rewrite': rewrite,
+                'why_better': why_better.strip(' |')
+            })
+        
+        return suggestions
+
     def analyze_ac_quality(self, ac_list: List[str]) -> Dict[str, int]:
         """Analyze acceptance criteria for testability, measurability, and clarity"""
         testable_count = 0
@@ -1794,106 +2009,81 @@ class GroomRoomNoScoring:
 **Coverage:** {readiness_percentage}%
 
 ## Definition of Ready
-- **Present:** {', '.join(dor.get('present', [])) or 'None'}
-- **Missing:** {', '.join(dor.get('missing', [])) or 'None'}
-- **Conflicts:** {', '.join(dor.get('conflicts', [])) or 'None'}
-- **Weak Areas:** {', '.join(weak_areas)}
+- **Present:** {self._format_field_names(dor.get('present', []))}
+- **Missing:** {self._format_field_names(dor.get('missing', []))}
+- **Conflicts:** {self._format_field_names(dor.get('conflicts', []))}
+- **Weak Areas:** {', '.join(weak_areas) if weak_areas else 'None'}
 
 ## User Story (for Stories/Features)
 
-### Original from Jira:
-{parsed_data['fields'].get('user_story') if parsed_data['fields'].get('user_story') else '_[!] User story not found in Jira custom fields. Check ticket description or add it manually._'}
-
-### Suggested Improvement:
+### ✨ Suggested Improvement:
 **Rewrite:** "{analysis_results.get('suggested_rewrite', 'Story rewrite pending')}"
 
 **Quality Check:**
-- Persona: {"[YES]" if "as a" in analysis_results.get('suggested_rewrite', '').lower() else "[NO] Missing"}
-- Goal: {"[YES]" if "i want" in analysis_results.get('suggested_rewrite', '').lower() else "[NO] Missing"}
-- Benefit: {"[YES]" if "so that" in analysis_results.get('suggested_rewrite', '').lower() else "[NO] Missing"}
+- Persona ✅ ({"✓" if "as a" in analysis_results.get('suggested_rewrite', '').lower() else "✗ Missing"})
+- Goal ✅ ({"✓" if "i want" in analysis_results.get('suggested_rewrite', '').lower() else "✗ Missing"})
+- Benefit ✅ ({"✓" if "so that" in analysis_results.get('suggested_rewrite', '').lower() else "✗ Missing"})
 
-### Grooming Guidance:
-**Current Stage:** {"[READY] **Ready For Dev**" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else "[GROOM] **To Groom**" if 'user_story' in dor.get('present', []) else "[DISCOVERY] **In Discovery**"}
+### 📍 Grooming Guidance:
+**Jira Status:** {parsed_data.get('status', 'Unknown')}
 
 **Next Steps:**
-{"- Story is well-formed and meets DoR [OK]" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else "- Refine user story with Scrum team" + chr(10) + "- Add missing acceptance criteria" + chr(10) + "- Define technical implementation details" if 'user_story' in dor.get('present', []) else "- Create user story using format: As a [persona], I want [goal], so that [benefit]" + chr(10) + "- Discuss with PO to understand user needs" + chr(10) + "- Identify acceptance criteria"}
+{"- Story is well-formed and meets DoR ✅" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else "- Refine user story with Scrum team" + chr(10) + "- Add missing acceptance criteria" + chr(10) + "- Define technical implementation details" if 'user_story' in dor.get('present', []) else "- Create user story using format: As a [persona], I want [goal], so that [benefit]" + chr(10) + "- Discuss with PO to understand user needs" + chr(10) + "- Identify acceptance criteria"}
 
-**Story Points:** {parsed_data['fields'].get('story_points', '[X] Not estimated')}
-**Team:** {parsed_data['fields'].get('agile_team', '[X] Not assigned')}
+**Story Points:** {parsed_data['fields'].get('story_points', '❌ Not estimated')}
+**Team:** {parsed_data['fields'].get('agile_team', '❌ Not assigned')}
 **Brand/Component:** {parsed_data['fields'].get('brands', 'N/A')} / {parsed_data['fields'].get('components', 'N/A')}
 
-## Acceptance Criteria (testable; non-Gherkin)
+## ✅ Acceptance Criteria
 
-**Detected {len(analysis_results.get('ac_rewrites', []))} | Weak {analysis_results.get('ac_analysis', {}).get('weak_count', 0)}**
+**Detected {len(analysis_results.get('ac_professional_suggestions', []))} | Weak {analysis_results.get('ac_analysis', {}).get('weak_count', 0)}**
 
-### Generic NFR Baseline (Apply to all stories):
-- System validates input data according to business rules
-- User receives clear feedback for all actions
-- System handles error conditions gracefully
-- Performance meets specified requirements
-- Security requirements are enforced
-- Accessibility standards are met
+### ✨ Professional Improvement Suggestions:
 
-### Quality Analysis:
-- **Detected:** {len(analysis_results.get('ac_rewrites', []))} criteria
-- **Testable:** {analysis_results.get('ac_analysis', {}).get('testable_count', 0)} / {len(analysis_results.get('ac_rewrites', []))}
-- **Measurable:** {analysis_results.get('ac_analysis', {}).get('measurable_count', 0)} / {len(analysis_results.get('ac_rewrites', []))}
-- **Clear & Specific:** {analysis_results.get('ac_analysis', {}).get('clear_count', 0)} / {len(analysis_results.get('ac_rewrites', []))}
+{chr(10).join([f'''**AC #{i+1} Improvement:**
+{sugg.get('rewrite', 'No suggestion available')}
 
-### Current Acceptance Criteria:
-1. Feature displays correctly per design specifications on all supported devices
-2. User interactions trigger expected responses within ≤300ms
-3. All form inputs validate according to defined business rules
-4. Error states display clear, actionable messages with recovery options
-5. Functionality works consistently across Chrome, Firefox, Safari (latest 2 versions)
-6. All interactive elements support keyboard navigation and screen reader compatibility
-7. Changes are reflected in analytics and tracking systems appropriately
+''' for i, sugg in enumerate(analysis_results.get('ac_professional_suggestions', []))]) if analysis_results.get('ac_professional_suggestions') else "_No suggestions available_"}
 
-### Suggested Given-When-Then Format:
-{chr(10).join([f"{i+1}. **Given** {gwt.get('given', 'initial state')}" + chr(10) + f"   **When** {gwt.get('when', 'action occurs')}" + chr(10) + f"   **Then** {gwt.get('then', 'expected outcome')}" for i, gwt in enumerate(analysis_results.get('ac_gwt_suggestions', []))]) if analysis_results.get('ac_gwt_suggestions') else "_Generate Given-When-Then suggestions based on ticket context_"}
+## 🧪 Test Scenarios (Functional + Non-Functional)
 
-### Missing Non-Functional Requirements:
-{chr(10).join([f"- **{nfr.get('type', 'NFR')}:** {nfr.get('suggestion', 'Define requirement')}" for nfr in analysis_results.get('missing_nfrs', [])]) if analysis_results.get('missing_nfrs') else "- All key NFRs appear to be covered"}
-
-## Test Scenarios (Functional + Non-Functional)
-
-### [+] Positive Scenarios:
+### ✅ Positive Scenarios:
 {chr(10).join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('positive', []))]) if analysis_results.get('test_scenarios', {}).get('positive') else "_No positive scenarios defined_"}
 
-### [-] Negative Scenarios:
+### ⚠️ Negative Scenarios:
 {chr(10).join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('negative', []))]) if analysis_results.get('test_scenarios', {}).get('negative') else "_No negative scenarios defined_"}
 
-### [!] Error/Resilience Scenarios:
+### 🔥 Error/Resilience Scenarios:
 {chr(10).join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('error', []))]) if analysis_results.get('test_scenarios', {}).get('error') else "_No error/resilience scenarios defined_"}
 
 _Note: Test scenarios are testable, non-overlapping, and map directly to acceptance criteria. Ready for QA to convert into detailed test cases._
 
-## Technical / ADA / Architecture
+## 🧱 Technical / ADA / Architecture
 
-### [CODE] Implementation Details:
+### 💻 Implementation Details:
 {chr(10).join([f"• {detail}" for detail in analysis_results.get('technical_ada', {}).get('implementation_details_list', [])]) if analysis_results.get('technical_ada', {}).get('implementation_details_list') else "• Implementation approach to be defined during sprint planning" + chr(10) + "• Update existing components per design specifications" + chr(10) + "• Integrate with current API endpoints (no new backend required)" + chr(10) + "• Apply design system tokens for consistent UI/UX" + chr(10) + "• Ensure backward compatibility with existing functionality"}
 
-### [ARCH] Architectural Solution:
+### 🏗️ Architectural Solution:
 {chr(10).join([f"• {solution}" for solution in analysis_results.get('technical_ada', {}).get('architectural_solution_list', [])]) if analysis_results.get('technical_ada', {}).get('architectural_solution_list') else "• No backend schema changes required" + chr(10) + "• Reuses existing APIs and data models" + chr(10) + "• Client-side logic with existing state management (Redux/Context)" + chr(10) + "• Components designed to be reusable across variants" + chr(10) + "• Integrates with existing analytics and monitoring modules"}
 
-### [A11Y] ADA (Accessibility):
+### ♿ ADA (Accessibility):
 {chr(10).join([f"• {ada}" for ada in analysis_results.get('technical_ada', {}).get('ada_list', [])]) if analysis_results.get('technical_ada', {}).get('ada_list') else "• Keyboard navigation: Tab, Enter, Escape keys fully control all interactions" + chr(10) + "• Screen reader labels for all interactive elements and state changes" + chr(10) + "• Color contrast ratios meet WCAG 2.1 Level AA standards" + chr(10) + "• Focus state visible for all interactive elements" + chr(10) + "• ARIA live regions announce dynamic content changes to assistive technologies"}
 
-### [NFR] Non-Functional Requirements:
+### 📊 NFRs (Non-Functional Requirements):
 {chr(10).join([f"• {nfr}" for nfr in analysis_results.get('technical_ada', {}).get('nfr_list', [])]) if analysis_results.get('technical_ada', {}).get('nfr_list') else "• **Performance:** Page interactions respond within ≤500ms; initial load ≤2s" + chr(10) + "• **Security:** All API calls use HTTPS; no PII exposure in logs/analytics" + chr(10) + "• **Reliability:** State persists on page reload or back-navigation" + chr(10) + "• **Analytics:** All user interactions fire correct tracking events" + chr(10) + "• **Accessibility:** Full WCAG 2.1 Level AA compliance"}
 
-## Design
+## 🎨 Design
 Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in parsed_data['design_links']]) if parsed_data['design_links'] else ('_Figma referenced in ticket but no direct link found. Please add Figma URL to Jira._' if figma_mentioned else 'None')}
 
-## Recommendations
+## 💡 Recommendations
 
-### [PO] Product Owner:
+### 📊 Product Owner (PO):
 {chr(10).join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('po', [])]) if analysis_results.get('recommendations', {}).get('po') else "_No specific PO recommendations for this ticket_"}
 
-### [QA] QA Team:
+### 🧪 QA Team:
 {chr(10).join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('qa', [])]) if analysis_results.get('recommendations', {}).get('qa') else "_No specific QA recommendations for this ticket_"}
 
-### [DEV] Dev / Tech Lead:
+### 💻 Dev / Tech Lead:
 {chr(10).join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('dev', [])]) if analysis_results.get('recommendations', {}).get('dev') else "_No specific Dev recommendations for this ticket_"}
 """
         
@@ -1905,20 +2095,20 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
         """Generate balanced Insight report (medium detail)"""
         mode = "Insight (Balanced Groom)"
         
-        report = f"""# {mode} — {parsed_data['ticket_key']} | {parsed_data['title']}
+        report = f"""# 🔍 {mode} — {parsed_data['ticket_key']} | {parsed_data['title']}
 **Sprint Readiness:** {status} | **Coverage:** {readiness_percentage}%
 
-## Definition of Ready
-- **Present:** {', '.join(dor.get('present', [])) or 'None'}
-- **Missing:** {', '.join(dor.get('missing', [])) or 'None'}
+## 📋 Definition of Ready
+- **Present:** {self._format_field_names(dor.get('present', []))}
+- **Missing:** {self._format_field_names(dor.get('missing', []))}
 - **Weak Areas:** {', '.join(weak_areas[:3])}
 
-## User Story
-{parsed_data['fields'].get('user_story') if parsed_data['fields'].get('user_story') else '_[!] User story missing. Suggested: "' + analysis_results.get('suggested_rewrite', 'Define user story with persona, goal, and benefit') + '"_'}
+## 🧩 User Story
+{parsed_data['fields'].get('user_story') if parsed_data['fields'].get('user_story') else '_⚠️ User story missing. Suggested: "' + analysis_results.get('suggested_rewrite', 'Define user story with persona, goal, and benefit') + '"_'}
 
-**Current Stage:** {"[READY] Ready For Dev" if readiness_percentage >= 80 else "[GROOM] To Groom" if readiness_percentage >= 50 else "[DISCOVERY] In Discovery"}
+**Jira Status:** {parsed_data.get('status', 'Unknown')}
 
-## Acceptance Criteria
+## ✅ Acceptance Criteria
 **Detected:** {len(analysis_results.get('ac_rewrites', []))} | **Quality:** {analysis_results.get('ac_analysis', {}).get('testable_count', 0)}/{len(analysis_results.get('ac_rewrites', []))} testable
 
 ### Key Criteria:
@@ -1926,20 +2116,20 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
 
 _Missing NFRs:_ {', '.join([nfr.get('type', '') for nfr in analysis_results.get('missing_nfrs', [])[:3]]) if analysis_results.get('missing_nfrs') else 'None'}
 
-## Test Scenarios
+## 🧪 Test Scenarios
 **Positive:** {len(analysis_results.get('test_scenarios', {}).get('positive', []))} | **Negative:** {len(analysis_results.get('test_scenarios', {}).get('negative', []))} | **Error:** {len(analysis_results.get('test_scenarios', {}).get('error', []))}
 
-## Technical / ADA / Architecture
+## 🧱 Technical / ADA / Architecture
 ### Implementation:
 {chr(10).join([f"• {detail}" for detail in analysis_results.get('technical_ada', {}).get('implementation_details_list', [])[:3]]) if analysis_results.get('technical_ada', {}).get('implementation_details_list') else "• Update components per design specifications" + chr(10) + "• Integrate with current API endpoints"}
 
 ### ADA:
 {chr(10).join([f"• {ada}" for ada in analysis_results.get('technical_ada', {}).get('ada_list', [])[:3]]) if analysis_results.get('technical_ada', {}).get('ada_list') else "• Keyboard navigation support" + chr(10) + "• Screen reader compatibility"}
 
-## Design
+## 🎨 Design
 Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in parsed_data['design_links']]) if parsed_data['design_links'] else ('_Figma mentioned but no link_' if figma_mentioned else 'None')}
 
-## Key Recommendations
+## 💡 Key Recommendations
 **PO:** {analysis_results.get('recommendations', {}).get('po', ['Define success metrics'])[0] if analysis_results.get('recommendations', {}).get('po') else 'Define measurable KPIs for this story'}
 
 **QA:** {analysis_results.get('recommendations', {}).get('qa', ['Expand test coverage'])[0] if analysis_results.get('recommendations', {}).get('qa') else 'Include accessibility and cross-browser testing'}
@@ -1955,30 +2145,31 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
         """Generate concise Summary report (snapshot)"""
         mode = "Summary (Snapshot)"
         
-        report = f"""# {mode} — {parsed_data['ticket_key']}
+        report = f"""# 📸 {mode} — {parsed_data['ticket_key']}
 ## {parsed_data['title']}
 
 **Status:** {status} | **Coverage:** {readiness_percentage}%
 
-### [+] Present
-{', '.join(dor.get('present', [])[:5]) or 'None'}
+### ✅ Present
+{self._format_field_names(dor.get('present', [])[:5])}
 
-### [-] Missing
-{', '.join(dor.get('missing', [])[:5]) or 'None'}
+### ❌ Missing
+{self._format_field_names(dor.get('missing', [])[:5])}
 
-### [!] Weak Areas
+### ⚠️ Weak Areas
 {', '.join(weak_areas[:3])}
 
-### Quick Stats
+### 📊 Quick Stats
 - **Acceptance Criteria:** {len(analysis_results.get('ac_rewrites', []))} detected
 - **Test Scenarios:** {len(analysis_results.get('test_scenarios', {}).get('positive', []))} positive, {len(analysis_results.get('test_scenarios', {}).get('negative', []))} negative
-- **User Story:** {"[YES] Present" if parsed_data['fields'].get('user_story') else "[NO] Missing"}
+- **User Story:** {"✅ Present" if parsed_data['fields'].get('user_story') else "❌ Missing"}
 - **Story Points:** {parsed_data['fields'].get('story_points', 'Not estimated')}
+- **Jira Status:** {parsed_data.get('status', 'Unknown')}
 
-### Next Steps
-{"[READY] **Ready for Sprint** - Review with team and start development" if readiness_percentage >= 80 else "[GROOM] **Needs Grooming** - " + (', '.join(dor.get('missing', [])[:3])) if readiness_percentage >= 40 else "[DISCOVERY] **Not Ready** - Significant work needed: " + (', '.join(dor.get('missing', [])[:3]))}
+### 🎯 Next Steps
+{"✅ **Ready for Sprint** - Review with team and start development" if readiness_percentage >= 80 else "🟡 **Needs Grooming** - " + (self._format_field_names(dor.get('missing', [])[:3])) if readiness_percentage >= 40 else "🔴 **Not Ready** - Significant work needed: " + (self._format_field_names(dor.get('missing', [])[:3]))}
 
-### Top Recommendations
+### 💡 Top Recommendations
 - **PO:** {analysis_results.get('recommendations', {}).get('po', ['Define KPIs'])[0][:80] + '...' if len(analysis_results.get('recommendations', {}).get('po', ['Define KPIs'])[0]) > 80 else analysis_results.get('recommendations', {}).get('po', ['Define KPIs'])[0] if analysis_results.get('recommendations', {}).get('po') else 'Define success metrics'}
 - **QA:** {analysis_results.get('recommendations', {}).get('qa', ['Expand tests'])[0][:80] + '...' if len(analysis_results.get('recommendations', {}).get('qa', ['Expand tests'])[0]) > 80 else analysis_results.get('recommendations', {}).get('qa', ['Expand tests'])[0] if analysis_results.get('recommendations', {}).get('qa') else 'Include accessibility testing'}
 - **Dev:** {analysis_results.get('recommendations', {}).get('dev', ['Add telemetry'])[0][:80] + '...' if len(analysis_results.get('recommendations', {}).get('dev', ['Add telemetry'])[0]) > 80 else analysis_results.get('recommendations', {}).get('dev', ['Add telemetry'])[0] if analysis_results.get('recommendations', {}).get('dev') else 'Document error handling'}
@@ -2016,6 +2207,23 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
             ac_gwt_suggestions = self.generate_gwt_format(parsed_data, ac_rewrites)
             missing_nfrs = self.identify_missing_nfrs(parsed_data, ac_rewrites)
             
+            # Generate professional AC improvement suggestions
+            # Extract raw acceptance criteria from Jira (before any processing)
+            raw_ac_text = self._extract_text_from_field(ticket_data.get('fields', {}).get('customfield_13383', ''))
+            if not raw_ac_text or len(raw_ac_text.strip()) < 10:
+                # Fallback to description if no custom field
+                raw_ac_text = parsed_data['fields'].get('acceptance_criteria', '')
+            
+            # Split by newlines and clean each line
+            original_acs = []
+            for line in raw_ac_text.split('\n'):
+                cleaned = line.strip().strip('-•*1234567890. ').strip()
+                # Skip headers, empty lines, and very short lines
+                if cleaned and len(cleaned) > 10 and not cleaned.lower().startswith('acceptance') and not cleaned.lower().startswith('applicable'):
+                    original_acs.append(cleaned)
+            
+            ac_professional_suggestions = self.generate_professional_ac_suggestions(original_acs, parsed_data)
+            
             # Generate detailed technical/ADA/architecture content
             technical_details = self.generate_technical_details(parsed_data)
             
@@ -2034,6 +2242,7 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
                 'ac_analysis': ac_analysis,
                 'ac_gwt_suggestions': ac_gwt_suggestions,
                 'missing_nfrs': missing_nfrs,
+                'ac_professional_suggestions': ac_professional_suggestions,
                 'test_scenarios': test_scenarios,
                 'technical_ada': technical_details,
                 'recommendations': recommendations
