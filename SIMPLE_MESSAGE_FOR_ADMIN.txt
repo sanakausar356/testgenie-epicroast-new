@@ -1,0 +1,24 @@
+Hi Admin,
+
+I need to deploy my TestGenie updates to production.
+
+EASIEST WAY - Just run these 5 commands in your terminal:
+
+1. cd path/to/summervibe-testgenie-epicroast
+2. git remote add ibtasam https://github.com/Ibtasamali01/TestGenie.git
+3. git fetch ibtasam
+4. git merge ibtasam/main
+5. git push origin main
+
+✅ Done! Vercel auto-deploys in 2 minutes.
+
+OR
+
+Give me collaborator access:
+https://github.com/NewellBrands/summervibe-testgenie-epicroast/settings/access
+Add: Ibtasamali01 (Write access)
+
+Then I can push directly!
+
+Thanks!
+
