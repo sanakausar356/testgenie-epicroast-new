@@ -773,22 +773,28 @@ class GroomRoomNoScoring:
                 # Find "User Story" section
                 parts = re.split(r'(?i)user\s+story', desc_text, maxsplit=1)
                 if len(parts) > 1:
-                    after_heading = parts[1]
-                    # Extract until next major section (capitalized heading) or double newline
-                    next_section = re.search(r'\n\s*\n[A-Z][a-z]+.*?(?:Criteria|Details|Solution|Scenarios|Notes)', after_heading)
-                    if next_section:
-                        story_content = after_heading[:next_section.start()].strip()
+                    after_heading = parts[1].strip()
+                    # Extract until next major section (like "Acceptance Criteria", "Test Scenarios", etc.)
+                    # Look for next capitalized heading
+                    next_section_match = re.search(r'\n\s*([A-Z][A-Za-z\s]+(?:Criteria|Details|Solution|Scenarios|Notes|Impact|Estimate))', after_heading)
+                    if next_section_match:
+                        story_content = after_heading[:next_section_match.start()].strip()
                     else:
-                        # Take until double newline or end
-                        story_content = re.split(r'\n\s*\n', after_heading, maxsplit=1)[0].strip()
+                        # No next section found, take everything
+                        story_content = after_heading.strip()
                     
-                    if story_content and len(story_content) > 10:
+                    # Clean up the content (remove leading colons, newlines, etc.)
+                    story_content = re.sub(r'^[\s:\n]+', '', story_content)
+                    
+                    if story_content and len(story_content) > 15:
                         return story_content
             
-            # Also try to find "As a..." pattern directly
-            as_pattern = re.search(r'(as\s+a\s+.+?\s+i\s+want\s+.+?(?:so\s+that\s+.+?)?)[\.\n]', desc_text, re.IGNORECASE | re.DOTALL)
+            # Also try to find "As a..." pattern directly (more flexible pattern)
+            as_pattern = re.search(r'(as\s+a\s+\w+.*?(?:i\s+want|we\s+need).*?(?:so\s+that|to).*?)(?:\.|$|\n\n)', desc_text, re.IGNORECASE | re.DOTALL)
             if as_pattern:
-                return as_pattern.group(1).strip()
+                extracted = as_pattern.group(1).strip()
+                if len(extracted) > 20:  # Valid user story should be substantial
+                    return extracted
         
         return ""
     
