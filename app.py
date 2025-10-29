@@ -378,6 +378,14 @@ def generate_groom():
                 raise _no_scoring_err
 
         print(f"Groom analysis generated, length={len(groom) if groom else 0}")
+        
+        # Extract structured_data from result if available
+        structured_data = None
+        if hasattr(result, 'data'):
+            structured_data = result.data
+        elif isinstance(result, dict) and 'data' in result:
+            structured_data = result['data']
+        
         return jsonify({
             'success': True,
             'data': {
@@ -385,7 +393,10 @@ def generate_groom():
                 'level': level,
                 'ticket_number': ticket_number or None,
                 'figma_link': figma_link
-            }
+            },
+            'structured_data': structured_data,
+            'readiness_percentage': structured_data.get('SprintReadiness', 0) if structured_data else 0,
+            'status': structured_data.get('Status', '') if structured_data else ''
         }), 200, {'Content-Type': 'application/json; charset=utf-8'}
 
     except Exception as e:

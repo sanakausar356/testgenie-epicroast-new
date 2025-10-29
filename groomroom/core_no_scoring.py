@@ -302,8 +302,17 @@ class GroomRoomNoScoring:
             'card_type': 'unknown'
         }
         
-        # Extract all text content for analysis (properly handle ADF format)
-        description_text = self._extract_text_from_field(parsed['description'])
+        # Extract all text content for analysis
+        # Priority 1: Use renderedFields (HTML) - often has more complete content including all sections
+        rendered_description = ticket_data.get('renderedFields', {}).get('description', '')
+        if rendered_description:
+            # Strip HTML tags from rendered description
+            description_text = re.sub(r'<[^>]+>', ' ', rendered_description)
+            description_text = re.sub(r'\s+', ' ', description_text).strip()
+        else:
+            # Priority 2: Extract from ADF format
+            description_text = self._extract_text_from_field(parsed['description'])
+        
         all_text = f"{parsed['title']} {description_text}"
         
         # Also get raw description for ADF/JSON parsing
@@ -328,6 +337,20 @@ class GroomRoomNoScoring:
         
         # Parse additional Jira fields (custom fields and standard fields)
         fields = ticket_data.get('fields', {})
+        
+        # Fallback to renderedFields if fields is empty/None (some Jira API calls return only renderedFields)
+        if not fields:
+            rendered_fields = ticket_data.get('renderedFields', {})
+            if rendered_fields:
+                # Convert HTML rendered fields to usable format
+                fields = {}
+                for key, value in rendered_fields.items():
+                    if value:
+                        # Strip HTML tags for rendered fields
+                        if isinstance(value, str) and value.startswith('<'):
+                            fields[key] = re.sub(r'<[^>]+>', ' ', value).strip()
+                        else:
+                            fields[key] = value
         
         # Extract all DoR fields from Jira custom fields (priority check)
         # These custom fields override text extraction if present
@@ -746,11 +769,19 @@ class GroomRoomNoScoring:
         # Known User Story custom field IDs: customfield_13389 (current), customfield_13287 (old)
         story_field_ids = ['customfield_13389', 'customfield_13287', 'user_story', 'userstory']
         
+        print("\n" + "="*80)
+        print("🔍 DEBUG: extract_user_story() called")
+        print("="*80)
+        
         for field_id in story_field_ids:
             if field_id in fields and fields[field_id]:
                 content = self._extract_text_from_field(fields[field_id])
-                if content:  # Even "None" counts as present
+                print(f"✅ Found in {field_id}: {content[:100] if content else 'EMPTY'}...")
+                if content and content.strip():  # Even "None" counts as present
+                    print(f"✅ RETURNING User Story from {field_id} (length: {len(content)})")
                     return content
+            else:
+                print(f"❌ {field_id} not in fields or is empty")
         
         # Fallback: Iterate through all fields to find user story
         for field_key, field_value in fields.items():
@@ -764,12 +795,16 @@ class GroomRoomNoScoring:
                         return content
         
         # Fallback: check if description contains user story section
+        print("\n🔍 Checking description for User Story section...")
         description = fields.get('description', '')
         desc_text = self._extract_text_from_field(description)
         if desc_text:
+            print(f"📄 Description length: {len(desc_text)} chars")
+            print(f"📄 First 200 chars: {desc_text[:200]}")
             # Simple and robust: look for "User Story" followed by content until next section
             # Handle various formats: "User Story\nContent" or "User Story\n\nContent"
             if 'user story' in desc_text.lower():
+                print("✅ Found 'User Story' in description!")
                 # Find "User Story" section
                 parts = re.split(r'(?i)user\s+story', desc_text, maxsplit=1)
                 if len(parts) > 1:
@@ -786,16 +821,26 @@ class GroomRoomNoScoring:
                     # Clean up the content (remove leading colons, newlines, etc.)
                     story_content = re.sub(r'^[\s:\n]+', '', story_content)
                     
+                    print(f"📝 Extracted story content: {story_content[:150]}...")
+                    
                     if story_content and len(story_content) > 15:
+                        print(f"✅ RETURNING User Story from description (length: {len(story_content)})")
                         return story_content
+                    else:
+                        print(f"❌ Story content too short or empty (length: {len(story_content) if story_content else 0})")
+            else:
+                print("❌ 'User Story' not found in description")
             
             # Also try to find "As a..." pattern directly (more flexible pattern)
             as_pattern = re.search(r'(as\s+a\s+\w+.*?(?:i\s+want|we\s+need).*?(?:so\s+that|to).*?)(?:\.|$|\n\n)', desc_text, re.IGNORECASE | re.DOTALL)
             if as_pattern:
                 extracted = as_pattern.group(1).strip()
                 if len(extracted) > 20:  # Valid user story should be substantial
+                    print(f"✅ RETURNING User Story from 'As a...' pattern (length: {len(extracted)})")
                     return extracted
         
+        print("❌ NO USER STORY FOUND - Returning empty string")
+        print("="*80 + "\n")
         return ""
     
     def extract_acceptance_criteria(self, fields: Dict[str, Any], all_text: str) -> str:
@@ -1077,18 +1122,28 @@ class GroomRoomNoScoring:
         """Calculate DoR coverage - present, missing, and conflicts"""
         card_type = parsed_data['card_type']
         applicable_fields = self.dor_fields.get(card_type, [])
-        
+
+        print(f"\n🔍 DoR Coverage Check - Card Type: {card_type}")
+        print(f"Applicable DoR fields: {applicable_fields}")
+        print(f"Fields in parsed_data: {list(parsed_data['fields'].keys())}")
+
         present_fields = []
         missing_fields = []
         conflicts = []
-        
+
         for field in applicable_fields:
+            field_value = parsed_data['fields'].get(field)
+            print(f"\nChecking '{field}': {field_value[:100] if field_value else 'EMPTY'}...")
+            
             if field in parsed_data['fields'] and parsed_data['fields'][field]:
                 if not self.is_placeholder_content(parsed_data['fields'][field]):
+                    print(f"  ✅ PRESENT")
                     present_fields.append(field)
                 else:
+                    print(f"  ❌ MISSING (placeholder)")
                     missing_fields.append(field)
             else:
+                print(f"  ❌ MISSING (not in fields or empty)")
                 missing_fields.append(field)
         
         # Detect conflicts in ACs
@@ -1724,63 +1779,63 @@ class GroomRoomNoScoring:
             # Context-aware rewrites based on common patterns
             if 'filter' in ac_lower or 'filter' in title:
                 if 'display' in ac_lower or 'show' in ac_lower:
-                    rewrite = f"Given a user is on the Product Listing Page (PLP) with available products\nWhen the user selects one or more filter options (Brand, Size, Color, Price, etc.)\nThen the product grid updates to display only matching items within 1 second\nAnd applied filters appear as removable tokens above the grid with '×' close buttons\nAnd the product count updates dynamically (e.g., 'Showing 24 of 156 results')\nAnd filter state is preserved in the URL for shareability and browser back/forward navigation\nAnd if no products match, a clear message is shown: 'No products match your filters. Try adjusting your selections.'\nAnd loading indicators are displayed during grid updates\nAnd on mobile (<768px), filters are accessible via a slide-out panel or modal\nAnd all filter interactions support keyboard navigation and screen reader announcements"
+                    rewrite = f"On the Product Listing Page, selecting filter options (Brand, Size, Color, Price) must update the product grid to display only matching items within 1 second. Applied filters should appear as removable tokens above the grid with '×' close buttons for easy removal. The product count must update dynamically with messaging like 'Showing 24 of 156 results' to provide context. Filter state needs to be preserved in the URL for shareability and browser back/forward navigation support. If no products match the selected filters, display a helpful message: 'No products match your filters. Try adjusting your selections.' Loading indicators should be shown during grid updates to indicate processing. On mobile devices (<768px), filters must be accessible via a slide-out panel or modal for better screen space utilization. All filter interactions need to support keyboard navigation with visible focus indicators. Screen readers should announce filter changes and updated product counts for accessibility compliance."
                     why_better = "Covers core filter functionality with performance, UX, persistence, accessibility, and responsive design"
                 elif 'sticky' in ac_lower or 'fixed' in ac_lower:
-                    rewrite = f"Given a user is viewing the PLP and scrolls down beyond 200px\nWhen the page scroll position exceeds the filter bar's original position\nThen the filter bar remains fixed at the top of the viewport\nAnd maintains full filter functionality while sticky\nAnd collapses to a compact view on mobile devices (<768px width)\nAnd supports keyboard navigation for accessibility"
+                    rewrite = f"When viewing the PLP and scrolling down beyond 200px, the filter bar must remain fixed at the top of the viewport while maintaining full filter functionality. On mobile devices (<768px width), the sticky filter bar should collapse to a compact view to optimize screen space. The sticky behavior needs to support keyboard navigation for accessibility, ensuring users can navigate filters using Tab/Shift+Tab keys."
                     why_better = "Defines scroll trigger point (200px), specifies sticky behavior, addresses responsive design, includes accessibility"
                 elif 'select' in ac_lower or 'click' in ac_lower or 'apply' in ac_lower:
-                    rewrite = f"Given a user is on the PLP with available filter options\nWhen they select one or more filter values (e.g., Brand: Nike, Size: Large)\nThen the selected filters are immediately applied without requiring a separate 'Apply' button\nAnd the product grid updates within 1 second to show matching products\nAnd filter selections are highlighted with active state styling\nAnd the URL updates to reflect current filter state for shareability"
+                    rewrite = f"On the PLP with available filter options, selecting one or more filter values (e.g., Brand: Nike, Size: Large) must apply filters immediately without requiring a separate 'Apply' button. The product grid should update within 1 second to show matching products for responsive user experience. Filter selections need to be highlighted with active state styling to provide clear visual feedback. The URL must update to reflect current filter state, enabling shareability and proper browser back/forward navigation."
                     why_better = "Defines immediate application (no Apply button needed), specifies performance, includes visual feedback and URL state management"
                 else:
-                    rewrite = f"Given a user navigates to the Product Listing Page\nWhen the page loads with the new horizontal filter layout\nThen the top 5 most relevant filters are displayed prominently (Brand, Size, Color, Price, Category)\nAnd additional filters are accessible via a 'More Filters' expandable section\nAnd all filter interactions trigger product grid updates within 1 second\nAnd filter selections persist across page refreshes and browser back/forward navigation"
+                    rewrite = f"On the Product Listing Page with the new horizontal filter layout, the top 5 most relevant filters (Brand, Size, Color, Price, Category) must be displayed prominently for easy access. Additional filters should be accessible via a 'More Filters' expandable section to reduce visual clutter. All filter interactions need to trigger product grid updates within 1 second to maintain responsiveness. Filter selections must persist across page refreshes and browser back/forward navigation to preserve user context."
                     why_better = "Specifies filter hierarchy (top 5 + More Filters), defines performance requirements, addresses navigation persistence"
             
             elif 'checkout' in ac_lower or 'payment' in ac_lower or 'checkout' in title:
                 if 'validate' in ac_lower or 'error' in ac_lower:
-                    rewrite = f"Given a user is on the checkout payment step\nWhen they enter payment information and submit the form\nThen all required fields are validated in real-time (<200ms per field)\nAnd specific, actionable error messages are displayed next to invalid fields\nAnd the submit button remains disabled until all validations pass\nAnd error messages support screen readers with appropriate ARIA labels"
+                    rewrite = f"On the checkout payment step, all required fields must be validated in real-time (<200ms per field) as users enter payment information. Specific, actionable error messages should be displayed directly next to invalid fields for immediate feedback. The submit button needs to remain disabled until all validations pass to prevent invalid submissions. Error messages must support screen readers with appropriate ARIA labels to ensure accessibility compliance."
                     why_better = "Defines real-time validation timing, specifies error message placement and clarity, includes accessibility requirements"
                 elif 'submit' in ac_lower or 'complete' in ac_lower:
-                    rewrite = f"Given a user has completed all required checkout fields\nWhen they click the 'Complete Purchase' button\nThen a loading indicator is displayed immediately\nAnd the payment is processed within 3 seconds under normal conditions\nAnd a confirmation page is displayed upon successful payment\nAnd an order confirmation email is sent within 5 minutes\nAnd appropriate error handling is shown if payment fails with retry option"
+                    rewrite = f"After completing all required checkout fields, clicking the 'Complete Purchase' button must display a loading indicator immediately to acknowledge the action. The payment should be processed within 3 seconds under normal network conditions to meet user expectations. Upon successful payment, a confirmation page needs to be displayed with order details. An order confirmation email must be sent within 5 minutes of successful payment. If payment fails, appropriate error handling should display specific failure reasons (declined card, timeout, insufficient funds) with a clear retry option for user recovery."
                     why_better = "Defines loading feedback, specifies performance expectations (3s processing), addresses success and failure paths with clear actions"
                 else:
-                    rewrite = f"Given a user has items in their cart and navigates to the checkout page\nWhen they reach the payment selection step\nThen all supported payment methods are displayed with clear icons (Credit Card, PayPal, Apple Pay)\nAnd the checkout form is pre-populated with saved billing/shipping information for logged-in users\nAnd guest checkout is available with minimal required fields\nAnd the total order amount is displayed prominently with itemized breakdown (subtotal, taxes, shipping, discounts)\nAnd all payment data is transmitted securely over HTTPS with PCI compliance\nAnd the interface is fully responsive (desktop, tablet, mobile) with WCAG 2.1 Level AA accessibility\nAnd form validation provides real-time feedback with specific error messages\nAnd loading states are shown during payment processing (typically 2-5 seconds)\nAnd error handling displays actionable messages for payment failures (declined card, timeout, insufficient funds)\nAnd successful payment redirects to confirmation page with order number and delivery date"
+                    rewrite = f"On the checkout page payment selection step, all supported payment methods (Credit Card, PayPal, Apple Pay) must be displayed with clear, recognizable icons. For logged-in users, the checkout form should be pre-populated with saved billing/shipping information to streamline the process. Guest checkout needs to be available with only minimal required fields to reduce friction. The total order amount must be displayed prominently with a complete itemized breakdown showing subtotal, taxes, shipping, and discounts for transparency. All payment data transmission requires secure HTTPS with full PCI compliance standards. The interface must be fully responsive across desktop, tablet, and mobile devices with WCAG 2.1 Level AA accessibility compliance. Form validation should provide real-time feedback with specific, actionable error messages rather than generic warnings. Loading states need to be shown during payment processing (typically 2-5 seconds) to indicate progress. Error handling must display clear, actionable messages for all payment failure scenarios including declined cards, timeouts, and insufficient funds. Successful payments should redirect immediately to a confirmation page displaying the order number and estimated delivery date."
                     why_better = "Covers payment methods, security, UX, accessibility, validation, error handling, and confirmation flow"
             
             elif 'form' in ac_lower or 'input' in ac_lower:
                 if 'validate' in ac_lower or 'validation' in ac_lower:
-                    rewrite = f"Given a user is filling out a form with required fields\nWhen they interact with each form field (on blur)\nThen inline validation occurs within 200ms to provide immediate feedback\nAnd error messages are specific and actionable (e.g., 'Email must include @' not 'Invalid email')\nAnd valid fields display a checkmark icon for positive confirmation\nAnd field validation errors are announced to screen readers"
+                    rewrite = f"When filling out forms with required fields, inline validation must occur within 200ms on each field blur to provide immediate feedback. Error messages need to be specific and actionable, such as 'Email must include @' rather than generic 'Invalid email' messages. Valid fields should display a checkmark icon to provide positive confirmation and build user confidence. Field validation errors must be announced to screen readers using appropriate ARIA live regions for accessibility compliance."
                     why_better = "Specifies validation timing and trigger (on blur), defines error message quality, includes positive feedback, addresses accessibility"
                 elif 'submit' in ac_lower:
-                    rewrite = f"Given a user has completed all form fields\nWhen they click the submit button\nThen client-side validation runs on all fields before submission\nAnd the submit button shows a loading state and is disabled during processing\nAnd the form submits within 2 seconds under normal network conditions\nAnd a clear success or error message is displayed after submission\nAnd the form does not lose user data if validation fails"
+                    rewrite = f"After completing all form fields and clicking submit, client-side validation must run on all fields before form submission to catch errors early. The submit button should show a loading state and become disabled during processing to prevent duplicate submissions. The form needs to submit within 2 seconds under normal network conditions to meet performance expectations. A clear success or error message must be displayed after submission with specific next steps. The form should not lose user data if validation fails, preserving entered information for correction."
                     why_better = "Defines validation sequence, includes loading state UX, specifies performance, addresses data persistence on errors"
                 else:
-                    rewrite = f"Given a user interacts with form fields\nWhen they enter or modify data in any field\nThen real-time character count is displayed for fields with length limits\nAnd contextual help text appears for complex fields (e.g., password requirements)\nAnd autocomplete suggestions are provided where applicable (e.g., address fields)\nAnd all fields support standard keyboard navigation (Tab, Shift+Tab, Enter)"
+                    rewrite = f"When users interact with form fields, real-time character count must be displayed for fields with length limits to guide input. Contextual help text should appear for complex fields, such as password strength requirements or format examples. Autocomplete suggestions need to be provided where applicable, particularly for standard fields like addresses and names. All form fields must support standard keyboard navigation including Tab, Shift+Tab for field traversal and Enter for submission."
                     why_better = "Adds helpful UX features (character count, help text, autocomplete), ensures keyboard accessibility"
             
             elif 'performance' in ac_lower or 'load' in ac_lower or 'speed' in ac_lower:
-                rewrite = f"Given a user navigates to the page under normal network conditions (3G or better)\nWhen the page begins to load\nThen the initial content is visible within 2 seconds (First Contentful Paint)\nAnd the page becomes fully interactive within 3.5 seconds (Time to Interactive)\nAnd images are optimized and lazy-loaded below the fold\nAnd smooth scrolling is maintained at 60fps\nAnd Core Web Vitals targets are met: LCP <2.5s, FID <100ms, CLS <0.1"
+                rewrite = f"Under normal network conditions (3G or better), the page must display initial content within 2 seconds (First Contentful Paint) to meet user expectations. The page needs to become fully interactive within 3.5 seconds (Time to Interactive) for responsive user experience. Images should be optimized and lazy-loaded for content below the fold to reduce initial load time. Smooth scrolling must be maintained at 60fps for fluid interactions. Core Web Vitals performance targets need to be met: Largest Contentful Paint under 2.5 seconds, First Input Delay under 100 milliseconds, and Cumulative Layout Shift under 0.1 to ensure optimal user experience."
                 why_better = "Defines specific performance metrics (FCP, TTI, Core Web Vitals) with optimization strategies"
             
             elif 'accessibility' in ac_lower or 'ada' in ac_lower or 'screen reader' in ac_lower:
-                rewrite = f"Given a user navigates the interface using assistive technology\nWhen they interact with any interactive element\nThen all elements have appropriate ARIA labels and roles\nAnd keyboard navigation follows a logical tab order\nAnd focus indicators are clearly visible (3:1 contrast minimum)\nAnd all functionality is operable via keyboard alone (no mouse required)\nAnd color is not the sole means of conveying information (WCAG 2.1 Level AA compliance)"
+                rewrite = f"When users navigate the interface using assistive technology, all interactive elements must have appropriate ARIA labels and semantic roles for proper identification. Keyboard navigation needs to follow a logical tab order that matches visual flow. Focus indicators must be clearly visible with a minimum 3:1 contrast ratio against the background. All functionality should be operable via keyboard alone without requiring a mouse. Color cannot be the sole means of conveying information to support users with color vision deficiencies. The interface must meet WCAG 2.1 Level AA compliance standards for accessibility."
                 why_better = "Specifies WCAG compliance level, defines contrast requirements, ensures keyboard-only operation, addresses multiple accessibility concerns"
             
             elif 'responsive' in ac_lower or 'mobile' in ac_lower or 'device' in ac_lower:
-                rewrite = f"Given a user accesses the interface on various devices (desktop, tablet, mobile)\nWhen the page renders on different screen sizes\nThen the layout adapts using responsive breakpoints (320px, 768px, 1024px)\nAnd touch targets are at least 44x44px on mobile for easy interaction\nAnd text remains readable without horizontal scrolling\nAnd functionality is consistent across devices (no feature degradation)\nAnd the interface is tested on iOS Safari, Android Chrome, and major desktop browsers"
+                rewrite = f"When users access the interface on various devices (desktop, tablet, mobile), the layout must adapt using responsive breakpoints at 320px, 768px, and 1024px widths. Touch targets need to be at least 44x44px on mobile devices for easy finger interaction. Text must remain readable without requiring horizontal scrolling on any screen size. Functionality should be consistent across all devices with no feature degradation on smaller screens. The interface needs to be tested and validated on iOS Safari, Android Chrome, and all major desktop browsers for compatibility."
                 why_better = "Defines breakpoints, touch target standards, and ensures cross-device consistency"
             
             elif 'display' in ac_lower or 'show' in ac_lower or 'visible' in ac_lower:
-                rewrite = f"Given the system needs to display information to the user\nWhen the relevant data is available\nThen the information is presented with clear visual hierarchy\nAnd loading states are shown for asynchronous data\nAnd empty states provide helpful guidance when no data exists\nAnd error states are clearly distinguished with appropriate icons and colors\nAnd all text maintains sufficient contrast (4.5:1 for normal text, 3:1 for large text)"
+                rewrite = f"The information must be presented with clear visual hierarchy to guide user attention. Loading states should be displayed for asynchronous data to indicate progress. Empty states must provide helpful guidance when no data exists, explaining why the state is empty. Error states need to be clearly distinguished with appropriate icons and colors to draw attention. All text must maintain sufficient contrast ratios: 4.5:1 for normal text, 3:1 for large text to ensure readability. The interface should respond within 500ms to user interactions to maintain perceived performance."
                 why_better = "Addresses UI states (loading, empty, error), visual hierarchy, and accessibility contrast"
             
             elif 'error' in ac_lower:
-                rewrite = f"Given an error occurs during user interaction or system processing\nWhen the error is detected by the system\nThen a user-friendly error message is displayed immediately\nAnd the message explains what went wrong in plain language (no technical jargon)\nAnd actionable next steps are provided (e.g., 'Try again' button, 'Contact support' link)\nAnd errors are logged with sufficient detail for debugging (error code, timestamp, user action)\nAnd critical errors are reported to monitoring systems for team awareness"
+                rewrite = f"When errors occur during user interaction or system processing, a user-friendly error message must be displayed immediately to acknowledge the issue. The message needs to explain what went wrong in plain language without technical jargon that users won't understand. Actionable next steps should be provided, such as a 'Try again' button or 'Contact support' link with contact information. Errors must be logged with sufficient detail for debugging including error codes, timestamps, and the user action that triggered the error. Critical errors need to be reported automatically to monitoring systems for immediate team awareness and response."
                 why_better = "Defines error message clarity and timing, provides user recovery path, includes logging and monitoring for developers"
             
             else:
                 # Generic professional rewrite - concise but comprehensive
-                rewrite = f"Given a user performs the action: '{original_ac.strip()}'\nWhen the user initiates the relevant interaction\nThen the system responds within 2 seconds with clear visual feedback (loading indicator, confirmation message)\nAnd upon success, a specific confirmation is displayed (e.g., 'Item added to cart' not generic 'Success')\nAnd if errors occur, user-friendly messages are shown with actionable next steps (e.g., 'Try again', 'Contact support')\nAnd the functionality works consistently across major browsers (Chrome, Firefox, Safari, Edge - latest 2 versions)\nAnd the interface is fully responsive on desktop, tablet, and mobile devices\nAnd all interactive elements are keyboard accessible with visible focus indicators\nAnd screen readers announce dynamic content updates appropriately (WCAG 2.1 Level AA)\nAnd user data is transmitted securely over HTTPS\nAnd the feature handles edge cases gracefully (network timeouts, invalid input, concurrent actions)"
+                rewrite = f"For the action '{original_ac.strip()}', the system must respond within 2 seconds with clear visual feedback such as loading indicators or confirmation messages. Upon successful completion, a specific confirmation needs to be displayed like 'Item added to cart' rather than generic 'Success' messages. If errors occur, user-friendly messages should be shown with actionable next steps including 'Try again' or 'Contact support' options. The functionality must work consistently across major browsers including Chrome, Firefox, Safari, and Edge (latest 2 versions). The interface needs to be fully responsive on desktop, tablet, and mobile devices with no degradation. All interactive elements should be keyboard accessible with clearly visible focus indicators for navigation. Screen readers must announce dynamic content updates appropriately to meet WCAG 2.1 Level AA accessibility standards. User data transmission requires secure HTTPS encryption throughout. The feature should handle edge cases gracefully including network timeouts, invalid input validation, and concurrent user actions."
                 why_better = "Converts vague requirement into testable format with performance, UX, error handling, cross-browser support, accessibility, and security"
             
             # Additional improvements based on common weak patterns

@@ -193,6 +193,9 @@ class JiraIntegration:
             'Cross-browser/Device Testing Scope'
         ]
         
+        # Also add legacy User Story field (customfield_13287) - some tickets use old field
+        required_fields.append('customfield_13287')
+        
         # Map custom field names to IDs
         for field_name in custom_field_names:
             field_id = self.get_field_id_by_name(field_name)
@@ -458,10 +461,10 @@ class JiraIntegration:
 
             console.print(f"Requesting fields: {fields_param}")
 
-            # Use expand to get rendered HTML + names mapping
+            # Use expand to get rendered HTML + names mapping + ALL description content
             endpoint = (
                 f"/rest/api/3/issue/{clean_ticket}"
-                f"?fields={fields_param}&expand=renderedFields,names,transitions,changelog"
+                f"?fields={fields_param}&expand=renderedFields,names,transitions,changelog,versionedRepresentations"
             )
             issue_data = self._make_request(endpoint)
 
