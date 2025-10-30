@@ -1,0 +1,5 @@
+[33m6ddc9fe[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdeploy-updates-1029-1957[m[33m)[m add: Railway and GitHub push automation scripts
+[33m77d8a2c[m fix: Update Vercel config for frontend folder
+[33m2f3046b[m fix: Update Vercel and Railway config
+[33m74c2409[m[33m ([m[1;31madmin-origin/deploy-updates-1029-1957[m[33m)[m trigger deploy
+[33mb330a08[m[33m ([m[1;32mmain[m[33m)[m fix: Remove proxy settings to fix Azure OpenAI initialization
