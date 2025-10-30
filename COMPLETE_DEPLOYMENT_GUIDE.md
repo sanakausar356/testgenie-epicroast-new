@@ -18,7 +18,7 @@ Your code has been successfully pushed to GitHub!
 
 ## ⏳ Step 2: Railway Backend Deployment (IN PROGRESS)
 
-**Railway Project:** https://railway.com/project/b6141a0a-f01c-4f0a-8070-5de5a912a793
+**Railway Project:** https://railway.com/project/72d8fa1a-05e0-47e4-a9eb-c88021c8dd47
 
 ### Actions Required (You Must Do These):
 

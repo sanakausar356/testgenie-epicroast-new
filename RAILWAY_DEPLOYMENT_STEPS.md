@@ -1,7 +1,7 @@
 # 🚂 Railway Deployment Steps
 
 ## Your Railway Project
-**Project URL:** https://railway.com/project/b6141a0a-f01c-4f0a-8070-5de5a912a793
+**Project URL:** https://railway.com/project/72d8fa1a-05e0-47e4-a9eb-c88021c8dd47
 
 ## Your GitHub Repository  
 **Repo URL:** https://github.com/sanakausar356/testgenie-epicroast-new
@@ -164,7 +164,7 @@ After Railway backend is deployed:
 
 ---
 
-**Railway Project:** https://railway.com/project/b6141a0a-f01c-4f0a-8070-5de5a912a793
+**Railway Project:** https://railway.com/project/72d8fa1a-05e0-47e4-a9eb-c88021c8dd47
 
 **GitHub Repo:** https://github.com/sanakausar356/testgenie-epicroast-new
 
