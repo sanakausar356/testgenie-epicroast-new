@@ -1,0 +1,223 @@
+================================================================================
+                RAILWAY ENVIRONMENT VARIABLES
+                Project: giving-determination
+================================================================================
+
+Copy and paste these variables into Railway's Variables tab.
+
+INSTRUCTIONS:
+1. Open Railway project: https://railway.com/project/72d8fa1a-05e0-47e4-a9eb-c88021c8dd47
+2. Click on your service (the one connected to GitHub)
+3. Go to "Variables" tab
+4. Click "New Variable" for each entry below
+5. Copy the NAME and paste YOUR actual VALUE
+
+================================================================================
+                    🔑 AZURE OPENAI (REQUIRED)
+================================================================================
+
+Variable Name: AZURE_OPENAI_ENDPOINT
+Variable Value: https://your-resource.openai.azure.com/
+Description: Your Azure OpenAI resource endpoint URL
+⚠️ Replace with YOUR actual Azure OpenAI endpoint
+
+---
+
+Variable Name: AZURE_OPENAI_API_KEY
+Variable Value: YOUR_AZURE_OPENAI_API_KEY_HERE
+Description: Your Azure OpenAI API key
+⚠️ Replace with YOUR actual API key (starts with a long string of characters)
+
+---
+
+Variable Name: AZURE_OPENAI_DEPLOYMENT_NAME
+Variable Value: YOUR_DEPLOYMENT_NAME
+Description: Your Azure OpenAI deployment/model name
+⚠️ Replace with YOUR deployment name (e.g., gpt-4, gpt-35-turbo, etc.)
+
+---
+
+Variable Name: AZURE_OPENAI_API_VERSION
+Variable Value: 2024-12-01-preview
+Description: Azure OpenAI API version
+✅ Use this exact value
+
+================================================================================
+                    📋 JIRA INTEGRATION (OPTIONAL)
+================================================================================
+
+If you want Jira integration, add these. Otherwise, skip this section.
+
+Variable Name: JIRA_URL
+Variable Value: https://your-domain.atlassian.net
+Description: Your Jira instance URL
+⚠️ Replace with YOUR Jira domain (e.g., https://yourcompany.atlassian.net)
+⚠️ NO trailing slash
+
+---
+
+Variable Name: JIRA_USERNAME
+Variable Value: your.email@example.com
+Description: Your Jira account email
+⚠️ Replace with YOUR Jira email address
+
+---
+
+Variable Name: JIRA_API_TOKEN
+Variable Value: YOUR_JIRA_API_TOKEN
+Description: Your Jira API token
+⚠️ Replace with YOUR Jira API token
+ℹ️ Create token at: https://id.atlassian.com/manage-profile/security/api-tokens
+
+================================================================================
+                    ⚙️ CONFIGURATION VARIABLES (REQUIRED)
+================================================================================
+
+Variable Name: FLASK_ENV
+Variable Value: production
+Description: Flask environment mode
+✅ Use this exact value
+
+---
+
+Variable Name: PORT
+Variable Value: 8080
+Description: Port number for the application
+✅ Use this exact value
+
+---
+
+Variable Name: PYTHONDONTWRITEBYTECODE
+Variable Value: 1
+Description: Prevent Python from writing .pyc files
+✅ Use this exact value
+
+---
+
+Variable Name: PYTHONIOENCODING
+Variable Value: utf-8
+Description: Set Python I/O encoding
+✅ Use this exact value
+
+================================================================================
+                    📋 QUICK REFERENCE - ALL VARIABLES
+================================================================================
+
+REQUIRED (Must have these):
+✓ AZURE_OPENAI_ENDPOINT
+✓ AZURE_OPENAI_API_KEY
+✓ AZURE_OPENAI_DEPLOYMENT_NAME
+✓ AZURE_OPENAI_API_VERSION
+✓ FLASK_ENV
+✓ PORT
+✓ PYTHONDONTWRITEBYTECODE
+✓ PYTHONIOENCODING
+
+OPTIONAL (For Jira integration):
+○ JIRA_URL
+○ JIRA_USERNAME
+○ JIRA_API_TOKEN
+
+TOTAL: 8 required + 3 optional = 11 variables maximum
+
+================================================================================
+                    🎯 COPY-PASTE FORMAT FOR RAILWAY
+================================================================================
+
+Here's the format for adding in Railway. Add each line separately:
+
+REQUIRED VARIABLES (Replace YOUR_* with actual values):
+
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com/
+AZURE_OPENAI_API_KEY=YOUR_AZURE_API_KEY
+AZURE_OPENAI_DEPLOYMENT_NAME=YOUR_DEPLOYMENT_NAME
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+FLASK_ENV=production
+PORT=8080
+PYTHONDONTWRITEBYTECODE=1
+PYTHONIOENCODING=utf-8
+
+OPTIONAL VARIABLES (If using Jira):
+
+JIRA_URL=https://your-domain.atlassian.net
+JIRA_USERNAME=your.email@example.com
+JIRA_API_TOKEN=YOUR_JIRA_API_TOKEN
+
+================================================================================
+                    ⚠️ IMPORTANT NOTES
+================================================================================
+
+1. DO NOT use quotes around values in Railway
+   ✅ Correct: FLASK_ENV=production
+   ❌ Wrong: FLASK_ENV="production"
+
+2. Azure OpenAI Endpoint must end with a slash (/)
+   ✅ Correct: https://xxx.openai.azure.com/
+   ❌ Wrong: https://xxx.openai.azure.com
+
+3. Jira URL must NOT have a trailing slash
+   ✅ Correct: https://yourcompany.atlassian.net
+   ❌ Wrong: https://yourcompany.atlassian.net/
+
+4. All variable names are CASE-SENSITIVE
+   ✅ Correct: AZURE_OPENAI_ENDPOINT
+   ❌ Wrong: azure_openai_endpoint
+
+5. After adding variables, Railway will automatically redeploy
+
+================================================================================
+                    📍 WHERE TO FIND YOUR CREDENTIALS
+================================================================================
+
+🔹 Azure OpenAI:
+   Portal: https://portal.azure.com
+   Navigate to: Your Azure OpenAI resource → Keys and Endpoint
+
+🔹 Jira API Token:
+   Create at: https://id.atlassian.com/manage-profile/security/api-tokens
+   1. Click "Create API token"
+   2. Give it a name (e.g., "TestGenie")
+   3. Copy the token immediately (shown only once)
+
+================================================================================
+                    ✅ VERIFICATION CHECKLIST
+================================================================================
+
+After adding all variables:
+
+□ All required variables added (8 minimum)
+□ Azure OpenAI credentials are correct
+□ Jira credentials added (if using Jira)
+□ No typos in variable names
+□ No extra quotes around values
+□ Railway is deploying/redeploying
+□ Deployment completed successfully
+□ Health endpoint returns healthy status
+
+================================================================================
+                    🧪 TEST AFTER DEPLOYMENT
+================================================================================
+
+Once Railway finishes deploying:
+
+1. Go to Settings → Domains
+2. Copy your Railway URL
+3. Open in browser: https://your-url.up.railway.app/api/health
+4. Should see:
+   {
+     "status": "healthy",
+     "services": {
+       "testgenie": true,
+       "epicroast": true,
+       "groomroom": true,
+       "jira": true  (or false if no Jira configured)
+     }
+   }
+
+================================================================================
+
+Railway Project: https://railway.com/project/72d8fa1a-05e0-47e4-a9eb-c88021c8dd47
+Service Name: giving-determination
+
+Good luck! 🚀
+
