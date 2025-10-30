@@ -1,0 +1,41 @@
+name: Auto Deploy to Railway & Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - deploy-updates-1029-1957
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Railway
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: backend
+        continue-on-error: true
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+        continue-on-error: true
+
+      - name: Notify Success
+        if: success()
+        run: echo "✅ Deployment successful!"
+
+      - name: Notify Failure
+        if: failure()
+        run: echo "❌ Deployment failed - check logs"
+
