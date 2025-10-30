@@ -1,0 +1,98 @@
+================================================================================
+                YOUR EXACT VERCEL CONFIGURATION
+================================================================================
+
+Railway Backend URL: https://web-production-8415f.up.railway.app
+
+================================================================================
+                VERCEL SETTINGS - COPY THESE EXACTLY
+================================================================================
+
+STEP 1: ROOT DIRECTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Click "Edit" button next to "Root Directory"
+Type exactly: frontend
+
+⚠️ THIS IS CRITICAL - MUST BE SET!
+
+================================================================================
+
+STEP 2: FRAMEWORK & BUILD SETTINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Framework Preset: Vite (should auto-detect)
+Build Command: npm run build
+Output Directory: dist
+Node.js Version: 18.x
+
+✅ These should auto-detect, just verify they're correct
+
+================================================================================
+
+STEP 3: ENVIRONMENT VARIABLE (COPY THIS EXACTLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Scroll to "Environment Variables" section
+Click "Add New" or "+"
+
+Variable Name (copy exactly):
+VITE_API_URL
+
+Variable Value (copy exactly):
+https://web-production-8415f.up.railway.app/api
+
+⚠️ IMPORTANT NOTES:
+- Includes https://
+- Ends with /api
+- NO trailing slash after /api
+- Exact URL from your Railway backend
+
+================================================================================
+
+STEP 4: DEPLOY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Click "Deploy" button (bottom right)
+
+Wait 2-3 minutes for deployment to complete
+
+================================================================================
+
+VERIFICATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before clicking Deploy, verify:
+
+□ Root Directory = frontend
+□ Framework = Vite
+□ VITE_API_URL = https://web-production-8415f.up.railway.app/api
+□ No typos in the URL
+□ URL ends with /api (no trailing slash)
+
+================================================================================
+
+AFTER DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test Backend First:
+Open: https://web-production-8415f.up.railway.app/api/health
+
+Should return:
+{
+  "status": "healthy",
+  "services": {
+    "testgenie": true,
+    "epicroast": true,
+    "groomroom": true,
+    "jira": true
+  }
+}
+
+If backend works, then test frontend:
+1. Open your Vercel URL
+2. Test GroomRoom with ticket: ODCD-34544
+3. Check console (F12) for errors
+
+================================================================================
+

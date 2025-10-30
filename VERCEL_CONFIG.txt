@@ -1,0 +1,75 @@
+================================================================================
+                    VERCEL CONFIGURATION REFERENCE
+================================================================================
+
+Copy these exact settings when configuring Vercel:
+
+================================================================================
+                    STEP 1: ROOT DIRECTORY (CRITICAL!)
+================================================================================
+
+Setting: Root Directory
+Action: Click "Edit" button
+Value: frontend
+
+⚠️ THIS IS THE MOST IMPORTANT SETTING - DON'T SKIP!
+
+================================================================================
+                    STEP 2: FRAMEWORK & BUILD SETTINGS
+================================================================================
+
+Framework Preset: Vite (should auto-detect)
+Build Command: npm run build (auto-detect)
+Output Directory: dist (auto-detect)
+Install Command: npm install (auto-detect)
+Node.js Version: 18.x or 20.x
+
+================================================================================
+                    STEP 3: ENVIRONMENT VARIABLE
+================================================================================
+
+Variable Name: VITE_API_URL
+
+Variable Value Format:
+https://YOUR-RAILWAY-DOMAIN/api
+
+Example:
+https://web-production-8415f.up.railway.app/api
+
+⚠️ MUST END WITH /api
+⚠️ NO TRAILING SLASH AFTER /api
+
+To get your Railway URL:
+1. Go to: https://railway.com/project/72d8fa1a-05e0-47e4-a9eb-c88021c8dd47
+2. Click service "giving-determination"
+3. Go to "Settings" tab
+4. Find "Domains" section
+5. Copy the full URL
+
+================================================================================
+                    DEPLOYMENT CHECKLIST
+================================================================================
+
+Before clicking "Deploy":
+
+□ Root Directory is set to "frontend"
+□ Framework shows "Vite"
+□ VITE_API_URL is added
+□ Railway URL is correct in VITE_API_URL
+□ URL ends with /api (no trailing slash)
+
+================================================================================
+                    AFTER DEPLOYMENT
+================================================================================
+
+Test URL Format:
+https://testgenie-epicroast-new-[random-id].vercel.app
+
+Test these features:
+1. GroomRoom tab works
+2. Can analyze ticket ODCD-34544
+3. No console errors (F12)
+4. API calls return 200 status
+
+================================================================================
+
