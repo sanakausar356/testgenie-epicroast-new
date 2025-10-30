@@ -1,0 +1,137 @@
+================================================================================
+                    VERCEL DEPLOYMENT - FOLLOW THESE STEPS
+================================================================================
+
+Vercel is opening in your browser...
+
+Your Backend URL: https://web-production-8415f.up.railway.app
+
+================================================================================
+                    STEP 1: IMPORT YOUR REPOSITORY
+================================================================================
+
+1. Sign in to Vercel with GitHub (if not signed in)
+
+2. Look for "Import Git Repository" section
+
+3. Find your repository: sanakausar356/testgenie-epicroast-new
+
+4. Click "Import" button
+
+If you don't see your repo:
+- Click "Adjust GitHub App Permissions"
+- Select your repository
+- Authorize Vercel
+
+================================================================================
+                    STEP 2: CONFIGURE PROJECT
+================================================================================
+
+⚠️ CRITICAL SETTING - ROOT DIRECTORY:
+
+Find "Root Directory" setting
+Click "Edit" button
+Type: frontend
+Click "Continue" or "Save"
+
+THIS IS THE MOST IMPORTANT SETTING!
+
+================================================================================
+                    STEP 3: VERIFY OTHER SETTINGS
+================================================================================
+
+Framework Preset: Vite (should auto-detect)
+Build Command: npm run build
+Output Directory: dist
+Install Command: npm install
+Node.js Version: 18.x
+
+These should auto-detect. Just verify they look correct.
+
+================================================================================
+                    STEP 4: ADD ENVIRONMENT VARIABLE
+================================================================================
+
+Scroll to "Environment Variables" section
+
+Click "Add New" or "+" button
+
+Variable 1:
+Name: VITE_API_URL
+Value: https://web-production-8415f.up.railway.app/api
+
+⚠️ COPY THIS EXACTLY:
+https://web-production-8415f.up.railway.app/api
+
+Critical:
+- Includes https://
+- Ends with /api
+- NO trailing slash after /api
+
+================================================================================
+                    STEP 5: DEPLOY
+================================================================================
+
+1. Double-check:
+   □ Root Directory = frontend
+   □ Framework = Vite
+   □ VITE_API_URL added with correct value
+
+2. Click "Deploy" button (bottom right)
+
+3. Wait 2-3 minutes for build to complete
+
+4. You'll get a URL like:
+   https://testgenie-epicroast-new-[random].vercel.app
+
+================================================================================
+                    AFTER DEPLOYMENT
+================================================================================
+
+1. Copy your Vercel URL
+
+2. Test by opening it in browser
+
+3. Try analyzing a ticket in GroomRoom:
+   - Click "GroomRoom" tab
+   - Enter: ODCD-34544
+   - Click "Analyze"
+
+4. Check browser console (F12) for errors
+
+================================================================================
+                    YOUR CONFIGURATION SUMMARY
+================================================================================
+
+GitHub Repo: sanakausar356/testgenie-epicroast-new
+Root Directory: frontend
+Framework: Vite
+Environment Variable: VITE_API_URL=https://web-production-8415f.up.railway.app/api
+
+Backend URL: https://web-production-8415f.up.railway.app
+Health Check: https://web-production-8415f.up.railway.app/api/health
+
+================================================================================
+                    TROUBLESHOOTING
+================================================================================
+
+Build Failed?
+→ Check Root Directory is set to "frontend"
+
+Can't connect to backend?
+→ Verify VITE_API_URL ends with /api
+
+Frontend loads but errors?
+→ Test backend health: https://web-production-8415f.up.railway.app/api/health
+
+Need to update env var?
+→ Vercel Dashboard → Settings → Environment Variables → Redeploy
+
+================================================================================
+
+VERCEL IS OPENING IN YOUR BROWSER NOW...
+
+Follow the steps above to complete deployment!
+
+================================================================================
+

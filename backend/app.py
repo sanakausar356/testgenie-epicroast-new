@@ -20,6 +20,11 @@ from jira_integration import JiraIntegration
 
 # Load environment variables
 load_dotenv()
+# Disable proxy settings for Azure OpenAI
+os.environ.pop('HTTP_PROXY', None)
+os.environ.pop('HTTPS_PROXY', None)
+os.environ.pop('http_proxy', None)
+os.environ.pop('https_proxy', None)
 
 # Disable proxy settings for Azure OpenAI
 os.environ.pop('HTTP_PROXY', None)

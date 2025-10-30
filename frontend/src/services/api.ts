@@ -78,7 +78,7 @@ export const generateGroom = async (request: GroomRoomRequest): Promise<ApiRespo
     
     console.log('API: Making request to /groomroom with:', requestWithTimestamp, 'v2.0')
     
-    const response = await fetch(`${API_BASE_URL}/groomroom`, {
+    const response = await fetch(`${API_BASE_URL}/groomroom/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
