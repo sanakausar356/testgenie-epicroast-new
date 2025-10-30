@@ -13,7 +13,7 @@ import sys
  # ⬅️ add this
 
 # ensure project root on sys.path so we can import groomroom/* and jira_integration.py
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.dirname(__file__))
 if ROOT not in sys.path:
     sys.path.append(ROOT)
 
