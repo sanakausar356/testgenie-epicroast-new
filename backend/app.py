@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from testgenie.core import TestGenie
 from epicroast.core import EpicRoast
-from groomroom.core import GroomRoom
+from groomroom.core_no_scoring import GroomRoomNoScoring
 from jira_integration import JiraIntegration
 
 # Load environment variables
@@ -61,11 +61,11 @@ except Exception as e:
     traceback.print_exc()
 
 try:
-    print("Initializing GroomRoom...")
-    groomroom = GroomRoom()
-    print("✅ GroomRoom initialized successfully")
+    print("Initializing GroomRoomNoScoring...")
+    groomroom = GroomRoomNoScoring()
+    print("✅ GroomRoomNoScoring initialized successfully")
 except Exception as e:
-    print(f"❌ GroomRoom initialization failed: {e}")
+    print(f"❌ GroomRoomNoScoring initialization failed: {e}")
     import traceback
     traceback.print_exc()
 
@@ -316,14 +316,121 @@ def generate_groom():
             
             ticket_info = jira_integration.get_ticket_info(ticket_number)
             if ticket_info:
+                # CRITICAL: Verify status is in ticket_info, if not, extract it
+                if 'status' not in ticket_info or ticket_info.get('status') is None:
+                    print(f"⚠️ WARNING: ticket_info does not have 'status' key or it's None!")
+                    print(f"   ticket_info keys: {list(ticket_info.keys())[:15]}")
+                    # Try to get from _raw_issue_data if available
+                    raw_data = ticket_info.get('_raw_issue_data')
+                    if raw_data:
+                        # Try renderedFields
+                        rendered = raw_data.get('renderedFields', {})
+                        if rendered and rendered.get('status'):
+                            status_obj = rendered.get('status')
+                            if isinstance(status_obj, dict) and 'name' in status_obj:
+                                ticket_info['status'] = status_obj['name']
+                                print(f"✅ Extracted and set status in ticket_info: {ticket_info['status']}")
+                        # Try fields
+                        if ('status' not in ticket_info or ticket_info.get('status') is None) and raw_data.get('fields', {}).get('status'):
+                            status_obj = raw_data['fields']['status']
+                            if isinstance(status_obj, dict) and 'name' in status_obj:
+                                ticket_info['status'] = status_obj['name']
+                                print(f"✅ Extracted and set status in ticket_info from fields: {ticket_info['status']}")
+                
                 ticket_content = jira_integration.format_ticket_for_analysis(ticket_info)
                 print(f"Successfully fetched ticket content, length={len(ticket_content)}")
+                print(f"✅ ticket_info['status'] after verification: {ticket_info.get('status')}")
             else:
                 print(f"ERROR: Could not fetch ticket {ticket_number}")
                 return jsonify({
                     'success': False,
                     'error': f'Could not fetch ticket {ticket_number}'
                 }), 404
+        
+        # Extract raw_issue_data from ticket_info if available (for proper status extraction)
+        raw_issue_data = None
+        status_fallback = None
+        
+        # CRITICAL: Extract status_fallback FIRST, before any other processing
+        if ticket_number and ticket_info:
+            # Step 1: Try ticket_info['status'] first
+            status_fallback = ticket_info.get('status')
+            print(f"\n🔍 STEP 1 - ticket_info.get('status'): {status_fallback}")
+            
+            # Step 2: If None, get raw_issue_data and extract from there
+            if not status_fallback or status_fallback is None:
+                raw_issue_data = ticket_info.get('_raw_issue_data')
+                print(f"🔍 STEP 2 - raw_issue_data exists: {raw_issue_data is not None}")
+                
+                if raw_issue_data:
+                    # Try renderedFields first
+                    if 'renderedFields' in raw_issue_data:
+                        rendered = raw_issue_data.get('renderedFields', {})
+                        if rendered and rendered.get('status'):
+                            status_obj = rendered.get('status')
+                            if isinstance(status_obj, dict) and 'name' in status_obj:
+                                status_fallback = status_obj['name']
+                                print(f"✅ STEP 2a - Got status from renderedFields: {status_fallback}")
+                            elif isinstance(status_obj, str):
+                                status_fallback = status_obj
+                                print(f"✅ STEP 2a - Got status from renderedFields (string): {status_fallback}")
+                    
+                    # Try fields.status
+                    if (not status_fallback or status_fallback is None) and 'fields' in raw_issue_data:
+                        fields = raw_issue_data.get('fields', {})
+                        if fields and fields.get('status'):
+                            status_obj = fields.get('status')
+                            if isinstance(status_obj, dict) and 'name' in status_obj:
+                                status_fallback = status_obj['name']
+                                print(f"✅ STEP 2b - Got status from fields.status: {status_fallback}")
+            else:
+                # If status_fallback already exists, still get raw_issue_data for later use
+                raw_issue_data = ticket_info.get('_raw_issue_data')
+            
+            # Final validation
+            if not status_fallback or status_fallback is None:
+                status_fallback = 'Unknown'
+                print(f"❌ STEP 3 - status_fallback is still None, setting to 'Unknown'")
+            elif not isinstance(status_fallback, str):
+                status_fallback = str(status_fallback) if status_fallback else 'Unknown'
+            
+            print(f"✅ FINAL status_fallback: {status_fallback}")
+            
+            print(f"\n🔍 DEBUG Backend - Status extraction:")
+            print(f"   ticket_info.get('status'): {ticket_info.get('status')}")
+            print(f"   status_fallback (after processing): {status_fallback}")
+            print(f"   status_fallback type: {type(status_fallback)}")
+            print(f"   ticket_info keys: {list(ticket_info.keys())[:10]}")
+            print(f"   'status' in ticket_info: {'status' in ticket_info}")
+            
+            if raw_issue_data:
+                print(f"✅ Found raw_issue_data, will use for status extraction")
+            else:
+                print(f"❌ No _raw_issue_data found in ticket_info")
+            
+            # CRITICAL: ticket_info['status'] should ALWAYS be correct
+            # If it's 'Unknown', something went wrong in jira_integration.py
+            if status_fallback and status_fallback != 'Unknown':
+                print(f"✅ Status fallback from ticket_info: {status_fallback}")
+            else:
+                print(f"❌ CRITICAL ERROR: status_fallback is '{status_fallback}'!")
+                print(f"   This means jira_integration.py failed to extract status!")
+                # Try to get status from raw_issue_data as last resort
+                if raw_issue_data:
+                    # Try renderedFields first
+                    if 'renderedFields' in raw_issue_data:
+                        rendered = raw_issue_data.get('renderedFields', {})
+                        if rendered and rendered.get('status'):
+                            status_obj = rendered.get('status')
+                            if isinstance(status_obj, dict) and 'name' in status_obj:
+                                status_fallback = status_obj['name']
+                                print(f"✅ Got status from raw_issue_data['renderedFields']['status']['name']: {status_fallback}")
+                    # Try fields.status
+                    if (not status_fallback or status_fallback == 'Unknown') and 'fields' in raw_issue_data and raw_issue_data['fields'].get('status'):
+                        status_obj = raw_issue_data['fields']['status']
+                        if isinstance(status_obj, dict) and 'name' in status_obj:
+                            status_fallback = status_obj['name']
+                            print(f"✅ Got status from raw_issue_data['fields']['status']['name']: {status_fallback}")
         
         # Check if groomroom client is available
         print(f"GroomRoom client available: {groomroom.client is not None}")
@@ -355,11 +462,107 @@ def generate_groom():
             figma_link = data.get('figma_link', None)
             
             # Call the enhanced analyze_ticket method
-            result = groomroom.analyze_ticket(ticket_content, mode=level, figma_link=figma_link)
+            # If we have raw_issue_data, use that instead of formatted string (preserves status)
+            if raw_issue_data:
+                print(f"Using raw_issue_data for analysis (preserves status)")
+                
+                # CRITICAL: If status_fallback is None/Unknown, try to get from renderedFields
+                # This should NOT happen if jira_integration.py worked correctly, but handle it anyway
+                if not status_fallback or status_fallback == 'Unknown' or status_fallback is None:
+                    print(f"⚠️ status_fallback is '{status_fallback}', trying to get from renderedFields...")
+                    if raw_issue_data and 'renderedFields' in raw_issue_data:
+                        rendered_fields = raw_issue_data.get('renderedFields', {})
+                        if rendered_fields and rendered_fields.get('status'):
+                            status_obj = rendered_fields.get('status')
+                            if isinstance(status_obj, dict) and 'name' in status_obj:
+                                status_fallback = status_obj['name']
+                                print(f"✅ Got status from renderedFields: {status_fallback}")
+                            elif isinstance(status_obj, str):
+                                status_fallback = status_obj
+                                print(f"✅ Got status from renderedFields (string): {status_fallback}")
+                    # Also try to get from ticket_info one more time
+                    if (not status_fallback or status_fallback == 'Unknown' or status_fallback is None) and ticket_info:
+                        ticket_status = ticket_info.get('status')
+                        if ticket_status and ticket_status != 'Unknown':
+                            status_fallback = ticket_status
+                            print(f"✅ Got status from ticket_info (retry): {status_fallback}")
+                
+                # ALWAYS inject status into raw_issue_data to ensure it's available
+                if status_fallback and status_fallback != 'Unknown':
+                    print(f"Injecting status '{status_fallback}' into raw_issue_data")
+                    # Ensure fields dict exists
+                    if 'fields' not in raw_issue_data:
+                        raw_issue_data['fields'] = {}
+                    # Always set status (overwrite if exists)
+                    raw_issue_data['fields']['status'] = {'name': status_fallback}
+                    print(f"Status injected: {raw_issue_data['fields'].get('status')}")
+                else:
+                    print(f"❌ CRITICAL: status_fallback is still '{status_fallback}' - cannot inject")
+                    print(f"   raw_issue_data keys: {list(raw_issue_data.keys())}")
+                    if 'renderedFields' in raw_issue_data:
+                        print(f"   renderedFields keys: {list(raw_issue_data['renderedFields'].keys())[:10] if raw_issue_data.get('renderedFields') else 'None'}")
+                
+                # FINAL CHECK: Ensure status_fallback is not None before calling analyze_ticket
+                if not status_fallback or status_fallback is None or status_fallback == 'Unknown':
+                    # Last resort: try to get from raw_issue_data one more time
+                    if raw_issue_data:
+                        if 'renderedFields' in raw_issue_data:
+                            rendered = raw_issue_data.get('renderedFields', {})
+                            if rendered and rendered.get('status'):
+                                status_obj = rendered.get('status')
+                                if isinstance(status_obj, dict) and 'name' in status_obj:
+                                    status_fallback = status_obj['name']
+                                    print(f"🔧 FINAL FIX: Got status from renderedFields: {status_fallback}")
+                
+                # CRITICAL: If still None/Unknown, set a default but log it
+                if not status_fallback or status_fallback is None:
+                    status_fallback = 'Unknown'
+                    print(f"❌ CRITICAL: status_fallback is still None/Unknown after all attempts!")
+                
+                # CRITICAL FINAL CHECK: If status_fallback is still None/Unknown, extract from raw_issue_data ONE MORE TIME
+                if not status_fallback or status_fallback is None or status_fallback == 'Unknown':
+                    print(f"🔧 CRITICAL: status_fallback is '{status_fallback}' before analyze_ticket, extracting ONE MORE TIME...")
+                    if raw_issue_data and 'renderedFields' in raw_issue_data:
+                        rendered = raw_issue_data.get('renderedFields', {})
+                        print(f"   renderedFields keys: {list(rendered.keys())[:20] if rendered else 'None'}")
+                        print(f"   'status' in renderedFields: {'status' in rendered if rendered else False}")
+                        if rendered and rendered.get('status'):
+                            status_obj = rendered.get('status')
+                            print(f"   status_obj: {status_obj}")
+                            print(f"   status_obj type: {type(status_obj)}")
+                            if isinstance(status_obj, dict):
+                                if 'name' in status_obj:
+                                    status_fallback = status_obj['name']
+                                    print(f"✅ CRITICAL FIX: Got status from renderedFields.status.name: {status_fallback}")
+                                elif 'statusCategory' in status_obj:
+                                    status_cat = status_obj.get('statusCategory', {})
+                                    if isinstance(status_cat, dict) and 'name' in status_cat:
+                                        status_fallback = status_cat['name']
+                                        print(f"✅ CRITICAL FIX: Got status from renderedFields.status.statusCategory.name: {status_fallback}")
+                            elif isinstance(status_obj, str):
+                                status_fallback = status_obj
+                                print(f"✅ CRITICAL FIX: Got status from renderedFields.status (string): {status_fallback}")
+                
+                # Final validation
+                if not status_fallback or status_fallback is None:
+                    status_fallback = 'Unknown'
+                    print(f"❌ CRITICAL: status_fallback is still None after all attempts!")
+                
+                # Pass status_fallback to analyze_ticket (even if Unknown, pass it)
+                print(f"🚀 Calling analyze_ticket with status_fallback='{status_fallback}'")
+                result = groomroom.analyze_ticket(raw_issue_data, mode=level, status_fallback=status_fallback)
+            else:
+                print(f"Using formatted ticket_content for analysis")
+                result = groomroom.analyze_ticket(ticket_content, mode=level, figma_link=figma_link)
             print("Using enhanced analyze_ticket method")
             
             # Handle the enhanced result structure
-            if isinstance(result, dict):
+            # Check if it's a GroomroomResponse object (dataclass)
+            if hasattr(result, 'markdown') and hasattr(result, 'data'):
+                # It's a GroomroomResponse object
+                groom = result.markdown
+                print(f"Got GroomroomResponse with markdown length: {len(groom) if groom else 0}")
+            elif isinstance(result, dict):
                 if 'error' in result:
                     groom = f"Error: {result['error']}"
                 elif 'enhanced_output' in result:
