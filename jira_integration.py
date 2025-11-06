@@ -196,6 +196,11 @@ class JiraIntegration:
         # Also add legacy User Story field (customfield_13287) - some tickets use old field
         required_fields.append('customfield_13287')
         
+        # Explicitly add known field IDs to ensure they're always requested
+        # These are critical for DoR calculation
+        required_fields.append('customfield_13482')  # Brands
+        required_fields.append('customfield_10117')  # Story Points
+        
         # Map custom field names to IDs
         for field_name in custom_field_names:
             field_id = self.get_field_id_by_name(field_name)
@@ -347,24 +352,59 @@ class JiraIntegration:
 
             # Extract relevant information
             fields = issue_data.get('fields', {})
-            console.print(f"[blue]Fields data: {fields is not None}[/blue]")
+            rendered_fields = issue_data.get('renderedFields', {})
+            console.print(f"[blue]Fields data: {fields is not None}, RenderedFields: {rendered_fields is not None}[/blue]")
 
-            if not fields:
-                console.print(f"[red]No fields data found in ticket {ticket_number}[/red]")
+            # Don't return None if fields is empty - we can still use renderedFields
+            if not fields and not rendered_fields:
+                console.print(f"[red]No fields or renderedFields data found in ticket {ticket_number}[/red]")
                 return None
 
             console.print(f"[blue]Creating ticket info...[/blue]")
 
-            # Safely get nested values with explicit None checks
-            status_obj = fields.get('status')
-            priority_obj = fields.get('priority')
-            assignee_obj = fields.get('assignee')
-            reporter_obj = fields.get('reporter')
-            issue_type_obj = fields.get('issuetype')
-            project_obj = fields.get('project')
+            # CRITICAL FIX: Try renderedFields.status FIRST if fields is empty
+            status_obj = None
+            if not fields or not fields.get('status'):
+                # If fields is empty or status not in fields, try renderedFields
+                if rendered_fields and rendered_fields.get('status'):
+                    status_obj = rendered_fields.get('status')
+                    console.print(f"[green]✅ Found status in renderedFields (fields was empty): {status_obj}[/green]")
+            
+            # If still not found, try fields.status
+            if not status_obj and fields:
+                status_obj = fields.get('status')
+            
+            # Debug status extraction
+            console.print(f"[blue]DEBUG Status extraction:[/blue]")
+            console.print(f"  status_obj type: {type(status_obj)}")
+            console.print(f"  status_obj value: {status_obj}")
+            if status_obj:
+                console.print(f"  status_obj keys: {list(status_obj.keys()) if isinstance(status_obj, dict) else 'Not a dict'}")
+                if isinstance(status_obj, dict):
+                    console.print(f"  status_obj.get('name'): {status_obj.get('name')}")
+                    console.print(f"  status_obj.get('statusCategory'): {status_obj.get('statusCategory')}")
+            
+            # Try alternative locations if status_obj is None or doesn't have 'name'
+            if not status_obj or (isinstance(status_obj, dict) and not status_obj.get('name')):
+                console.print(f"[yellow]Status not found in primary location, trying alternatives...[/yellow]")
+                # Check renderedFields (if not already checked)
+                if rendered_fields and rendered_fields.get('status') and status_obj != rendered_fields.get('status'):
+                    status_obj = rendered_fields.get('status')
+                    console.print(f"  ✅ Found status in renderedFields: {status_obj}")
+                # Check root level
+                elif issue_data.get('status'):
+                    status_obj = issue_data.get('status')
+                    console.print(f"  ✅ Found status in root level: {status_obj}")
+            
+            # Extract from fields or renderedFields
+            priority_obj = fields.get('priority') if fields else (rendered_fields.get('priority') if rendered_fields else None)
+            assignee_obj = fields.get('assignee') if fields else (rendered_fields.get('assignee') if rendered_fields else None)
+            reporter_obj = fields.get('reporter') if fields else (rendered_fields.get('reporter') if rendered_fields else None)
+            issue_type_obj = fields.get('issuetype') if fields else (rendered_fields.get('issuetype') if rendered_fields else None)
+            project_obj = fields.get('project') if fields else (rendered_fields.get('project') if rendered_fields else None)
 
             # ✅ Prefer rendered HTML description → clean text + collect Figma links
-            rendered = (issue_data or {}).get('renderedFields') or {}
+            rendered = rendered_fields or {}
             desc_html = rendered.get('description') or ""
             description = ""
             figma_links: List[str] = []
@@ -373,8 +413,8 @@ class JiraIntegration:
                 # requires _html_to_text helper
                 description, figma_links = self._html_to_text(desc_html)
             else:
-                # fallback to raw/ADF
-                raw_description = fields.get('description')
+                # fallback to raw/ADF from fields
+                raw_description = fields.get('description') if fields else None
                 if raw_description is None:
                     description = ''
                 elif isinstance(raw_description, dict) and raw_description.get('type') == 'doc':
@@ -382,35 +422,74 @@ class JiraIntegration:
                 else:
                     description = str(raw_description or "")
 
-            # Extract custom fields dynamically
+            # Extract custom fields dynamically - check both fields and renderedFields
             custom_fields = {}
             for field_name, field_info in self.field_mappings.items():
                 if field_info['custom']:
                     field_id = field_info['id']
-                    field_value = fields.get(field_id)
+                    # Try fields first, then renderedFields
+                    field_value = None
+                    if fields:
+                        field_value = fields.get(field_id)
+                    if field_value is None and rendered_fields:
+                        field_value = rendered_fields.get(field_id)
                     if field_value is not None:
                         custom_fields[field_name] = field_value
                         console.print(f"[blue]Found custom field: {field_name} = {field_value}[/blue]")
 
+            # Extract status with robust handling
+            status_name = 'Unknown'
+            if status_obj:
+                if isinstance(status_obj, dict):
+                    status_name = status_obj.get('name', 'Unknown')
+                    # Fallback: try statusCategory name if name is not available
+                    if status_name == 'Unknown' and status_obj.get('statusCategory'):
+                        status_category = status_obj.get('statusCategory')
+                        if isinstance(status_category, dict):
+                            status_name = status_category.get('name', 'Unknown')
+                elif isinstance(status_obj, str):
+                    status_name = status_obj
+                else:
+                    # Try to convert to string
+                    status_name = str(status_obj) if status_obj else 'Unknown'
+            
+            console.print(f"[green]Final extracted status: {status_name}[/green]")
+            
+            # Get summary from fields or renderedFields
+            summary = ''
+            if fields:
+                summary = fields.get('summary', '')
+            if not summary and rendered_fields:
+                summary = rendered_fields.get('summary', '')
+            
+            # Get created date from fields or renderedFields
+            created_date = ''
+            if fields:
+                created_date = fields.get('created', '')
+            if not created_date and rendered_fields:
+                created_date = rendered_fields.get('created', '')
+            
             ticket_info = {
                 'key': issue_data.get('key', ''),
-                'summary': fields.get('summary', ''),
+                'summary': summary,
                 'description': description,
-                'status': status_obj.get('name', 'Unknown') if status_obj else 'Unknown',
+                'status': status_name,
                 'priority': priority_obj.get('name', 'None') if priority_obj else 'None',
                 'assignee': assignee_obj.get('displayName', 'Unassigned') if assignee_obj else 'Unassigned',
                 'reporter': reporter_obj.get('displayName', 'Unknown') if reporter_obj else 'Unknown',
-                'created': fields.get('created', ''),
-                'updated': fields.get('updated', ''),
+                'created': created_date,
+                'updated': fields.get('updated', '') if fields else (rendered_fields.get('updated', '') if rendered_fields else ''),
                 'issue_type': issue_type_obj.get('name', 'Unknown') if issue_type_obj else 'Unknown',
                 'project': project_obj.get('name', 'Unknown') if project_obj else 'Unknown',
-                'labels': fields.get('labels', []),
-                'components': [c.get('name', '') for c in fields.get('components', [])],
+                'labels': fields.get('labels', []) if fields else (rendered_fields.get('labels', []) if rendered_fields else []),
+                'components': [c.get('name', '') for c in (fields.get('components', []) if fields else (rendered_fields.get('components', []) if rendered_fields else []))],
                 'comments': [],
                 'custom_fields': custom_fields,  # dynamic customs
                 # ✅ add design flags
                 'figma_links': figma_links,
                 'has_figma': bool(figma_links),
+                # ✅ Store raw issue_data for GroomRoom parsing
+                '_raw_issue_data': issue_data
             }
 
             console.print(f"[blue]Ticket info created successfully[/blue]")
