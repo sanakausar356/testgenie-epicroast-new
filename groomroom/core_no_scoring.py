@@ -2187,6 +2187,11 @@ class GroomRoomNoScoring:
             scenarios['positive'].append("Keyboard navigation works seamlessly for all interactive filter elements (Tab, Enter, Escape, Arrow keys), ensuring full accessibility compliance")
             scenarios['positive'].append("Screen reader announces all filter state changes and product grid updates with proper ARIA labels, maintaining WCAG 2.1 AA compliance")
         
+        # Add additional positive scenarios for comprehensive coverage
+        scenarios['positive'].append("All interactive elements respond within expected performance thresholds (≤500ms response time), providing smooth and responsive user experience across all supported browsers and devices")
+        scenarios['positive'].append("Feature maintains consistent behavior and visual appearance across different browsers (Chrome, Firefox, Safari, Edge) and operating systems, ensuring universal compatibility")
+        scenarios['positive'].append("User actions are properly tracked and logged for analytics purposes, enabling accurate measurement of feature usage and user engagement metrics")
+        
         scenarios['negative'].extend([
             "System prevents SQL injection and XSS attacks on all filter inputs and search parameters, maintaining security best practices and data protection",
             "CSRF tokens are validated for all state-changing operations including filter applications, ensuring protection against cross-site request forgery attacks"
@@ -2415,65 +2420,41 @@ class GroomRoomNoScoring:
             'nfr_list': nfr_list
         }
 
-    def _generate_ai_ac_rewrite(self, original_ac: str, description: str, title: str, domain_terms: List[str], design_links: List[DesignLink]) -> str:
-        """Generate comprehensive AI-powered rewrite of acceptance criteria using description context"""
-        if not self.client:
-            return ""
-        
-        try:
-            # Build comprehensive context from description
-            description_context = description[:2000] if description else ""  # Limit description length
-            domain_context = ", ".join(domain_terms[:5]) if domain_terms else ""
-            figma_context = f"Design reference: {design_links[0].url}" if design_links else ""
-            
-            prompt = f"""You are an expert product manager and QA engineer. Rewrite the following acceptance criterion to be comprehensive, testable, and detailed. Use the ticket description and context to make it specific and actionable.
-
-**Original Acceptance Criterion:**
-{original_ac}
-
-**Ticket Title:** {title}
-
-**Ticket Description Context:**
-{description_context}
-
-**Domain Terms:** {domain_context}
-
-**Design Reference:** {figma_context}
-
-**Requirements for the rewrite:**
-1. Make it specific and testable (include measurable metrics like timing, counts, specific behaviors)
-2. Include UX details (visual feedback, loading states, error messages, keyboard navigation)
-3. Add performance requirements (response times, load times)
-4. Include accessibility requirements (keyboard navigation, screen readers, WCAG compliance)
-5. Add error handling and edge cases
-6. Make it comprehensive but concise (aim for 200-400 words)
-7. Use the description context to add relevant details
-8. Format as a single paragraph with clear, actionable statements
-
-**Rewritten Acceptance Criterion:**"""
-
-            response = self.client.chat.completions.create(
-                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=800
-            )
-            
-            rewrite = response.choices[0].message.content.strip()
-            return rewrite if rewrite and len(rewrite) > 50 else ""
-            
-        except Exception as e:
-            print(f"⚠️ AI rewrite error: {str(e)}")
-            return ""
-
     def generate_professional_ac_suggestions(self, original_acs: List[str], parsed_data: Dict[str, Any]) -> List[Dict[str, str]]:
-        """Generate detailed, professional rewrite suggestions for each acceptance criterion using description context"""
+        """Generate detailed, professional rewrite suggestions based on ACTUAL AC content and description"""
         suggestions = []
         title = (parsed_data.get('title', '') or '').lower()
         description = self._extract_text_from_field(parsed_data.get('description', ''))
         description_lower = (description or '').lower()
-        domain_terms = self.extract_domain_terms(parsed_data)
-        design_links = parsed_data.get('design_links', [])
+        testing_steps = parsed_data.get('fields', {}).get('testing_steps', '') or ''
+        
+        # Extract key points from description for context (preserve full sentences, no truncation)
+        description_points = []
+        if description:
+            # Split by newlines but also preserve paragraph structure
+            desc_lines = description.split('\n')
+            current_paragraph = []
+            for line in desc_lines:
+                line = line.strip()
+                if not line:
+                    # Empty line - save current paragraph if any
+                    if current_paragraph:
+                        full_para = ' '.join(current_paragraph).strip()
+                        if full_para and len(full_para) > 20 and not full_para.lower().startswith(('user story', 'acceptance', 'description')):
+                            description_points.append(full_para)
+                        current_paragraph = []
+                    continue
+                
+                # Clean up bullet points and numbering
+                cleaned = line.strip('-•*1234567890. ').strip()
+                if cleaned and len(cleaned) > 10:
+                    current_paragraph.append(cleaned)
+            
+            # Add last paragraph if any
+            if current_paragraph:
+                full_para = ' '.join(current_paragraph).strip()
+                if full_para and len(full_para) > 20 and not full_para.lower().startswith(('user story', 'acceptance', 'description')):
+                    description_points.append(full_para)
         
         for i, original_ac in enumerate(original_acs):
             if not original_ac or len(original_ac.strip()) < 5:
@@ -2482,38 +2463,104 @@ class GroomRoomNoScoring:
             original_ac = original_ac or ''
             ac_lower = original_ac.lower()
             
-            # Use OpenAI to generate comprehensive rewrite based on AC + description context
-            rewrite = ""
-            why_better = ""
+            # Start with the ACTUAL AC as base, then enhance it
+            rewrite = original_ac.strip()
+            why_better_parts = []
             
-            # Try to generate AI-powered rewrite if client is available
-            if self.client:
-                try:
-                    ai_rewrite = self._generate_ai_ac_rewrite(original_ac, description, title, domain_terms, design_links)
-                    if ai_rewrite and len(ai_rewrite.strip()) > 50:
-                        rewrite = ai_rewrite
-                        why_better = "AI-generated comprehensive rewrite incorporating description context, specific requirements, performance metrics, UX details, accessibility, and error handling"
-                except Exception as e:
-                    print(f"⚠️ AI rewrite failed for AC #{i+1}: {str(e)}")
-                    # Fall back to rule-based rewrite
+            # Analyze what's missing or could be improved
+            improvements = []
             
-            # If AI rewrite failed or not available, use rule-based approach
-            if not rewrite or len(rewrite.strip()) < 50:
-                # Context-aware rewrites based on common patterns
-                if 'filter' in ac_lower or 'filter' in title:
+            # Check for missing specifics
+            if not any(word in ac_lower for word in ['verify', 'validate', 'ensure', 'confirm', 'check']):
+                improvements.append("Add action verb (verify, validate, ensure) for testability")
+            
+            if not any(word in ac_lower for word in ['within', 'second', 'ms', 'millisecond', 'immediately']):
+                improvements.append("Add performance/timing requirement")
+            
+            if not any(word in ac_lower for word in ['desktop', 'mobile', 'tablet', 'device', 'responsive']):
+                improvements.append("Specify device/platform requirements if applicable")
+            
+            if not any(word in ac_lower for word in ['error', 'invalid', 'empty', 'failure']):
+                improvements.append("Add error handling or edge case coverage")
+            
+            # Extract context from description that relates to this AC
+            relevant_desc_points = []
+            ac_keywords = [word for word in ac_lower.split() if len(word) > 4]
+            for point in description_points[:3]:
+                point_lower = point.lower()
+                if any(keyword in point_lower for keyword in ac_keywords[:3]):
+                    relevant_desc_points.append(point)
+            
+            # Build enhanced AC based on actual content + description context
+            enhancement_parts = []
+            
+            # Add description context if relevant (preserve full text)
+            if relevant_desc_points:
+                context_note = relevant_desc_points[0]
+                # Only add if not already in the AC and it's meaningful
+                if context_note and len(context_note) > 30 and context_note.lower() not in rewrite.lower():
+                    enhancement_parts.append(f"Context: {context_note}")
+                    why_better_parts.append("Added context from description")
+            
+            # Add specific improvements based on AC content analysis
+            if 'chat' in ac_lower or 'button' in ac_lower:
+                if 'click' in ac_lower and 'window' not in ac_lower:
+                    enhancement_parts.append("The chat window must open immediately (<500ms) upon button click.")
+                if 'visible' in ac_lower and 'responsive' not in ac_lower:
+                    enhancement_parts.append("The button must be visible and accessible on desktop, tablet, and mobile devices.")
+                if 'verify' in ac_lower and 'accessibility' not in ac_lower:
+                    enhancement_parts.append("All interactions must support keyboard navigation and screen reader announcements for WCAG 2.1 AA compliance.")
+            
+            elif 'form' in ac_lower or 'submit' in ac_lower:
+                if 'validation' not in ac_lower:
+                    enhancement_parts.append("Form validation must occur in real-time (<200ms per field) with specific error messages.")
+                if 'submit' in ac_lower and 'loading' not in ac_lower:
+                    enhancement_parts.append("Submit button must show loading state and be disabled during processing to prevent duplicate submissions.")
+            
+            elif 'filter' in ac_lower:
+                if 'update' in ac_lower and 'second' not in ac_lower:
+                    enhancement_parts.append("Product grid must update within 1 second of filter selection.")
+                if 'display' in ac_lower and 'mobile' not in ac_lower:
+                    enhancement_parts.append("On mobile devices (<768px), filters must be accessible via slide-out panel.")
+            
+            # Add testing steps context if available (preserve full text)
+            if testing_steps:
+                test_lines = [line.strip() for line in testing_steps.split('\n') if line.strip()][:2]
+                if test_lines:
+                    test_context = test_lines[0]
+                    # Only add if meaningful and not already present
+                    if test_context and len(test_context) > 20 and test_context.lower() not in rewrite.lower():
+                        enhancement_parts.append(f"Test: {test_context}")
+                        why_better_parts.append("Included testing context")
+            
+            # If AC is already good, just suggest minor enhancements
+            if len(original_ac) > 80 and 'verify' in ac_lower:
+                if 'performance' not in ac_lower and 'time' not in ac_lower:
+                    enhancement_parts.append("Response time must be ≤500ms for optimal user experience.")
+                if 'error' not in ac_lower:
+                    enhancement_parts.append("Error states must display clear, actionable messages.")
+                why_better_parts.append("Enhanced with performance metrics and error handling")
+            
+            # Build the enhanced rewrite
+            if enhancement_parts:
+                rewrite = f"{rewrite}\n\nAdditional improvements:\n• " + "\n• ".join(enhancement_parts)
+            
+            # Build why_better explanation
+            if improvements:
+                why_better_parts.extend(improvements[:3])
+            
+            why_better = " | ".join(why_better_parts) if why_better_parts else "Enhanced original AC with specific, testable criteria"
+            
+            # Fallback to template-based rewrite only for very short/generic ACs
+            if len(original_ac.strip()) < 30 or original_ac.lower() in ['tbd', 'to be determined', 'n/a']:
+                # Use template-based approach for very generic ACs
+                if 'filter' in title or 'filter' in description_lower:
                     if 'display' in ac_lower or 'show' in ac_lower:
                         rewrite = f"On the Product Listing Page, selecting filter options (Brand, Size, Color, Price) must update the product grid to display only matching items within 1 second. Applied filters should appear as removable tokens above the grid with '×' close buttons for easy removal. The product count must update dynamically with messaging like 'Showing 24 of 156 results' to provide context. Filter state needs to be preserved in the URL for shareability and browser back/forward navigation support. If no products match the selected filters, display a helpful message: 'No products match your filters. Try adjusting your selections.' Loading indicators should be shown during grid updates to indicate processing. On mobile devices (<768px), filters must be accessible via a slide-out panel or modal for better screen space utilization. All filter interactions need to support keyboard navigation with visible focus indicators. Screen readers should announce filter changes and updated product counts for accessibility compliance."
                         why_better = "Covers core filter functionality with performance, UX, persistence, accessibility, and responsive design"
-                    elif 'sticky' in ac_lower or 'fixed' in ac_lower:
-                        rewrite = f"When viewing the PLP and scrolling down beyond 200px, the filter bar must remain fixed at the top of the viewport while maintaining full filter functionality. On mobile devices (<768px width), the sticky filter bar should collapse to a compact view to optimize screen space. The sticky behavior needs to support keyboard navigation for accessibility, ensuring users can navigate filters using Tab/Shift+Tab keys."
-                        why_better = "Defines scroll trigger point (200px), specifies sticky behavior, addresses responsive design, includes accessibility"
-                    elif 'select' in ac_lower or 'click' in ac_lower or 'apply' in ac_lower:
-                        rewrite = f"On the PLP with available filter options, selecting one or more filter values (e.g., Brand: Nike, Size: Large) must apply filters immediately without requiring a separate 'Apply' button. The product grid should update within 1 second to show matching products for responsive user experience. Filter selections need to be highlighted with active state styling to provide clear visual feedback. The URL must update to reflect current filter state, enabling shareability and proper browser back/forward navigation."
-                        why_better = "Defines immediate application (no Apply button needed), specifies performance, includes visual feedback and URL state management"
                     else:
                         rewrite = f"On the Product Listing Page with the new horizontal filter layout, the top 5 most relevant filters (Brand, Size, Color, Price, Category) must be displayed prominently for easy access. Additional filters should be accessible via a 'More Filters' expandable section to reduce visual clutter. All filter interactions need to trigger product grid updates within 1 second to maintain responsiveness. Filter selections must persist across page refreshes and browser back/forward navigation to preserve user context."
                         why_better = "Specifies filter hierarchy (top 5 + More Filters), defines performance requirements, addresses navigation persistence"
-                
                 elif 'checkout' in ac_lower or 'payment' in ac_lower or 'checkout' in title:
                     if 'validate' in ac_lower or 'error' in ac_lower:
                         rewrite = f"On the checkout payment step, all required fields must be validated in real-time (<200ms per field) as users enter payment information. Specific, actionable error messages should be displayed directly next to invalid fields for immediate feedback. The submit button needs to remain disabled until all validations pass to prevent invalid submissions. Error messages must support screen readers with appropriate ARIA labels to ensure accessibility compliance."
@@ -2524,7 +2571,6 @@ class GroomRoomNoScoring:
                     else:
                         rewrite = f"On the checkout page payment selection step, all supported payment methods (Credit Card, PayPal, Apple Pay) must be displayed with clear, recognizable icons. For logged-in users, the checkout form should be pre-populated with saved billing/shipping information to streamline the process. Guest checkout needs to be available with only minimal required fields to reduce friction. The total order amount must be displayed prominently with a complete itemized breakdown showing subtotal, taxes, shipping, and discounts for transparency. All payment data transmission requires secure HTTPS with full PCI compliance standards. The interface must be fully responsive across desktop, tablet, and mobile devices with WCAG 2.1 Level AA accessibility compliance. Form validation should provide real-time feedback with specific, actionable error messages rather than generic warnings. Loading states need to be shown during payment processing (typically 2-5 seconds) to indicate progress. Error handling must display clear, actionable messages for all payment failure scenarios including declined cards, timeouts, and insufficient funds. Successful payments should redirect immediately to a confirmation page displaying the order number and estimated delivery date."
                         why_better = "Covers payment methods, security, UX, accessibility, validation, error handling, and confirmation flow"
-                
                 elif 'form' in ac_lower or 'input' in ac_lower:
                     if 'validate' in ac_lower or 'validation' in ac_lower:
                         rewrite = f"When filling out forms with required fields, inline validation must occur within 200ms on each field blur to provide immediate feedback. Error messages need to be specific and actionable, such as 'Email must include @' rather than generic 'Invalid email' messages. Valid fields should display a checkmark icon to provide positive confirmation and build user confidence. Field validation errors must be announced to screen readers using appropriate ARIA live regions for accessibility compliance."
@@ -2535,39 +2581,34 @@ class GroomRoomNoScoring:
                     else:
                         rewrite = f"When users interact with form fields, real-time character count must be displayed for fields with length limits to guide input. Contextual help text should appear for complex fields, such as password strength requirements or format examples. Autocomplete suggestions need to be provided where applicable, particularly for standard fields like addresses and names. All form fields must support standard keyboard navigation including Tab, Shift+Tab for field traversal and Enter for submission."
                         why_better = "Adds helpful UX features (character count, help text, autocomplete), ensures keyboard accessibility"
-                
                 elif 'performance' in ac_lower or 'load' in ac_lower or 'speed' in ac_lower:
                     rewrite = f"Under normal network conditions (3G or better), the page must display initial content within 2 seconds (First Contentful Paint) to meet user expectations. The page needs to become fully interactive within 3.5 seconds (Time to Interactive) for responsive user experience. Images should be optimized and lazy-loaded for content below the fold to reduce initial load time. Smooth scrolling must be maintained at 60fps for fluid interactions. Core Web Vitals performance targets need to be met: Largest Contentful Paint under 2.5 seconds, First Input Delay under 100 milliseconds, and Cumulative Layout Shift under 0.1 to ensure optimal user experience."
                     why_better = "Defines specific performance metrics (FCP, TTI, Core Web Vitals) with optimization strategies"
-                
                 elif 'accessibility' in ac_lower or 'ada' in ac_lower or 'screen reader' in ac_lower:
                     rewrite = f"When users navigate the interface using assistive technology, all interactive elements must have appropriate ARIA labels and semantic roles for proper identification. Keyboard navigation needs to follow a logical tab order that matches visual flow. Focus indicators must be clearly visible with a minimum 3:1 contrast ratio against the background. All functionality should be operable via keyboard alone without requiring a mouse. Color cannot be the sole means of conveying information to support users with color vision deficiencies. The interface must meet WCAG 2.1 Level AA compliance standards for accessibility."
                     why_better = "Specifies WCAG compliance level, defines contrast requirements, ensures keyboard-only operation, addresses multiple accessibility concerns"
-                
                 elif 'responsive' in ac_lower or 'mobile' in ac_lower or 'device' in ac_lower:
                     rewrite = f"When users access the interface on various devices (desktop, tablet, mobile), the layout must adapt using responsive breakpoints at 320px, 768px, and 1024px widths. Touch targets need to be at least 44x44px on mobile devices for easy finger interaction. Text must remain readable without requiring horizontal scrolling on any screen size. Functionality should be consistent across all devices with no feature degradation on smaller screens. The interface needs to be tested and validated on iOS Safari, Android Chrome, and all major desktop browsers for compatibility."
                     why_better = "Defines breakpoints, touch target standards, and ensures cross-device consistency"
-                
                 elif 'display' in ac_lower or 'show' in ac_lower or 'visible' in ac_lower:
                     rewrite = f"The information must be presented with clear visual hierarchy to guide user attention. Loading states should be displayed for asynchronous data to indicate progress. Empty states must provide helpful guidance when no data exists, explaining why the state is empty. Error states need to be clearly distinguished with appropriate icons and colors to draw attention. All text must maintain sufficient contrast ratios: 4.5:1 for normal text, 3:1 for large text to ensure readability. The interface should respond within 500ms to user interactions to maintain perceived performance."
                     why_better = "Addresses UI states (loading, empty, error), visual hierarchy, and accessibility contrast"
-                
                 elif 'error' in ac_lower:
                     rewrite = f"When errors occur during user interaction or system processing, a user-friendly error message must be displayed immediately to acknowledge the issue. The message needs to explain what went wrong in plain language without technical jargon that users won't understand. Actionable next steps should be provided, such as a 'Try again' button or 'Contact support' link with contact information. Errors must be logged with sufficient detail for debugging including error codes, timestamps, and the user action that triggered the error. Critical errors need to be reported automatically to monitoring systems for immediate team awareness and response."
                     why_better = "Defines error message clarity and timing, provides user recovery path, includes logging and monitoring for developers"
-                
                 else:
                     # Generic professional rewrite - concise but comprehensive
                     rewrite = f"For the action '{original_ac.strip()}', the system must respond within 2 seconds with clear visual feedback such as loading indicators or confirmation messages. Upon successful completion, a specific confirmation needs to be displayed like 'Item added to cart' rather than generic 'Success' messages. If errors occur, user-friendly messages should be shown with actionable next steps including 'Try again' or 'Contact support' options. The functionality must work consistently across major browsers including Chrome, Firefox, Safari, and Edge (latest 2 versions). The interface needs to be fully responsive on desktop, tablet, and mobile devices with no degradation. All interactive elements should be keyboard accessible with clearly visible focus indicators for navigation. Screen readers must announce dynamic content updates appropriately to meet WCAG 2.1 Level AA accessibility standards. User data transmission requires secure HTTPS encryption throughout. The feature should handle edge cases gracefully including network timeouts, invalid input validation, and concurrent user actions."
                     why_better = "Converts vague requirement into testable format with performance, UX, error handling, cross-browser support, accessibility, and security"
             
-            # Additional improvements based on common weak patterns
-            if 'should' in ac_lower or 'must' in ac_lower:
-                why_better += " | Removes vague modal verbs ('should', 'must') and replaces with specific, testable behaviors"
-            if any(word in ac_lower for word in ['appropriate', 'reasonable', 'good', 'properly']):
-                why_better += " | Eliminates subjective terms by defining specific, measurable criteria"
-            if len(original_ac.split()) < 8:
-                why_better += " | Expands brief requirement into detailed, comprehensive acceptance criterion with context and edge cases"
+            # Additional improvements based on common weak patterns (only for template-based rewrites)
+            if len(original_ac.strip()) < 30 or original_ac.lower() in ['tbd', 'to be determined', 'n/a']:
+                if 'should' in ac_lower or 'must' in ac_lower:
+                    why_better += " | Removes vague modal verbs ('should', 'must') and replaces with specific, testable behaviors"
+                if any(word in ac_lower for word in ['appropriate', 'reasonable', 'good', 'properly']):
+                    why_better += " | Eliminates subjective terms by defining specific, measurable criteria"
+                if len(original_ac.split()) < 8:
+                    why_better += " | Expands brief requirement into detailed, comprehensive acceptance criterion with context and edge cases"
             
             suggestions.append({
                 'original': original_ac.strip(),
@@ -2576,129 +2617,6 @@ class GroomRoomNoScoring:
             })
         
         return suggestions
-
-    def _generate_ai_description_rewrite(self, original_description: str, title: str, ac_list: List[str], domain_terms: List[str], design_links: List[DesignLink]) -> str:
-        """Generate comprehensive AI-powered rewrite of description using AC context"""
-        if not self.client:
-            return ""
-        
-        try:
-            # Build comprehensive context from ACs
-            ac_context = "\n".join(ac_list[:5]) if ac_list else ""  # Limit to first 5 ACs
-            domain_context = ", ".join(domain_terms[:5]) if domain_terms else ""
-            figma_context = f"Design reference: {design_links[0].url}" if design_links else ""
-            
-            prompt = f"""You are an expert product manager and technical writer. Rewrite the following ticket description to be comprehensive, clear, and detailed. Use the acceptance criteria and context to make it specific and actionable.
-
-**Original Description:**
-{original_description[:2000]}
-
-**Ticket Title:** {title}
-
-**Acceptance Criteria Context:**
-{ac_context}
-
-**Domain Terms:** {domain_context}
-
-**Design Reference:** {figma_context}
-
-**Requirements for the rewrite:**
-1. Make it clear and comprehensive (include all key requirements and context)
-2. Add specific details about functionality, user interactions, and expected behavior
-3. Include technical context where relevant (APIs, components, integrations)
-4. Add UX/UI details (visual feedback, loading states, error handling)
-5. Include performance and accessibility considerations
-6. Make it well-structured with clear sections if needed
-7. Use the acceptance criteria context to add relevant details
-8. Format as a comprehensive description (aim for 300-600 words)
-
-**Rewritten Description:**"""
-
-            response = self.client.chat.completions.create(
-                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=1200
-            )
-            
-            rewrite = response.choices[0].message.content.strip()
-            return rewrite if rewrite and len(rewrite) > 100 else ""
-            
-        except Exception as e:
-            print(f"⚠️ AI description rewrite error: {str(e)}")
-            return ""
-
-    def generate_description_improvements(self, parsed_data: Dict[str, Any], ac_list: List[str]) -> Dict[str, str]:
-        """Generate improved description rewrite using AC context"""
-        original_description = self._extract_text_from_field(parsed_data.get('description', ''))
-        if not original_description or len(original_description.strip()) < 20:
-            return {
-                'original': original_description or 'No description available',
-                'rewrite': 'Description is missing or too short. Please add a comprehensive description of the feature or requirement.',
-                'why_better': 'No description available to improve'
-            }
-        
-        title = parsed_data.get('title', '')
-        domain_terms = self.extract_domain_terms(parsed_data)
-        design_links = parsed_data.get('design_links', [])
-        
-        rewrite = ""
-        why_better = ""
-        
-        # Try to generate AI-powered rewrite if client is available
-        if self.client:
-            try:
-                ai_rewrite = self._generate_ai_description_rewrite(original_description, title, ac_list, domain_terms, design_links)
-                if ai_rewrite and len(ai_rewrite.strip()) > 100:
-                    rewrite = ai_rewrite
-                    why_better = "AI-generated comprehensive rewrite incorporating acceptance criteria context, specific requirements, technical details, UX considerations, performance metrics, and accessibility requirements"
-            except Exception as e:
-                print(f"⚠️ AI description rewrite failed: {str(e)}")
-        
-        # If AI rewrite failed or not available, use rule-based approach
-        if not rewrite or len(rewrite.strip()) < 100:
-            # Extract key information from original description
-            desc_lower = original_description.lower()
-            title_lower = title.lower()
-            
-            # Build improved description based on context
-            improved_parts = []
-            
-            # Add context about what the feature does
-            if any(word in desc_lower for word in ['filter', 'search', 'sort']):
-                improved_parts.append("This feature enables users to filter, search, and sort content dynamically with real-time updates. The interface provides immediate visual feedback when filters are applied, showing updated results within 1 second. Filter state is preserved in the URL for shareability and browser navigation support.")
-            
-            if any(word in desc_lower for word in ['form', 'input', 'submit']):
-                improved_parts.append("This feature includes form interactions with real-time validation, providing immediate feedback on field blur (<200ms response time). Error messages are specific and actionable, displayed directly next to invalid fields. Valid fields show positive confirmation indicators. All form fields support keyboard navigation (Tab, Shift+Tab, Enter) for accessibility compliance.")
-            
-            if any(word in desc_lower for word in ['checkout', 'payment', 'cart']):
-                improved_parts.append("This feature handles checkout and payment processing with secure HTTPS transmission and PCI compliance. The interface supports multiple payment methods (Credit Card, PayPal, Apple Pay) with clear, recognizable icons. Form validation occurs in real-time with specific error messages. Payment processing includes loading indicators and clear success/error feedback.")
-            
-            if any(word in desc_lower for word in ['display', 'show', 'render']):
-                improved_parts.append("This feature displays content with clear visual hierarchy and responsive design. Loading states are shown for asynchronous data. Empty states provide helpful guidance. Error states are clearly distinguished with appropriate icons and colors. The interface maintains 60fps smooth scrolling and responds to user interactions within 500ms.")
-            
-            # Add performance considerations
-            if not any(word in desc_lower for word in ['performance', 'speed', 'load']):
-                improved_parts.append("Performance: Page interactions respond within ≤500ms; initial load ≤2s. Images are optimized and lazy-loaded for content below the fold.")
-            
-            # Add accessibility considerations
-            if not any(word in desc_lower for word in ['accessibility', 'ada', 'wcag', 'keyboard']):
-                improved_parts.append("Accessibility: Full keyboard navigation support (Tab, Shift+Tab, Enter, Escape). Screen reader labels for all interactive elements. WCAG 2.1 Level AA compliance with proper contrast ratios and focus indicators.")
-            
-            # Combine improved parts
-            if improved_parts:
-                rewrite = " ".join(improved_parts)
-                why_better = "Enhanced description with specific functionality details, performance requirements, UX considerations, and accessibility compliance"
-            else:
-                # Generic improvement
-                rewrite = f"{original_description}\n\n**Additional Context:** This feature requires responsive design across desktop, tablet, and mobile devices. All interactions must support keyboard navigation and screen readers for accessibility compliance. Performance targets: page interactions ≤500ms, initial load ≤2s."
-                why_better = "Added performance, accessibility, and responsive design requirements"
-        
-        return {
-            'original': original_description[:500] + ('...' if len(original_description) > 500 else ''),
-            'rewrite': rewrite,
-            'why_better': why_better
-        }
 
     def analyze_ac_quality(self, ac_list: List[str]) -> Dict[str, int]:
         """Analyze acceptance criteria for testability, measurability, and clarity"""
@@ -2855,8 +2773,8 @@ class GroomRoomNoScoring:
             if sentence:
                 sentence = sentence[0].upper() + sentence[1:] if len(sentence) > 1 else sentence.upper()
             
-            # Limit bullet length (max 120 chars, but keep important info)
-            if len(sentence) > 120:
+            # For long sentences, try to break at natural points (but preserve full text)
+            if len(sentence) > 200:
                 # Try to break at natural points
                 if ';' in sentence:
                     parts = sentence.split(';')
@@ -2865,16 +2783,15 @@ class GroomRoomNoScoring:
                         if part and len(part) > 15:
                             bullets.append(f"- {part}")
                     continue
-                elif ',' in sentence[:120]:
-                    # Split at last comma before 120 chars
-                    last_comma = sentence[:120].rfind(',')
-                    if last_comma > 50:
-                        bullets.append(f"- {sentence[:last_comma]}")
-                        remaining = sentence[last_comma+1:].strip()
-                        if remaining and len(remaining) > 15:
-                            bullets.append(f"- {remaining}")
+                elif ',' in sentence:
+                    # Split at commas but preserve full text
+                    parts = [p.strip() for p in sentence.split(',') if p.strip() and len(p.strip()) > 15]
+                    if len(parts) > 1:
+                        for part in parts:
+                            bullets.append(f"- {part}")
                         continue
             
+            # Preserve full sentence, don't truncate
             bullets.append(f"- {sentence}")
         
         # If we couldn't create good bullets, return original with some formatting
@@ -2893,43 +2810,12 @@ class GroomRoomNoScoring:
             if key_phrases:
                 return '\n'.join(key_phrases)
             else:
-                # Fallback: split by periods and take first 5-6 meaningful sentences
+                # Fallback: split by periods and take first 5-6 meaningful sentences (preserve full text)
                 sentences = [s.strip() for s in rewrite_text.split('.') if s.strip() and len(s.strip()) > 20]
-                return '\n'.join([f"- {s[:100]}" for s in sentences[:6]])
+                # Preserve full sentences, don't truncate
+                return '\n'.join([f"- {s}" for s in sentences[:6]])
         
         return '\n'.join(bullets[:10])  # Limit to 10 bullets max
-
-    def _format_description_improvements(self, description_improvements: Dict[str, str], newline: str) -> str:
-        """Format description improvements as bullet points"""
-        if not description_improvements or not description_improvements.get('rewrite'):
-            return "_No description improvements available_"
-        
-        rewrite = description_improvements.get('rewrite', '')
-        bullets = self._convert_rewrite_to_bullets(rewrite)
-        
-        return f"**Improved Description:**{newline}{bullets}{newline}{newline}**Why Better:** {description_improvements.get('why_better', 'Enhanced with comprehensive details')}"
-
-    def _format_ac_improvements_with_description(self, description_improvements: Dict[str, str], ac_suggestions: List[Dict[str, str]], newline: str) -> str:
-        """Format description and AC improvements together - description first, then ACs"""
-        formatted_parts = []
-        
-        # Add description improvements first
-        if description_improvements and description_improvements.get('rewrite'):
-            rewrite = description_improvements.get('rewrite', '')
-            bullets = self._convert_rewrite_to_bullets(rewrite)
-            formatted_parts.append(f"**📝 Description Improvement:**{newline}{bullets}")
-        
-        # Add AC improvements
-        if ac_suggestions:
-            for i, sugg in enumerate(ac_suggestions):
-                rewrite = sugg.get('rewrite', 'No suggestion available')
-                bullets = self._convert_rewrite_to_bullets(rewrite)
-                formatted_parts.append(f"**AC #{i+1}:**{newline}{bullets}")
-        
-        if not formatted_parts:
-            return "_No suggestions available_"
-        
-        return newline.join(formatted_parts)
 
     def _format_ac_improvements(self, ac_suggestions: List[Dict[str, str]], newline: str) -> str:
         """Format AC improvements as bullet points"""
@@ -3146,18 +3032,18 @@ class GroomRoomNoScoring:
 - **Jira Status:** {jira_status}
 - **Story Points:** {story_points_display} | **Brand:** {brands_display} | **Component:** {components_display}
 
+**Next Steps:**
+{("- Story is well-formed and meets DoR ✅" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else ("- Refine user story with Scrum team" + newline + "- Add missing acceptance criteria" + newline + "- Define technical implementation details" if 'user_story' in dor.get('present', []) else "- Create user story using format: As a [persona], I want [goal], so that [benefit]" + newline + "- Discuss with PO to understand user needs" + newline + "- Identify acceptance criteria"))}
+
 ## User Story (for Stories/Features)
 
 ### ✨ Suggested Improvement:
 {analysis_results.get('suggested_rewrite', 'Story rewrite pending')}
 
-**Next Steps:**
-{("- Story is well-formed and meets DoR ✅" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else ("- Refine user story with Scrum team" + newline + "- Add missing acceptance criteria" + newline + "- Define technical implementation details" if 'user_story' in dor.get('present', []) else "- Create user story using format: As a [persona], I want [goal], so that [benefit]" + newline + "- Discuss with PO to understand user needs" + newline + "- Identify acceptance criteria"))}
-
 ## ✅ Acceptance Criteria
 
 ### ✨ Improvement Suggestions:
-{self._format_ac_improvements_with_description(analysis_results.get('description_improvements', {}), analysis_results.get('ac_professional_suggestions', []), newline)}
+{self._format_ac_improvements(analysis_results.get('ac_professional_suggestions', []), newline)}
 
 ## 🧪 Test Scenarios (Functional + Non-Functional)
 
@@ -3422,9 +3308,6 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
             
             ac_professional_suggestions = self.generate_professional_ac_suggestions(original_acs, parsed_data)
             
-            # Generate description improvements using AC context
-            description_improvements = self.generate_description_improvements(parsed_data, ac_rewrites)
-            
             # Generate detailed technical/ADA/architecture content
             technical_details = self.generate_technical_details(parsed_data)
             
@@ -3444,7 +3327,6 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
                 'ac_gwt_suggestions': ac_gwt_suggestions,
                 'missing_nfrs': missing_nfrs,
                 'ac_professional_suggestions': ac_professional_suggestions,
-                'description_improvements': description_improvements,
                 'test_scenarios': test_scenarios,
                 'technical_ada': technical_details,
                 'recommendations': recommendations
