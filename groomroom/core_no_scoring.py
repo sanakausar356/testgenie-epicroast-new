@@ -2485,74 +2485,106 @@ class GroomRoomNoScoring:
             
             # Extract context from description that relates to this AC
             relevant_desc_points = []
-            ac_keywords = [word for word in ac_lower.split() if len(word) > 4]
+            ac_keywords_list = [word for word in ac_lower.split() if len(word) > 4]
+            ac_keywords = set(word for word in ac_lower.split() if len(word) > 4)  # Set for later use
             for point in description_points[:3]:
                 point_lower = point.lower()
-                if any(keyword in point_lower for keyword in ac_keywords[:3]):
+                if any(keyword in point_lower for keyword in ac_keywords_list[:3]):
                     relevant_desc_points.append(point)
             
-            # Build enhanced AC based on actual content + description context
+            # Build enhanced AC based on ACTUAL content - only add what's missing
             enhancement_parts = []
             
-            # Add description context if relevant (preserve full text)
+            # Analyze the ACTUAL AC to see what's already there
+            has_timing = any(word in ac_lower for word in ['second', 'ms', 'millisecond', 'immediately', 'real-time', 'within'])
+            has_device_spec = any(word in ac_lower for word in ['desktop', 'mobile', 'tablet', 'device', 'responsive'])
+            has_error_handling = any(word in ac_lower for word in ['error', 'invalid', 'empty', 'failure', 'validation'])
+            has_accessibility = any(word in ac_lower for word in ['accessibility', 'wcag', 'aria', 'screen reader', 'keyboard'])
+            has_testability = any(word in ac_lower for word in ['verify', 'validate', 'ensure', 'confirm', 'check', 'test'])
+            
+            # Only add enhancements that are ACTUALLY missing and relevant to the AC
+            # Don't add generic suggestions that don't match the actual AC content
+            
+            # For filter-related ACs, only add if the AC actually mentions filters
+            if 'filter' in ac_lower:
+                # Check if AC mentions specific implementation details
+                if 'desktop' in ac_lower or 'tablet' in ac_lower or 'mobile' in ac_lower:
+                    # AC already has device specs - only add missing technical details
+                    if not has_timing and 'update' in ac_lower:
+                        enhancement_parts.append("Product grid updates must occur within 1 second of filter selection.")
+                    if not has_accessibility and ('display' in ac_lower or 'select' in ac_lower):
+                        enhancement_parts.append("Filter interactions must support keyboard navigation and screen reader announcements.")
+                elif 'slide' in ac_lower or 'panel' in ac_lower:
+                    # AC mentions slide-out - only add timing if missing
+                    if not has_timing:
+                        enhancement_parts.append("Slide-out panel must open/close within 300ms for smooth user experience.")
+            
+            # For form-related ACs
+            elif 'form' in ac_lower or 'submit' in ac_lower:
+                if not has_error_handling and 'validation' not in ac_lower:
+                    enhancement_parts.append("Form validation must occur with specific, actionable error messages.")
+                if not has_timing and 'validation' in ac_lower:
+                    enhancement_parts.append("Validation feedback must appear within 200ms of user input.")
+            
+            # For chat/button ACs
+            elif 'chat' in ac_lower or ('button' in ac_lower and 'click' in ac_lower):
+                if not has_timing and 'open' in ac_lower:
+                    enhancement_parts.append("Chat window must open within 500ms of button click.")
+                if not has_device_spec and 'visible' in ac_lower:
+                    enhancement_parts.append("Button must be visible and accessible across all device types.")
+            
+            # Add description context ONLY if it directly relates to the AC
             if relevant_desc_points:
                 context_note = relevant_desc_points[0]
-                # Only add if not already in the AC and it's meaningful
-                if context_note and len(context_note) > 30 and context_note.lower() not in rewrite.lower():
-                    enhancement_parts.append(f"Context: {context_note}")
-                    why_better_parts.append("Added context from description")
+                # Only add if it provides additional context not already in AC
+                if context_note and len(context_note) > 30:
+                    # Check if context adds value beyond what's in AC
+                    context_keywords = set(word for word in context_note.lower().split() if len(word) > 4)
+                    if context_keywords - ac_keywords:  # Context has new information
+                        enhancement_parts.append(f"Additional context: {context_note[:200]}")
+                        why_better_parts.append("Added relevant context from description")
             
-            # Add specific improvements based on AC content analysis
-            if 'chat' in ac_lower or 'button' in ac_lower:
-                if 'click' in ac_lower and 'window' not in ac_lower:
-                    enhancement_parts.append("The chat window must open immediately (<500ms) upon button click.")
-                if 'visible' in ac_lower and 'responsive' not in ac_lower:
-                    enhancement_parts.append("The button must be visible and accessible on desktop, tablet, and mobile devices.")
-                if 'verify' in ac_lower and 'accessibility' not in ac_lower:
-                    enhancement_parts.append("All interactions must support keyboard navigation and screen reader announcements for WCAG 2.1 AA compliance.")
-            
-            elif 'form' in ac_lower or 'submit' in ac_lower:
-                if 'validation' not in ac_lower:
-                    enhancement_parts.append("Form validation must occur in real-time (<200ms per field) with specific error messages.")
-                if 'submit' in ac_lower and 'loading' not in ac_lower:
-                    enhancement_parts.append("Submit button must show loading state and be disabled during processing to prevent duplicate submissions.")
-            
-            elif 'filter' in ac_lower:
-                if 'update' in ac_lower and 'second' not in ac_lower:
-                    enhancement_parts.append("Product grid must update within 1 second of filter selection.")
-                if 'display' in ac_lower and 'mobile' not in ac_lower:
-                    enhancement_parts.append("On mobile devices (<768px), filters must be accessible via slide-out panel.")
-            
-            # Add testing steps context if available (preserve full text)
+            # Add testing steps context if available and relevant
             if testing_steps:
                 test_lines = [line.strip() for line in testing_steps.split('\n') if line.strip()][:2]
                 if test_lines:
                     test_context = test_lines[0]
-                    # Only add if meaningful and not already present
-                    if test_context and len(test_context) > 20 and test_context.lower() not in rewrite.lower():
-                        enhancement_parts.append(f"Test: {test_context}")
-                        why_better_parts.append("Included testing context")
+                    # Only add if it's not already covered in AC
+                    if test_context and len(test_context) > 20:
+                        test_keywords = set(word for word in test_context.lower().split() if len(word) > 4)
+                        if test_keywords - ac_keywords:  # Test has new information
+                            enhancement_parts.append(f"Testing consideration: {test_context[:200]}")
+                            why_better_parts.append("Included relevant testing context")
             
-            # If AC is already good, just suggest minor enhancements
-            if len(original_ac) > 80 and 'verify' in ac_lower:
-                if 'performance' not in ac_lower and 'time' not in ac_lower:
-                    enhancement_parts.append("Response time must be ≤500ms for optimal user experience.")
-                if 'error' not in ac_lower:
-                    enhancement_parts.append("Error states must display clear, actionable messages.")
-                why_better_parts.append("Enhanced with performance metrics and error handling")
+            # Check if AC is already detailed and specific - if so, don't add generic enhancements
+            is_detailed_ac = (
+                len(original_ac.strip()) > 100 and  # Long enough
+                (has_device_spec or has_timing or has_testability) and  # Has some specifics
+                not any(word in original_ac.lower() for word in ['tbd', 'to be determined', 'n/a', 'placeholder'])
+            )
             
-            # Build the enhanced rewrite
-            if enhancement_parts:
-                rewrite = f"{rewrite}\n\nAdditional improvements:\n• " + "\n• ".join(enhancement_parts)
+            # Build the enhanced rewrite - keep original AC, add enhancements below
+            if enhancement_parts and not is_detailed_ac:
+                # Only add enhancements if AC is not already detailed
+                rewrite = f"{rewrite}\n\n✨ Suggested enhancements:\n• " + "\n• ".join(enhancement_parts)
+            elif is_detailed_ac:
+                # AC is already detailed - keep it as-is, maybe add minor technical details
+                if not has_timing and ('update' in ac_lower or 'open' in ac_lower or 'display' in ac_lower):
+                    rewrite = f"{rewrite}\n\n✨ Suggested technical enhancement:\n• Response time should be ≤500ms for optimal user experience."
+                else:
+                    rewrite = original_ac.strip()
+            else:
+                # If AC is short but not generic, keep original
+                rewrite = original_ac.strip()
             
             # Build why_better explanation
-            if improvements:
+            if improvements and not is_detailed_ac:
                 why_better_parts.extend(improvements[:3])
             
-            why_better = " | ".join(why_better_parts) if why_better_parts else "Enhanced original AC with specific, testable criteria"
+            why_better = " | ".join(why_better_parts) if why_better_parts else ("AC is already comprehensive" if is_detailed_ac else "Enhanced original AC with specific, testable criteria")
             
-            # Fallback to template-based rewrite only for very short/generic ACs
-            if len(original_ac.strip()) < 30 or original_ac.lower() in ['tbd', 'to be determined', 'n/a']:
+            # Fallback to template-based rewrite ONLY for very short/generic ACs (< 30 chars or TBD)
+            if len(original_ac.strip()) < 30 or original_ac.lower().strip() in ['tbd', 'to be determined', 'n/a', 'na']:
                 # Use template-based approach for very generic ACs
                 if 'filter' in title or 'filter' in description_lower:
                     if 'display' in ac_lower or 'show' in ac_lower:
