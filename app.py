@@ -18,16 +18,13 @@ if ROOT not in sys.path:
     sys.path.append(ROOT)
 
 from jira_integration import JiraIntegration  # ⬅️ add this
-from epicroast.core import EpicRoast  # ⬅️ STEP 1: Import EpicRoast class
-
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
-jira = JiraIntegration()
-epicroast = EpicRoast()  # ⬅️ STEP 2: Initialize EpicRoast instance 
+jira = JiraIntegration() 
 
 def _format_insight_for_display(result):
     """Format insight mode output for display"""
@@ -551,49 +548,21 @@ def roast_ticket():
     """Generate EpicRoast analysis"""
     try:
         data = request.get_json()
-        ticket_number = data.get('ticket_number', '').strip()
-        ticket_content = data.get('ticket_content', '').strip()
+        ticket_content = data.get('ticket_content', '')
         theme = data.get('theme', 'default')
-        level = data.get('level', 'savage')
         
-        # ⬅️ STEP 3: Get ticket content from Jira if ticket_number provided
-        if ticket_number and not ticket_content:
-            if not jira or not jira.is_available():
-                return jsonify({
-                    'success': False,
-                    'error': 'Jira integration not available'
-                }), 503
-            
-            ticket_info = jira.get_ticket_info(ticket_number)
-            if ticket_info:
-                ticket_content = jira.format_ticket_for_analysis(ticket_info)
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': f'Could not fetch ticket {ticket_number}'
-                }), 404
+        # Placeholder for EpicRoast
+        roast = {
+            'roast': f"EpicRoast analysis for: {ticket_content[:50]}... (Theme: {theme})",
+            'theme': theme,
+            'issues_found': [],
+            'suggestions': []
+        }
         
-        # Validate that we have ticket content
-        if not ticket_content:
-            return jsonify({
-                'success': False,
-                'error': 'Either ticket_content or ticket_number must be provided'
-            }), 400
-        
-        # ⬅️ STEP 3: Call actual EpicRoast.generate_roast() method
-        roast_text = epicroast.generate_roast(ticket_content, theme=theme, level=level)
-        
-        # ⬅️ STEP 3: Return response in format frontend expects
         return jsonify({
             'success': True,
-            'data': {
-                'roast': roast_text,
-                'theme': theme,
-                'level': level,
-                'ticket_number': ticket_number if ticket_number else None
-            }
-        }), 200, {'Content-Type': 'application/json; charset=utf-8'}
-        
+            'data': roast
+        })
     except Exception as e:
         return jsonify({
             'success': False,
