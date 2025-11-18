@@ -531,7 +531,7 @@ You are an analytical assistant. This is for the 'Very Light' roast level - NO h
                         {"role": "system", "content": "You are an analytical assistant. Provide professional gap analysis with zero humor."},
                         {"role": "user", "content": re_prompt}
                     ],
-                    max_tokens=1500,
+                    max_completion_tokens=1500,  # ✅ CORRECT
                     # Removed temperature parameter as o4-mini model doesn't support it
                 )
                 
