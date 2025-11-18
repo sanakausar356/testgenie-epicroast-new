@@ -9,4 +9,3 @@ prompt-toolkit==3.0.43
 gunicorn==21.2.0
 beautifulsoup4==4.12.2
 html5lib==1.1
-
