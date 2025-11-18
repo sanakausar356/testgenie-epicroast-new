@@ -198,7 +198,7 @@ Please provide comprehensive, well-structured test scenarios that cover all aspe
                     {"role": "system", "content": "You are a senior QA engineer with expertise in test case design and acceptance criteria analysis."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=2500
+                max_completion_tokens=2500
             )
             
             return response.choices[0].message.content
