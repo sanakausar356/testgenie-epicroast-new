@@ -28,8 +28,21 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 jira = JiraIntegration() 
+
+# Initialize EpicRoast and TestGenie with logging
+print("🚀 Initializing EpicRoast...")
 epicroast = EpicRoast()  # ⬅️ STEP 2: Initialize EpicRoast instance
-testgenie = TestGenie()  # ⬅️ Initialize TestGenie instance 
+if epicroast.client:
+    print("✅ EpicRoast initialized successfully with Azure OpenAI client")
+else:
+    print("❌ WARNING: EpicRoast initialized but Azure OpenAI client is None!")
+
+print("🚀 Initializing TestGenie...")
+testgenie = TestGenie()  # ⬅️ Initialize TestGenie instance
+if testgenie.client:
+    print("✅ TestGenie initialized successfully with Azure OpenAI client")
+else:
+    print("❌ WARNING: TestGenie initialized but Azure OpenAI client is None!") 
 
 def _format_insight_for_display(result):
     """Format insight mode output for display"""
