@@ -288,19 +288,239 @@ class GroomRoomNoScoring:
             print(f"Warning: Could not load Figma config: {e}")
         return None
 
-    def parse_jira_content(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_jira_content(self, ticket_data: Dict[str, Any], status_fallback: str = None) -> Dict[str, Any]:
         """Robust parser with Figma detection and section recognition"""
+        # Get fields and renderedFields
+        fields = ticket_data.get('fields', {})
+        rendered_fields = ticket_data.get('renderedFields', {})
+        
+        # Extract status - check multiple possible locations with robust extraction
+        # CRITICAL: Check renderedFields FIRST (it's most reliable when fields is empty)
+        status = 'Unknown'
+        
+        # PRIORITY 1: Check renderedFields.status FIRST (most reliable when fields is empty)
+        if rendered_fields:
+            print(f"🔍 PRIORITY 1 - Checking renderedFields for status...")
+            print(f"   rendered_fields type: {type(rendered_fields)}")
+            print(f"   rendered_fields keys: {list(rendered_fields.keys())[:20] if rendered_fields else 'None'}")
+            print(f"   'status' in rendered_fields: {'status' in rendered_fields if rendered_fields else False}")
+            
+            if 'status' in rendered_fields:
+                status_obj = rendered_fields.get('status')
+                print(f"   rendered_fields.get('status'): {status_obj}")
+                print(f"   status_obj type: {type(status_obj)}")
+                
+                if status_obj:
+                    if isinstance(status_obj, dict):
+                        print(f"   status_obj keys: {list(status_obj.keys()) if isinstance(status_obj, dict) else 'Not a dict'}")
+                        status = status_obj.get('name', 'Unknown')
+                        if status and status != 'Unknown':
+                            print(f"✅ PRIORITY 1: Status extracted from renderedFields.status.name: {status}")
+                        # Try statusCategory if name is Unknown
+                        if status == 'Unknown' and status_obj.get('statusCategory'):
+                            status_category = status_obj.get('statusCategory')
+                            if isinstance(status_category, dict):
+                                status = status_category.get('name', 'Unknown')
+                                if status and status != 'Unknown':
+                                    print(f"✅ PRIORITY 1: Status extracted from renderedFields.status.statusCategory.name: {status}")
+                    elif isinstance(status_obj, str):
+                        status = status_obj
+                        if status and status != 'Unknown':
+                            print(f"✅ PRIORITY 1: Status extracted from renderedFields.status (string): {status}")
+                else:
+                    print(f"❌ rendered_fields.get('status') returned None/empty even though 'status' is in keys!")
+                    # Try direct access
+                    try:
+                        status_obj_direct = rendered_fields['status']
+                        if status_obj_direct:
+                            if isinstance(status_obj_direct, dict) and 'name' in status_obj_direct:
+                                status = status_obj_direct['name']
+                                print(f"✅ PRIORITY 1b: Status extracted using direct access rendered_fields['status']['name']: {status}")
+                    except Exception as e:
+                        print(f"   Direct access failed: {e}")
+            else:
+                print(f"❌ 'status' NOT in rendered_fields keys!")
+        
+        # PRIORITY 2: Use status_fallback if provided and status is still Unknown
+        if (not status or status == 'Unknown') and status_fallback and status_fallback != 'Unknown':
+            status = status_fallback
+            print(f"✅ PRIORITY 2: Status using status_fallback: {status}")
+        
+        # PRIORITY 2b: If status is still Unknown, try to get from ticket_data.renderedFields directly
+        if (not status or status == 'Unknown') and isinstance(ticket_data, dict) and 'renderedFields' in ticket_data:
+            rendered_direct = ticket_data.get('renderedFields', {})
+            if rendered_direct and rendered_direct.get('status'):
+                status_obj_direct = rendered_direct.get('status')
+                if isinstance(status_obj_direct, dict) and 'name' in status_obj_direct:
+                    status = status_obj_direct['name']
+                    print(f"✅ PRIORITY 2b: Status extracted from ticket_data['renderedFields']['status']['name']: {status}")
+        
+        # PRIORITY 3: Try fields.status if status is still Unknown
+        if not status or status == 'Unknown':
+            # Try fields.status first (most common)
+            if fields:
+                status_obj = fields.get('status')
+                if status_obj:
+                    if isinstance(status_obj, dict):
+                        # Standard Jira API format: {"name": "Ready to Dev", "id": "...", ...}
+                        status = status_obj.get('name', 'Unknown')
+                        if status and status != 'Unknown':
+                            print(f"✅ Status extracted from fields.status.name: {status}")
+                    elif isinstance(status_obj, str):
+                        status = status_obj
+                        if status and status != 'Unknown':
+                            print(f"✅ Status extracted from fields.status (string): {status}")
+                    elif hasattr(status_obj, 'name'):
+                        status = status_obj.name
+                        if status and status != 'Unknown':
+                            print(f"✅ Status extracted from fields.status.name (attr): {status}")
+                    elif hasattr(status_obj, '__getitem__'):
+                        try:
+                            status = status_obj['name'] if 'name' in status_obj else str(status_obj)
+                            if status and status != 'Unknown':
+                                print(f"✅ Status extracted from fields.status['name']: {status}")
+                        except:
+                            status = str(status_obj)
+                            if status and status != 'Unknown':
+                                print(f"✅ Status extracted from fields.status (str): {status}")
+            
+            # Fallback to renderedFields if status still Unknown
+            # CRITICAL: Check renderedFields FIRST if fields is empty
+            if (not status or status == 'Unknown') and rendered_fields:
+                print(f"🔍 Checking renderedFields for status...")
+                print(f"   renderedFields keys: {list(rendered_fields.keys())[:20]}")
+                print(f"   'status' in renderedFields: {'status' in rendered_fields}")
+                status_obj = rendered_fields.get('status')
+                print(f"   rendered_fields.get('status'): {status_obj}")
+                print(f"   status_obj type: {type(status_obj)}")
+                
+                if status_obj:
+                    if isinstance(status_obj, dict):
+                        status = status_obj.get('name', 'Unknown')
+                        if status and status != 'Unknown':
+                            print(f"✅ Status extracted from renderedFields.status.name: {status}")
+                        # Also try statusCategory if name is Unknown
+                        if status == 'Unknown' and status_obj.get('statusCategory'):
+                            status_category = status_obj.get('statusCategory')
+                            if isinstance(status_category, dict):
+                                status = status_category.get('name', 'Unknown')
+                                if status and status != 'Unknown':
+                                    print(f"✅ Status extracted from renderedFields.status.statusCategory.name: {status}")
+                    elif isinstance(status_obj, str):
+                        status = status_obj
+                        if status and status != 'Unknown':
+                            print(f"✅ Status extracted from renderedFields.status (string): {status}")
+                else:
+                    print(f"❌ renderedFields.get('status') returned None or empty")
+                    print(f"   renderedFields full content: {list(rendered_fields.keys())}")
+            
+            # Final fallback: check root level if status field was requested
+            if (not status or status == 'Unknown') and 'status' in ticket_data:
+                status_obj = ticket_data['status']
+                if isinstance(status_obj, dict):
+                    status = status_obj.get('name', 'Unknown')
+                    if status and status != 'Unknown':
+                        print(f"✅ Status extracted from ticket_data.status.name: {status}")
+                elif isinstance(status_obj, str):
+                    status = status_obj
+                    if status and status != 'Unknown':
+                        print(f"✅ Status extracted from ticket_data.status (string): {status}")
+        
+        # ULTIMATE FALLBACK: Use status_fallback if all extraction methods failed
+        # CRITICAL: This should ALWAYS work if status_fallback is provided
+        print(f"\n🔍🔍🔍 DEBUG parse_jira_content - STATUS FALLBACK CHECK:")
+        print(f"   Current status: '{status}'")
+        print(f"   status_fallback: '{status_fallback}'")
+        print(f"   status_fallback type: {type(status_fallback)}")
+        print(f"   status is None: {status is None}")
+        print(f"   status == 'Unknown': {status == 'Unknown'}")
+        print(f"   status_fallback is not None: {status_fallback is not None}")
+        print(f"   status_fallback != 'Unknown': {status_fallback != 'Unknown' if status_fallback else 'N/A'}")
+        
+        # CRITICAL: Use status_fallback if status is Unknown/None/empty
+        if (not status or status == 'Unknown' or status is None) and status_fallback and status_fallback != 'Unknown' and status_fallback is not None:
+            status = status_fallback
+            print(f"✅✅✅ Status using fallback: '{status}'")
+        elif status_fallback and status_fallback != 'Unknown' and status_fallback is not None:
+            # Even if status was extracted, prefer status_fallback if it's different
+            # (status_fallback is more reliable as it comes from jira_integration.py)
+            if status == 'Unknown' or not status or status is None:
+                status = status_fallback
+                print(f"✅✅✅ Status forced from fallback (status was Unknown/empty): '{status}'")
+        else:
+            print(f"❌❌❌ Status fallback NOT used!")
+            print(f"   Reason: status='{status}', status_fallback='{status_fallback}'")
+        
+        if not status or status == 'Unknown':
+            print(f"⚠️ WARNING: Status extraction failed - all methods returned Unknown")
+            print(f"   fields keys: {list(fields.keys())[:20] if fields else 'No fields'}")
+            print(f"   renderedFields keys: {list(rendered_fields.keys())[:20] if rendered_fields else 'No renderedFields'}")
+            print(f"   ticket_data top-level keys: {list(ticket_data.keys())[:20]}")
+            print(f"   status_fallback: {status_fallback}")
+            print(f"   status_fallback type: {type(status_fallback)}")
+            if status_fallback:
+                print(f"   status_fallback value: '{status_fallback}'")
+        
+        # Extract status category
+        status_category = 'Unknown'
+        if fields and fields.get('status'):
+            status_obj = fields['status']
+            if isinstance(status_obj, dict):
+                status_category_obj = status_obj.get('statusCategory', {})
+                if isinstance(status_category_obj, dict):
+                    status_category = status_category_obj.get('name', 'Unknown')
+        
+        # Extract issuetype
+        issuetype = ''
+        if fields and fields.get('issuetype'):
+            if isinstance(fields['issuetype'], dict):
+                issuetype = fields['issuetype'].get('name', '')
+            elif isinstance(fields['issuetype'], str):
+                issuetype = fields['issuetype']
+        elif rendered_fields and rendered_fields.get('issuetype'):
+            if isinstance(rendered_fields['issuetype'], dict):
+                issuetype = rendered_fields['issuetype'].get('name', '')
+            elif isinstance(rendered_fields['issuetype'], str):
+                issuetype = rendered_fields['issuetype']
+        
+        # Debug: Print status before creating parsed dict
+        print(f"\n🔍 DEBUG parse_jira_content - Final status before parsed dict:")
+        print(f"   status variable: {status}")
+        print(f"   status type: {type(status)}")
+        print(f"   status_fallback: {status_fallback}")
+        print(f"   status_fallback type: {type(status_fallback)}")
+        
+        # FINAL SAFETY CHECK: If status is still Unknown but status_fallback exists, use it
+        print(f"\n🔍🔍🔍 DEBUG parse_jira_content - FINAL STATUS FALLBACK CHECK:")
+        print(f"   Current status: '{status}'")
+        print(f"   status_fallback: '{status_fallback}'")
+        print(f"   status_fallback type: {type(status_fallback)}")
+        if (not status or status == 'Unknown') and status_fallback and status_fallback != 'Unknown' and status_fallback is not None:
+            print(f"   🔧 FINAL FIX: Setting status from status_fallback: {status_fallback}")
+            status = status_fallback
+        else:
+            print(f"   ❌ FINAL FIX FAILED: status='{status}', status_fallback='{status_fallback}'")
+        
+        if not status or status == 'Unknown':
+            print(f"   ⚠️ WARNING: parsed['status'] will be Unknown!")
+            print(f"   This should NOT happen if status_fallback was provided correctly")
+        
         parsed = {
             'ticket_key': ticket_data.get('key', ''),
-            'title': ticket_data.get('fields', {}).get('summary', ''),
-            'description': ticket_data.get('fields', {}).get('description', ''),
-            'issuetype': ticket_data.get('fields', {}).get('issuetype', {}).get('name', ''),
-            'status': ticket_data.get('fields', {}).get('status', {}).get('name', 'Unknown'),
-            'status_category': ticket_data.get('fields', {}).get('status', {}).get('statusCategory', {}).get('name', 'Unknown'),
+            'title': fields.get('summary', '') if fields else rendered_fields.get('summary', ''),
+            'description': fields.get('description', '') if fields else rendered_fields.get('description', ''),
+            'issuetype': issuetype,
+            'status': status,
+            'status_category': status_category,
             'fields': {},
             'design_links': [],
             'card_type': 'unknown'
         }
+        
+        # Debug: Verify status was set correctly
+        print(f"   parsed['status'] after creation: {parsed.get('status')}")
+        if parsed.get('status') == 'Unknown':
+            print(f"   ⚠️ WARNING: parsed['status'] is still Unknown!")
         
         # Extract all text content for analysis
         # Priority 1: Use renderedFields (HTML) - often has more complete content including all sections
@@ -337,6 +557,17 @@ class GroomRoomNoScoring:
         
         # Parse additional Jira fields (custom fields and standard fields)
         fields = ticket_data.get('fields', {})
+        print(f"\n🔍 DEBUG - parse_jira_content:")
+        print(f"  ticket_data keys: {list(ticket_data.keys())}")
+        print(f"  fields type: {type(fields)}, value: {fields if not isinstance(fields, dict) or len(fields) < 5 else 'dict with ' + str(len(fields)) + ' keys'}")
+        print(f"  renderedFields in ticket_data: {'renderedFields' in ticket_data}")
+        if 'renderedFields' in ticket_data:
+            rendered_fields_check = ticket_data.get('renderedFields', {})
+            print(f"  renderedFields type: {type(rendered_fields_check)}, empty: {not rendered_fields_check}")
+            if rendered_fields_check:
+                print(f"  renderedFields keys count: {len(rendered_fields_check)}")
+                print(f"  customfield_13482 in renderedFields: {'customfield_13482' in rendered_fields_check}")
+                print(f"  customfield_10117 in renderedFields: {'customfield_10117' in rendered_fields_check}")
         
         # Fallback to renderedFields if fields is empty/None (some Jira API calls return only renderedFields)
         if not fields:
@@ -370,13 +601,186 @@ class GroomRoomNoScoring:
             'kpi_metrics': self.extract_kpi_metrics(fields)
         }
         
+        # For brands and story_points, also check renderedFields as fallback if not found in fields
+        # Also merge renderedFields into fields dict for better extraction
+        rendered_fields = ticket_data.get('renderedFields', {})
+        if rendered_fields:
+            print(f"\n🔍 DEBUG - Checking renderedFields for brands/story_points")
+            print(f"  renderedFields keys: {list(rendered_fields.keys())[:10]}...")
+            
+            # Check renderedFields directly for brands and story_points
+            if 'customfield_13482' in rendered_fields:
+                rendered_brand_value = rendered_fields['customfield_13482']
+                print(f"  renderedFields['customfield_13482']: {rendered_brand_value}, type: {type(rendered_brand_value)}")
+                # If it's HTML, parse it
+                if isinstance(rendered_brand_value, str) and rendered_brand_value:
+                    # Extract brand names from HTML - strip HTML tags
+                    brand_text = re.sub(r'<[^>]+>', ' ', rendered_brand_value)
+                    brand_text = re.sub(r'\s+', ' ', brand_text).strip()
+                    # Look for brand names (common ones: Yankee Candle, Graco, Marmot, etc.)
+                    if brand_text and brand_text.lower() not in ['none', 'n/a', 'na', '']:
+                        print(f"  ✅ Extracted brand from HTML: {brand_text}")
+                        if not custom_field_extractions['brands']:
+                            custom_field_extractions['brands'] = brand_text
+            
+            if 'customfield_10117' in rendered_fields:
+                rendered_sp_value = rendered_fields['customfield_10117']
+                print(f"  renderedFields['customfield_10117']: {rendered_sp_value}, type: {type(rendered_sp_value)}")
+                # Extract number from HTML or value
+                if isinstance(rendered_sp_value, str) and rendered_sp_value:
+                    sp_text = re.sub(r'<[^>]+>', ' ', rendered_sp_value)
+                    sp_text = re.sub(r'\s+', ' ', sp_text).strip()
+                    # Extract number
+                    match = re.search(r'\d+', sp_text)
+                    if match:
+                        print(f"  ✅ Extracted story points from HTML: {match.group()}")
+                        if not custom_field_extractions['story_points']:
+                            custom_field_extractions['story_points'] = match.group()
+                elif isinstance(rendered_sp_value, (int, float)):
+                    print(f"  ✅ Story points (numeric): {rendered_sp_value}")
+                    if not custom_field_extractions['story_points']:
+                        custom_field_extractions['story_points'] = str(int(rendered_sp_value))
+            
+            # Merge ALL renderedFields into fields (overwrite if exists but empty/None)
+            for key, value in rendered_fields.items():
+                if key not in fields or not fields.get(key) or fields.get(key) is None:
+                    fields[key] = value
+            
+            # CRITICAL: Check renderedFields directly if fields merge didn't work
+            # Sometimes renderedFields has the key but value is None, need to check raw ticket_data
+            if not custom_field_extractions['brands'] and 'customfield_13482' in rendered_fields:
+                rendered_brand_value = rendered_fields.get('customfield_13482')
+                print(f"🔍 DEBUG - Direct check renderedFields['customfield_13482']: {rendered_brand_value}, type: {type(rendered_brand_value)}")
+                if rendered_brand_value is not None:
+                    # Try extracting from the raw value
+                    if isinstance(rendered_brand_value, list) and rendered_brand_value:
+                        brand_names = []
+                        for item in rendered_brand_value:
+                            if isinstance(item, dict):
+                                brand_name = item.get('value', item.get('name', ''))
+                                if brand_name:
+                                    brand_names.append(str(brand_name))
+                        if brand_names:
+                            custom_field_extractions['brands'] = ', '.join(brand_names)
+                            print(f"✅✅✅ Direct extraction from renderedFields['customfield_13482']: {custom_field_extractions['brands']}")
+                    elif isinstance(rendered_brand_value, str) and rendered_brand_value.strip():
+                        custom_field_extractions['brands'] = rendered_brand_value.strip()
+                        print(f"✅✅✅ Direct extraction from renderedFields['customfield_13482'] (string): {custom_field_extractions['brands']}")
+            
+            if not custom_field_extractions['story_points'] and 'customfield_10117' in rendered_fields:
+                rendered_sp_value = rendered_fields.get('customfield_10117')
+                print(f"🔍 DEBUG - Direct check renderedFields['customfield_10117']: {rendered_sp_value}, type: {type(rendered_sp_value)}")
+                if rendered_sp_value is not None:
+                    if isinstance(rendered_sp_value, (int, float)):
+                        custom_field_extractions['story_points'] = str(int(rendered_sp_value))
+                        print(f"✅✅✅ Direct extraction from renderedFields['customfield_10117']: {custom_field_extractions['story_points']}")
+                    elif isinstance(rendered_sp_value, str) and rendered_sp_value.strip():
+                        # Extract number from string
+                        match = re.search(r'\d+', rendered_sp_value)
+                        if match:
+                            custom_field_extractions['story_points'] = match.group()
+                            print(f"✅✅✅ Direct extraction from renderedFields['customfield_10117'] (string): {custom_field_extractions['story_points']}")
+            
+            # Try extracting again after merging (even if previous extraction returned empty)
+            if not custom_field_extractions['brands']:
+                rendered_brands = self.extract_brands(fields)
+                if rendered_brands:
+                    custom_field_extractions['brands'] = rendered_brands
+                    print(f"🔍 DEBUG - Brands found in renderedFields after merge: {rendered_brands}")
+            if not custom_field_extractions['story_points']:
+                rendered_story_points = self.extract_story_points(fields)
+                if rendered_story_points:
+                    custom_field_extractions['story_points'] = rendered_story_points
+                    print(f"🔍 DEBUG - Story Points found in renderedFields after merge: {rendered_story_points}")
+        
+        # CRITICAL: Check raw ticket_data['fields'] if renderedFields has None values
+        # Sometimes the actual data is in ticket_data['fields'] not renderedFields
+        if not custom_field_extractions['brands'] and 'fields' in ticket_data:
+            raw_fields = ticket_data.get('fields', {})
+            if 'customfield_13482' in raw_fields:
+                raw_brand_value = raw_fields.get('customfield_13482')
+                print(f"🔍 DEBUG - Checking ticket_data['fields']['customfield_13482']: {raw_brand_value}, type: {type(raw_brand_value)}")
+                if raw_brand_value is not None:
+                    # Extract from raw fields
+                    if isinstance(raw_brand_value, list) and raw_brand_value:
+                        brand_names = []
+                        for item in raw_brand_value:
+                            if isinstance(item, dict):
+                                brand_name = item.get('value', item.get('name', ''))
+                                if brand_name:
+                                    brand_names.append(str(brand_name))
+                        if brand_names:
+                            custom_field_extractions['brands'] = ', '.join(brand_names)
+                            print(f"✅✅✅ Found brands in ticket_data['fields']['customfield_13482']: {custom_field_extractions['brands']}")
+        
+        if not custom_field_extractions['story_points'] and 'fields' in ticket_data:
+            raw_fields = ticket_data.get('fields', {})
+            if 'customfield_10117' in raw_fields:
+                raw_sp_value = raw_fields.get('customfield_10117')
+                print(f"🔍 DEBUG - Checking ticket_data['fields']['customfield_10117']: {raw_sp_value}, type: {type(raw_sp_value)}")
+                if raw_sp_value is not None:
+                    if isinstance(raw_sp_value, (int, float)):
+                        custom_field_extractions['story_points'] = str(int(raw_sp_value))
+                        print(f"✅✅✅ Found story points in ticket_data['fields']['customfield_10117']: {custom_field_extractions['story_points']}")
+                    elif isinstance(raw_sp_value, str) and raw_sp_value.strip():
+                        match = re.search(r'\d+', raw_sp_value)
+                        if match:
+                            custom_field_extractions['story_points'] = match.group()
+                            print(f"✅✅✅ Found story points in ticket_data['fields']['customfield_10117'] (string): {custom_field_extractions['story_points']}")
+        
+        # Also check if fields are directly in ticket_data (not in fields dict)
+        if not custom_field_extractions['brands'] and 'customfield_13482' in ticket_data:
+            direct_brands = self.extract_brands({'customfield_13482': ticket_data['customfield_13482']})
+            if direct_brands:
+                custom_field_extractions['brands'] = direct_brands
+                print(f"🔍 DEBUG - Brands found in ticket_data root: {direct_brands}")
+        if not custom_field_extractions['story_points'] and 'customfield_10117' in ticket_data:
+            direct_story_points = self.extract_story_points({'customfield_10117': ticket_data['customfield_10117']})
+            if direct_story_points:
+                custom_field_extractions['story_points'] = direct_story_points
+                print(f"🔍 DEBUG - Story Points found in ticket_data root: {direct_story_points}")
+        
         # Merge: Custom fields override pattern-based extraction
+        print(f"\n🔍🔍🔍 DEBUG parse_jira_content - CUSTOM FIELDS MERGE:")
         for field_name, custom_value in custom_field_extractions.items():
+            print(f"   Processing field: '{field_name}'")
+            print(f"   custom_value: {custom_value}")
+            print(f"   custom_value type: {type(custom_value)}")
+            print(f"   custom_value is truthy: {bool(custom_value)}")
             if custom_value:  # If custom field has value, use it
                 parsed['fields'][field_name] = custom_value
+                print(f"   ✅✅✅ Set parsed['fields']['{field_name}'] = {custom_value}")
             elif field_name not in parsed['fields'] or not parsed['fields'][field_name]:
                 # Fallback to pattern extraction if custom field is empty
                 parsed['fields'][field_name] = parsed['fields'].get(field_name, '')
+                print(f"   ⚠️ Field '{field_name}' is empty, using fallback: '{parsed['fields'][field_name]}'")
+        
+        # CRITICAL: ALWAYS store status in parsed['fields']['status'] (for report generation)
+        # Even if status is 'Unknown', store it so report generation can see it
+        final_status = status if status else 'Unknown'
+        if not parsed.get('fields'):
+            parsed['fields'] = {}
+        
+        # Store status in both locations
+        parsed['status'] = final_status
+        parsed['fields']['status'] = {'name': final_status}
+        print(f"✅ FORCING: Setting status in BOTH locations: parsed['status']='{final_status}', parsed['fields']['status']={{'name': '{final_status}'}}")
+        
+        # Also ensure status_category is set if available
+        if status_category and status_category != 'Unknown':
+            parsed['status_category'] = status_category
+        
+        # Debug: Print extracted values for brands and story_points
+        print(f"\n🔍 DEBUG - Extracted Brands: '{parsed['fields'].get('brands', 'NOT FOUND')}'")
+        print(f"🔍 DEBUG - Extracted Story Points: '{parsed['fields'].get('story_points', 'NOT FOUND')}'")
+        print(f"🔍 DEBUG - Status in parsed['status']: '{parsed.get('status')}'")
+        print(f"🔍 DEBUG - Status in parsed['fields']['status']: '{parsed['fields'].get('status')}'")
+        print(f"🔍 DEBUG - Brands in fields dict: {'customfield_13482' in fields}")
+        print(f"🔍 DEBUG - Story Points in fields dict: {'customfield_10117' in fields}")
+        if 'customfield_13482' in fields:
+            print(f"🔍 DEBUG - customfield_13482 value: {fields['customfield_13482']}")
+        if 'customfield_10117' in fields:
+            print(f"🔍 DEBUG - customfield_10117 value: {fields['customfield_10117']}")
         
         return parsed
 
@@ -404,7 +808,7 @@ class GroomRoomNoScoring:
         # ========================================
         # NEW LOGIC (Jira Status-based)
         # ========================================
-        jira_status = parsed_data.get('status', '').lower()
+        jira_status = (parsed_data.get('status') or '').lower()
         
         # Critical validation: If User Story missing, force Discovery stage
         if 'user_story' not in dor.get('present', []):
@@ -434,6 +838,8 @@ class GroomRoomNoScoring:
 
     def detect_card_type(self, text: str, issuetype: str) -> str:
         """Detect card type from content and Jira issuetype"""
+        text = text or ''
+        issuetype = issuetype or ''
         text_lower = text.lower()
         issuetype_lower = issuetype.lower()
         
@@ -457,6 +863,11 @@ class GroomRoomNoScoring:
 
     def extract_field_content(self, text: str, patterns: List[str]) -> str:
         """Extract field content using multiple patterns"""
+        # Handle None text
+        if text is None:
+            text = ''
+        text = text or ''
+        
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
             if match:
@@ -476,6 +887,14 @@ class GroomRoomNoScoring:
 
     def is_placeholder_content(self, content: str) -> bool:
         """Check if content is placeholder/empty"""
+        # Handle None values
+        if content is None:
+            return True
+        
+        # Convert to string if not already
+        if not isinstance(content, str):
+            content = str(content) if content else ''
+        
         placeholder_terms = ['tbd', 'n/a', 'tba', 'to be determined', 'not applicable', 'todo', 'pending']
         content_lower = content.lower().strip()
         # IMPORTANT: "None" alone is NOT considered placeholder - field is present with explicit None value
@@ -608,10 +1027,12 @@ class GroomRoomNoScoring:
 
     def is_figma_url(self, url: str) -> bool:
         """Check if URL is a Figma URL"""
+        url = url or ''
         return 'figma.com' in url.lower()
 
     def is_anchor_suggesting_figma(self, anchor_text: str) -> bool:
         """Check if anchor text suggests Figma"""
+        anchor_text = anchor_text or ''
         anchor_lower = anchor_text.lower().strip()
         return any(term in anchor_lower for term in self.figma_anchor_terms)
 
@@ -681,7 +1102,7 @@ class GroomRoomNoScoring:
         text_before = full_text[:url_pos]
         headings = re.findall(r'\n\s*#+\s+([^\n]+)', text_before)
         if headings:
-            last_heading = headings[-1].strip().lower()
+            last_heading = (headings[-1] or '').strip().lower()
             if 'acceptance' in last_heading or 'ac' in last_heading:
                 return "Acceptance Criteria"
             elif 'test' in last_heading or 'qa' in last_heading:
@@ -697,15 +1118,67 @@ class GroomRoomNoScoring:
         """Extract brand information from Jira fields"""
         # Known Brands custom field ID: customfield_13482
         brand_fields = ['customfield_13482', 'brand', 'brands', 'product', 'market']
+        print(f"\n🔍 DEBUG extract_brands - Checking fields: {brand_fields}")
         for field_name in brand_fields:
-            if field_name in fields and fields[field_name]:
-                # Handle list format (like [{'value': 'Marmot'}])
-                value = fields[field_name]
+            field_exists = field_name in fields
+            field_value = fields.get(field_name) if field_exists else None
+            print(f"  Checking '{field_name}': exists={field_exists}, value={field_value}, type={type(field_value)}")
+            # Check if field exists (even if value is None initially, might be in renderedFields)
+            if field_name in fields:
+                # If value is None, skip this iteration (might be populated later)
+                if fields[field_name] is None:
+                    continue
+                # If value exists and is not empty
+                if fields[field_name]:
+                    # Handle list format (like [{'value': 'Marmot'}] or [{'name': 'Yankee Candle'}])
+                    value = fields[field_name]
+                
+                # If value is HTML string (from renderedFields), strip HTML tags
+                if isinstance(value, str) and '<' in value:
+                    # Strip HTML and extract text
+                    value = re.sub(r'<[^>]+>', ' ', value)
+                    value = re.sub(r'\s+', ' ', value).strip()
+                    if value and value.lower() not in ['none', 'n/a', 'na', '']:
+                        return value
+                
                 if isinstance(value, list) and value:
                     if isinstance(value[0], dict):
-                        return ', '.join([item.get('value', item.get('name', '')) for item in value])
-                    return ', '.join(str(v) for v in value)
-                return str(value)
+                        # Extract from list of dicts
+                        brand_names = []
+                        for item in value:
+                            brand_name = item.get('value', item.get('name', item.get('displayName', '')))
+                            if brand_name:
+                                brand_names.append(str(brand_name))
+                        if brand_names:
+                            result = ', '.join(brand_names)
+                            print(f"  ✅ Found brands (list of dicts): {result}")
+                            return result
+                    else:
+                        # Simple list of strings
+                        result = ', '.join(str(v) for v in value if v)
+                        print(f"  ✅ Found brands (list of strings): {result}")
+                        return result
+                elif value:
+                    # Single value (string or dict)
+                    if isinstance(value, dict):
+                        result = value.get('value', value.get('name', value.get('displayName', str(value))))
+                        if result and result.strip() and result.lower() not in ['none', 'n/a', 'na', '']:
+                            print(f"  ✅ Found brands (dict): {result}")
+                            return result
+                        else:
+                            print(f"  ⚠️ Brands dict result is empty/invalid: '{result}'")
+                    elif isinstance(value, str) and value.strip() and value.lower() not in ['none', 'n/a', 'na', '']:
+                        print(f"  ✅ Found brands (string): {value}")
+                        return value.strip()
+                    else:
+                        # Try converting to string as last resort
+                        value_str = str(value).strip()
+                        if value_str and value_str.lower() not in ['none', 'n/a', 'na', '']:
+                            print(f"  ✅ Found brands (converted to string): {value_str}")
+                            return value_str
+                        else:
+                            print(f"  ⚠️ Brands value is empty/invalid: '{value}'")
+        print(f"  ❌ No brands found, returning empty string")
         return ""
 
     def extract_components(self, fields: Dict[str, Any]) -> str:
@@ -730,9 +1203,53 @@ class GroomRoomNoScoring:
         """Extract story points"""
         # Known Story Points custom field ID: customfield_10117
         story_point_fields = ['customfield_10117', 'customfield_10002', 'story_points', 'storypoints']
+        print(f"\n🔍 DEBUG extract_story_points - Checking fields: {story_point_fields}")
         for field_name in story_point_fields:
-            if field_name in fields and fields[field_name]:
-                return str(fields[field_name])
+            field_exists = field_name in fields
+            field_value = fields.get(field_name) if field_exists else None
+            print(f"  Checking '{field_name}': exists={field_exists}, value={field_value}, type={type(field_value)}")
+            # Check if field exists (even if value is None initially)
+            if field_name in fields:
+                # If value is None, skip this iteration (might be populated later)
+                if fields[field_name] is None:
+                    continue
+                # Process the value
+                value = fields[field_name]
+                
+                # If value is HTML string (from renderedFields), strip HTML tags
+                if isinstance(value, str) and '<' in value:
+                    # Strip HTML and extract text
+                    value = re.sub(r'<[^>]+>', ' ', value)
+                    value = re.sub(r'\s+', ' ', value).strip()
+                    # Try to extract numeric value
+                    match = re.search(r'\d+', value)
+                    if match:
+                        return match.group()
+                
+                # Handle numeric values (0, 1, 2, etc.)
+                if isinstance(value, (int, float)):
+                    result = str(int(value))
+                    print(f"  ✅ Found story points (numeric): {result}")
+                    return result
+                # Handle string values
+                if isinstance(value, str) and value.strip():
+                    value_str = value.strip()
+                    # Extract number from string if present
+                    match = re.search(r'\d+', value_str)
+                    if match:
+                        result = match.group()
+                        print(f"  ✅ Found story points (string with number): {result}")
+                        return result
+                    print(f"  ✅ Found story points (string): {value_str}")
+                    return value_str
+                # Handle dict format (if story points are in object format)
+                if isinstance(value, dict):
+                    points = value.get('value', value.get('name', ''))
+                    if points:
+                        result = str(points)
+                        print(f"  ✅ Found story points (dict): {result}")
+                        return result
+        print(f"  ❌ No story points found, returning empty string")
         return ""
 
     def extract_environment(self, fields: Dict[str, Any]) -> str:
@@ -991,7 +1508,8 @@ class GroomRoomNoScoring:
         for field_id in ada_field_ids:
             if field_id in fields and fields[field_id]:
                 content = self._extract_text_from_field(fields[field_id])
-                if content:  # Even "None" counts as present
+                # If content is explicitly "None", treat as missing (not present)
+                if content and content.strip().lower() not in ['none', 'n/a', 'na', 'null', '']:
                     return content
         
         # Fallback to description section search
@@ -1009,8 +1527,8 @@ class GroomRoomNoScoring:
                 else:
                     content = re.split(r'\n\s*\n', after_heading, maxsplit=1)[0].strip()
                 
-                # Even "None" is valid
-                if content:
+                # If content is explicitly "None", treat as missing (not present)
+                if content and content.strip().lower() not in ['none', 'n/a', 'na', 'null', '']:
                     return content
         
         return ""
@@ -1135,16 +1653,30 @@ class GroomRoomNoScoring:
             field_value = parsed_data['fields'].get(field)
             print(f"\nChecking '{field}': {field_value[:100] if field_value else 'EMPTY'}...")
             
-            if field in parsed_data['fields'] and parsed_data['fields'][field]:
-                if not self.is_placeholder_content(parsed_data['fields'][field]):
-                    print(f"  ✅ PRESENT")
-                    present_fields.append(field)
+            # Special handling for story_points: 0 is a valid value
+            if field == 'story_points':
+                if field in parsed_data['fields'] and parsed_data['fields'][field] is not None and str(parsed_data['fields'][field]).strip():
+                    if not self.is_placeholder_content(parsed_data['fields'][field]):
+                        print(f"  ✅ PRESENT")
+                        present_fields.append(field)
+                    else:
+                        print(f"  ❌ MISSING (placeholder)")
+                        missing_fields.append(field)
                 else:
-                    print(f"  ❌ MISSING (placeholder)")
+                    print(f"  ❌ MISSING (not in fields or empty)")
                     missing_fields.append(field)
             else:
-                print(f"  ❌ MISSING (not in fields or empty)")
-                missing_fields.append(field)
+                # For other fields, empty string means missing
+                if field in parsed_data['fields'] and parsed_data['fields'][field]:
+                    if not self.is_placeholder_content(parsed_data['fields'][field]):
+                        print(f"  ✅ PRESENT")
+                        present_fields.append(field)
+                    else:
+                        print(f"  ❌ MISSING (placeholder)")
+                        missing_fields.append(field)
+                else:
+                    print(f"  ❌ MISSING (not in fields or empty)")
+                    missing_fields.append(field)
         
         # Detect conflicts in ACs
         ac_content = parsed_data['fields'].get('acceptance_criteria', '')
@@ -1163,6 +1695,7 @@ class GroomRoomNoScoring:
             ('popup opens immediately', 'second CTA opens popup')
         ]
         
+        ac_content = ac_content or ''
         for term1, term2 in contradictory_terms:
             if term1 in ac_content.lower() and term2 in ac_content.lower():
                 conflicts.append(f"Contradictory ACs: '{term1}' and '{term2}' found")
@@ -1194,81 +1727,142 @@ class GroomRoomNoScoring:
         return "Needs Refinement"
 
     def generate_suggested_rewrite(self, parsed_data: Dict[str, Any]) -> str:
-        """Generate detailed, realistic user story rewrite (4-5+ lines minimum)"""
-        current_story = parsed_data['fields'].get('user_story', '')
-        description = self._extract_text_from_field(parsed_data.get('description', ''))
-        title = parsed_data['title']
-        acceptance_criteria = parsed_data['fields'].get('acceptance_criteria', '')
+        """Generate detailed improvement suggestions for user story (not just rewrite)"""
+        current_story = parsed_data['fields'].get('user_story', '') or ''
+        description = self._extract_text_from_field(parsed_data.get('description', '')) or ''
+        title = parsed_data.get('title', '') or ''
+        acceptance_criteria = parsed_data['fields'].get('acceptance_criteria', '') or ''
         
         # Extract domain terms from the ticket
         domain_terms = self.extract_domain_terms(parsed_data)
         
-        # If story exists and is well-formed, return it as-is
-        if current_story and 'as a' in current_story.lower() and 'i want' in current_story.lower() and 'so that' in current_story.lower() and len(current_story) > 100:
-            # Story is already detailed and good!
-            return current_story
+        # Analyze current story for issues
+        issues = []
+        improvements = []
         
-        # If story exists but needs improvement, enhance it
-        if current_story and 'as a' in current_story.lower():
-            # Build upon existing story with more detail
-            persona = self.extract_persona(description, title)
-            goal = self.extract_goal(description, title)
-            benefit = self.extract_benefit(description, title)
-            
-            # Add context from acceptance criteria for detail
-            context_detail = ""
-            if acceptance_criteria and len(acceptance_criteria) > 20:
-                # Extract first key requirement for context
-                ac_lines = acceptance_criteria.split('\n')
-                if ac_lines:
-                    first_ac = ac_lines[0].strip('- •*1234567890.').strip()
-                    if len(first_ac) > 20:
-                        context_detail = f" This includes {first_ac.lower()}"
-            
-            # Create detailed, multi-line suggestion
-            detailed_story = f"As a {persona}, I want to {goal}, so that I can {benefit}.{context_detail}"
-            
-            # Add business value context if available from description
-            if 'revenue' in description.lower() or 'conversion' in description.lower() or 'engagement' in description.lower():
-                detailed_story += " This will improve user engagement and drive business outcomes by reducing friction in the user journey."
-            elif 'performance' in description.lower() or 'speed' in description.lower():
-                detailed_story += " This enhancement will optimize performance and deliver a faster, more responsive experience."
-            else:
-                detailed_story += " This improvement aligns with user needs and enhances overall product usability."
-            
-            return detailed_story
+        current_story_lower = (current_story or '').lower()
         
-        # Synthesize detailed story from description + domain terms + AC
-        persona = self.extract_persona(description, title)
-        goal = self.extract_goal(description, title)
-        benefit = self.extract_benefit(description, title)
-        
-        # NO TRUNCATION - keep full detail!
-        goal = goal.replace(title, '').strip()
-        
-        # Ensure domain terms are included for realism
-        if domain_terms and not any(term.lower() in f"{goal} {benefit}".lower() for term in domain_terms):
-            goal = f"{goal} using {domain_terms[0]}"
-        
-        # Build detailed, context-aware suggestion (4-5 lines minimum)
-        detailed_story = f"As a {persona}, I want to {goal}, so that I can {benefit}."
-        
-        # Add specific implementation context from description
-        if 'filter' in title.lower() or 'search' in title.lower():
-            detailed_story += " The enhanced filtering system will allow me to narrow down results efficiently, saving time and improving my shopping experience. This feature should be intuitive, responsive, and accessible across all devices."
-        elif 'checkout' in title.lower() or 'payment' in title.lower():
-            detailed_story += " By streamlining the checkout process, I can complete purchases faster with fewer steps, reducing cart abandonment and improving conversion rates. The flow should be secure, clear, and optimized for both desktop and mobile."
-        elif 'form' in title.lower() or 'input' in title.lower():
-            detailed_story += " Clear validation and helpful error messages will guide me through the form completion process, reducing frustration and submission errors. The interface should provide real-time feedback and support accessibility standards."
+        # Check for common issues
+        if not current_story or len(current_story.strip()) < 20:
+            issues.append("User story is missing or too short")
+            improvements.append("Add a complete user story following the format: 'As a [persona], I want [goal], so that [benefit]'")
         else:
-            # Generic but detailed enhancement
-            detailed_story += " This improvement will streamline my workflow, reduce unnecessary steps, and deliver a more intuitive experience. The implementation should follow best practices for usability, performance, and accessibility to ensure all users benefit."
+            # Check for persona issues
+            if 'as a' not in current_story_lower:
+                issues.append("Missing persona ('As a...')")
+                improvements.append("Specify a clear persona (e.g., 'As a shopper', 'As a registered user', 'As a guest user')")
+            elif 'user' in current_story_lower and current_story_lower.count('user') == 1:
+                issues.append("Persona is too generic ('user')")
+                improvements.append("Replace generic 'user' with a specific persona that reflects the actual user type (e.g., 'shopper', 'customer', 'admin', 'guest visitor')")
+            
+            # Check for goal issues
+            if 'i want' not in current_story_lower:
+                issues.append("Missing goal ('I want...')")
+                improvements.append("Clearly state what the user wants to accomplish with specific, measurable actions")
+            else:
+                # Check if goal is too vague
+                vague_words = ['better', 'improve', 'nice', 'good', 'easier', 'faster']
+                if any(word in current_story_lower for word in vague_words):
+                    issues.append("Goal contains vague language")
+                    improvements.append("Replace vague terms with specific, actionable goals. Instead of 'better filters', use 'filters accessible at the top of the page'")
+                
+                # Check if goal focuses on implementation details
+                implementation_words = ['click', 'button', 'api', 'database', 'code', 'implement']
+                if any(word in current_story_lower for word in implementation_words):
+                    issues.append("Goal focuses on 'how' instead of 'what'")
+                    improvements.append("Focus on user needs and outcomes, not technical implementation. Remove references to buttons, clicks, or technical details")
+            
+            # Check for benefit issues
+            if 'so that' not in current_story_lower:
+                issues.append("Missing benefit ('so that...')")
+                improvements.append("Add a clear business value or user benefit that explains why this feature matters")
+            else:
+                # Check if benefit is missing or weak
+                benefit_part = current_story.split('so that')[-1] if 'so that' in current_story else ''
+                if len(benefit_part.strip()) < 15:
+                    issues.append("Benefit is too short or unclear")
+                    improvements.append("Expand the benefit to clearly explain the value: impact on user experience, business metrics, or user goals")
+            
+            # Check for specificity
+            if len(current_story) < 80:
+                issues.append("Story lacks detail and context")
+                improvements.append("Add more context about what specifically the user wants, where it applies, and what constraints or considerations exist")
+            
+            # Check for business value
+            business_value_words = ['revenue', 'conversion', 'engagement', 'satisfaction', 'efficiency', 'time', 'cost']
+            if not any(word in current_story_lower for word in business_value_words):
+                issues.append("Story doesn't clearly communicate business value")
+                improvements.append("Enhance the 'so that' clause to include measurable outcomes or business impact (e.g., 'reduce time to find products', 'increase conversion rates', 'improve user satisfaction')")
         
-        return detailed_story
+        # Build detailed improvement suggestions
+        suggestion_parts = []
+        
+        if issues:
+            suggestion_parts.append("**Issues Identified:**")
+            for i, issue in enumerate(issues, 1):
+                suggestion_parts.append(f"{i}. {issue}")
+            suggestion_parts.append("")
+        
+        suggestion_parts.append("**Recommended Improvements:**")
+        for i, improvement in enumerate(improvements, 1):
+            suggestion_parts.append(f"{i}. {improvement}")
+        suggestion_parts.append("")
+        
+        # Provide a suggested enhanced version
+        persona = self.extract_persona(description, title) or 'shopper'
+        goal = self.extract_goal(description, title) or ''
+        benefit = self.extract_benefit(description, title) or ''
+        
+        # Extract specific details from title and description
+        title_lower = (title or '').lower()
+        description_lower = (description or '').lower()
+        
+        # Enhance goal with specific details
+        if 'filter' in title_lower or 'filter' in description_lower:
+            if not goal or 'filter' not in goal.lower():
+                goal = "access top filters at the top of the page with the left filter panel removed"
+            if not benefit or len(benefit) < 20:
+                benefit = "quickly find what I'm looking for, view more products on my screen, and reduce the number of clicks needed to apply filters"
+        elif 'checkout' in title_lower or 'payment' in description_lower:
+            if not benefit or len(benefit) < 20:
+                benefit = "complete purchases faster with fewer steps, reducing cart abandonment and improving my overall shopping experience"
+        elif 'search' in title_lower or 'search' in description_lower:
+            if not benefit or len(benefit) < 20:
+                benefit = "find products more efficiently, saving time and improving my shopping experience"
+        
+        # Build enhanced story suggestion
+        if goal and benefit:
+            enhanced_story = f"As a {persona}, I want {goal}, so that {benefit}."
+            
+            # Add context from acceptance criteria if available
+            if acceptance_criteria and len(acceptance_criteria) > 20:
+                ac_lines = [line.strip('- •*1234567890.').strip() for line in acceptance_criteria.split('\n') if line.strip()]
+                if ac_lines:
+                    key_requirement = ac_lines[0][:100] if len(ac_lines[0]) > 100 else ac_lines[0]
+                    enhanced_story += f" This includes ensuring {key_requirement.lower()}."
+            
+            # Add business value context
+            if 'revenue' in description_lower or 'conversion' in description_lower:
+                enhanced_story += " This improvement will drive business outcomes by reducing friction in the user journey and increasing conversion rates."
+            elif 'performance' in description_lower or 'speed' in description_lower:
+                enhanced_story += " This enhancement will optimize performance and deliver a faster, more responsive experience for all users."
+            elif 'accessibility' in description_lower or 'ada' in description_lower:
+                enhanced_story += " This feature will improve accessibility and ensure compliance with ADA standards, making the experience inclusive for all users."
+            else:
+                enhanced_story += " This improvement aligns with user needs and enhances overall product usability while maintaining high standards for performance and accessibility."
+            
+            suggestion_parts.append("**Suggested Enhanced Story:**")
+            suggestion_parts.append(f'"{enhanced_story}"')
+        else:
+            suggestion_parts.append("**Note:** Unable to generate enhanced story - please review the ticket description and acceptance criteria for more context.")
+        
+        return "\n".join(suggestion_parts)
 
     def extract_domain_terms(self, parsed_data: Dict[str, Any]) -> List[str]:
         """Extract domain-specific terms from ticket content"""
-        all_text = f"{parsed_data['title']} {parsed_data['description']}"
+        title = parsed_data.get('title', '') or ''
+        description = parsed_data.get('description', '') or ''
+        all_text = f"{title} {description}"
         domain_keywords = [
             'PayPal', 'ABTasty', 'SFCC-Checkout', 'PLP', 'Filters', 'Yankee', 'Marmot', 'Graco',
             'checkout', 'payment', 'filter', 'search', 'cart', 'login', 'auth', 'password'
@@ -1277,6 +1871,8 @@ class GroomRoomNoScoring:
 
     def extract_persona(self, description: str, title: str) -> str:
         """Extract persona from content"""
+        title = title or ''
+        description = description or ''
         text = f"{title} {description}".lower()
         persona_synonyms = ['shopper', 'user', 'customer', 'visitor', 'admin', 'registered user']
         
@@ -1288,6 +1884,8 @@ class GroomRoomNoScoring:
 
     def extract_goal(self, description: str, title: str) -> str:
         """Extract main goal from content (NO truncation for detailed suggestions)"""
+        title = title or ''
+        description = description or ''
         text = f"{title} {description}".lower()
         
         # Look for "I want" pattern first
@@ -1310,16 +1908,19 @@ class GroomRoomNoScoring:
                 return f"{verb} {object_phrase}"
         
         # Fallback to first meaningful sentence from title/description
-        sentences = [s.strip() for s in title.split('.') if len(s.strip()) > 10]
-        if sentences:
-            goal = sentences[0]
-            # NO TRUNCATION - keep full goal text!
-            return goal
+        if title:
+            sentences = [s.strip() for s in title.split('.') if len(s.strip()) > 10]
+            if sentences:
+                goal = sentences[0]
+                # NO TRUNCATION - keep full goal text!
+                return goal
         
         return "achieve the desired functionality"
 
     def extract_benefit(self, description: str, title: str) -> str:
         """Extract benefit from content"""
+        title = title or ''
+        description = description or ''
         text = f"{title} {description}".lower()
         
         # Look for "so that" pattern (strongest indicator)
@@ -1363,6 +1964,7 @@ class GroomRoomNoScoring:
             rewritten_acs = []
             
             for ac in ac_lines:
+                ac = ac or ''
                 if not any(phrase in ac.lower() for phrase in self.banned_ac_phrases):
                     # Enhance with domain terms and measurability
                     enhanced_ac = self.enhance_ac_with_domain(ac, domain_terms, design_links)
@@ -1379,19 +1981,20 @@ class GroomRoomNoScoring:
 
     def enhance_ac_with_domain(self, ac: str, domain_terms: List[str], design_links: List[DesignLink]) -> str:
         """Enhance AC with domain terms and design context"""
+        ac = ac or ''
         enhanced = ac
         
         # Add timing if not present
-        if not re.search(r'\d+\s*(ms|s|seconds?)', enhanced.lower()):
+        if enhanced and not re.search(r'\d+\s*(ms|s|seconds?)', enhanced.lower()):
             enhanced += " (≤300ms response time)"
         
         # Add domain context if missing
-        if not any(term.lower() in enhanced.lower() for term in domain_terms):
+        if enhanced and not any(term.lower() in enhanced.lower() for term in domain_terms):
             if domain_terms:
                 enhanced += f" (using {domain_terms[0]})"
         
         # Add Figma reference if design links present
-        if design_links and 'design' in enhanced.lower():
+        if enhanced and design_links and 'design' in enhanced.lower():
             figma_ref = f" per Figma {design_links[0].file_key}"
             if design_links[0].node_ids:
                 figma_ref += f" node {design_links[0].node_ids[0]}"
@@ -1401,6 +2004,7 @@ class GroomRoomNoScoring:
 
     def replace_banned_phrases(self, ac: str, domain_terms: List[str]) -> str:
         """Replace banned generic phrases with specific requirements"""
+        ac = ac or ''
         enhanced = ac
         
         replacements = {
@@ -1417,8 +2021,8 @@ class GroomRoomNoScoring:
 
     def generate_new_acceptance_criteria(self, parsed_data: Dict[str, Any], domain_terms: List[str], design_links: List[DesignLink]) -> List[str]:
         """Generate new ACs derived from description + domain terms"""
-        description = parsed_data['description']
-        title = parsed_data['title']
+        description = parsed_data.get('description', '') or ''
+        title = parsed_data.get('title', '') or ''
         
         # Template ACs based on domain patterns
         ac_templates = []
@@ -1463,103 +2067,158 @@ class GroomRoomNoScoring:
         return ac_templates[:7]  # Return 5-7 ACs
 
     def generate_test_scenarios(self, parsed_data: Dict[str, Any], ac_rewrites: List[str]) -> Dict[str, List[str]]:
-        """Generate P/N/E test scenarios mapped directly from ACs"""
+        """Generate mature, descriptive test scenarios directly mapped from acceptance criteria"""
         scenarios = {
             'positive': [],
             'negative': [],
             'error': []
         }
         
-        # Get actual test steps from Jira if available
-        testing_steps = parsed_data['fields'].get('testing_steps', '')
+        # Extract context from ticket
+        title = parsed_data.get('title', '') or ''
+        description = self._extract_text_from_field(parsed_data.get('description', '')) or ''
+        acceptance_criteria = parsed_data['fields'].get('acceptance_criteria', '') or ''
+        testing_steps = parsed_data['fields'].get('testing_steps', '') or ''
         
-        # Parse testing steps if available
-        if testing_steps and len(testing_steps) > 50:
-            # Extract numbered test scenarios from Jira
-            test_lines = [line.strip() for line in testing_steps.split('\n') if line.strip()]
-            for line in test_lines:
-                # Clean up HTML tags and numbering
-                clean_line = re.sub(r'<[^>]+>', '', line)
-                clean_line = re.sub(r'^\d+[\.\)]\s*', '', clean_line)
-                clean_line = re.sub(r'^[-•]\s*', '', clean_line)
+        # Combine all text for context analysis
+        all_context = f"{title} {description} {acceptance_criteria}".lower()
+        
+        # Parse acceptance criteria into individual ACs
+        ac_lines = []
+        if acceptance_criteria:
+            # Split by common delimiters
+            for line in acceptance_criteria.split('\n'):
+                line = re.sub(r'<[^>]+>', '', line).strip()  # Remove HTML
+                line = re.sub(r'^\d+[\.\)]\s*', '', line)  # Remove numbering
+                line = re.sub(r'^[-•*]\s*', '', line)  # Remove bullets
+                if len(line) > 15 and line not in ['', 'None', 'N/A']:
+                    ac_lines.append(line)
+        
+        # Generate positive scenarios from ACs
+        for ac in ac_lines[:8]:  # Limit to 8 ACs to avoid too many scenarios
+            if not ac or len(ac) < 15:
+                continue
                 
-                if len(clean_line) > 20:
-                    # Categorize based on keywords
-                    line_lower = clean_line.lower()
-                    
-                    if any(word in line_lower for word in ['invalid', 'error', 'incorrect', 'wrong', 'negative', 'edge', 'unauthorized', 'prevent']):
-                        scenarios['negative'].append(clean_line)
-                    elif any(word in line_lower for word in ['timeout', 'failure', 'network', 'connection', 'resilience', 'handles', 'gracefully']):
-                        scenarios['error'].append(clean_line)
-                    else:
-                        scenarios['positive'].append(clean_line)
+            ac_lower = ac.lower()
+            
+            # Create mature, descriptive positive scenario from AC
+            # Extract key actions and outcomes
+            if 'filter' in ac_lower:
+                if 'panel' in ac_lower or 'left' in ac_lower:
+                    scenarios['positive'].append(f"Left filter panel is removed and top filters are accessible, ensuring the product grid displays with maximum screen real estate as specified in the design requirements")
+                elif 'bar' in ac_lower or 'top' in ac_lower:
+                    scenarios['positive'].append(f"Filter bar is correctly positioned at the top of the page and styled according to design specifications, maintaining visual consistency and accessibility standards")
+                elif 'quick' in ac_lower or 'relevant' in ac_lower:
+                    scenarios['positive'].append(f"Only relevant quick filters are displayed (up to maximum of 5, configurable by merchandising team), ensuring users see the most applicable filtering options without visual clutter")
+                elif 'flyout' in ac_lower or 'panel' in ac_lower:
+                    scenarios['positive'].append(f"Flyout panel slides out smoothly with proper animation timing, displaying only the relevant filter options with controls that match design requirements and accessibility guidelines")
+                elif 'apply' in ac_lower or 'trigger' in ac_lower:
+                    scenarios['positive'].append(f"Filter application triggers immediate product grid refresh with updated results, maintaining responsive user experience and clear visual feedback of applied filters")
+                elif 'sticky' in ac_lower or 'bar' in ac_lower:
+                    scenarios['positive'].append(f"Applied filters are correctly displayed in the sticky filter bar with proper visual indicators, allowing users to see and manage active filters throughout their browsing session")
+                elif 'remove' in ac_lower or 'clear' in ac_lower:
+                    scenarios['positive'].append(f"Filter removal updates product results in real-time without page refresh, maintaining smooth user experience and ensuring data consistency across the product listing page")
+                elif 'collapse' in ac_lower or 'close' in ac_lower:
+                    scenarios['positive'].append(f"All filters are visible in collapsed state with proper UI animations matching Figma specifications, and panel closes as expected with state preservation")
+                else:
+                    scenarios['positive'].append(f"Filter functionality works as specified: {ac[:100]}...")
+            
+            elif 'desktop' in ac_lower or 'tablet' in ac_lower or 'mobile' in ac_lower or 'device' in ac_lower:
+                devices = []
+                if 'desktop' in ac_lower:
+                    devices.append('desktop')
+                if 'tablet' in ac_lower:
+                    devices.append('tablet')
+                if 'mobile' in ac_lower:
+                    devices.append('mobile')
+                device_list = ' and '.join(devices) if devices else 'all supported devices'
+                scenarios['positive'].append(f"Feature is fully functional and displays correctly on {device_list}, maintaining responsive design principles and consistent user experience across different screen sizes and orientations")
+            
+            elif 'validation' in ac_lower or 'validate' in ac_lower or 'required' in ac_lower:
+                scenarios['positive'].append(f"Validation rules are correctly implemented: {ac[:120]}...")
+            
+            elif 'display' in ac_lower or 'show' in ac_lower or 'visible' in ac_lower:
+                scenarios['positive'].append(f"Content displays correctly as specified: {ac[:120]}...")
+            
+            elif 'user' in ac_lower and ('can' in ac_lower or 'able' in ac_lower):
+                scenarios['positive'].append(f"User can successfully complete the intended action: {ac[:120]}...")
+            
+            else:
+                # Generic but mature positive scenario
+                scenarios['positive'].append(f"{ac[:150]}...")
         
-        # If no testing steps or need more scenarios, generate from context
-        if len(scenarios['positive']) < 3:
-            # Generate positive scenarios
-            base_positives = [
-                "Valid input produces expected output with correct data",
-                "User completes primary workflow successfully from start to finish",
-                "Feature displays correctly per design specifications on all devices",
-                "All interactive elements respond within acceptable performance thresholds (≤300ms)",
-                "Data persists correctly and remains consistent across sessions",
-                "Navigation flows work as expected with proper state management"
-            ]
-            scenarios['positive'].extend(base_positives[:6 - len(scenarios['positive'])])
+        # Generate negative scenarios based on ACs and context
+        negative_keywords = ['invalid', 'error', 'incorrect', 'wrong', 'prevent', 'block', 'reject', 'deny', 'unauthorized', 'boundary', 'limit', 'max', 'min', 'empty', 'null']
+        has_negative_ac = any(keyword in all_context for keyword in negative_keywords)
         
-        if len(scenarios['negative']) < 3:
-            # Generate negative scenarios
-            base_negatives = [
-                "Invalid input shows appropriate error message with clear guidance",
-                "System prevents unauthorized access and maintains security boundaries",
-                "Boundary conditions are handled correctly (empty, null, max values)",
-                "Duplicate actions are prevented or handled appropriately",
-                "Required fields validation works correctly with user feedback",
-                "Conflicting operations are blocked with explanatory messages"
-            ]
-            scenarios['negative'].extend(base_negatives[:6 - len(scenarios['negative'])])
+        if not has_negative_ac and ac_lines:
+            # Generate negative scenarios from positive ACs (inverse testing)
+            for ac in ac_lines[:4]:
+                ac_lower = ac.lower()
+                if 'filter' in ac_lower:
+                    scenarios['negative'].append(f"Invalid filter combinations or out-of-range values are rejected with clear error messaging, preventing system errors and maintaining data integrity")
+                elif 'required' in ac_lower or 'must' in ac_lower:
+                    scenarios['negative'].append(f"Required field validation prevents submission with appropriate user feedback when mandatory fields are left empty or contain invalid data")
+                elif 'display' in ac_lower or 'show' in ac_lower:
+                    scenarios['negative'].append(f"System handles edge cases gracefully when data is unavailable, showing appropriate fallback content or messaging without breaking the user interface")
+                else:
+                    scenarios['negative'].append(f"Invalid input or unauthorized actions are prevented with appropriate error handling and user guidance, maintaining system security and data integrity")
         
-        if len(scenarios['error']) < 3:
-            # Generate error/resilience scenarios
-            base_errors = [
-                "System handles network timeout gracefully with retry mechanism",
-                "Database connection failure is handled with appropriate fallback",
-                "API errors return user-friendly messages and log technical details",
-                "Partial data loads are handled without breaking functionality",
-                "Session expiration redirects user appropriately with state preservation",
-                "Concurrent operations maintain data integrity without conflicts"
-            ]
-            scenarios['error'].extend(base_errors[:6 - len(scenarios['error'])])
+        # Add standard negative scenarios if needed
+        if len(scenarios['negative']) < 4:
+            scenarios['negative'].extend([
+                "Invalid input shows appropriate error message with clear guidance and actionable next steps for the user",
+                "System prevents unauthorized access and maintains security boundaries with proper authentication and authorization checks",
+                "Boundary conditions are handled correctly (empty, null, max values) with appropriate validation and user feedback",
+                "Required fields validation works correctly with real-time feedback and prevents form submission until all mandatory fields are properly completed"
+            ])
         
-        # Add non-functional test scenarios if not covered
-        nfr_positives = [
-            "Page load completes within 2 seconds on standard connection",
-            "Keyboard navigation works for all interactive elements (Tab, Enter, Escape)",
-            "Screen reader announces all content changes with proper ARIA labels"
-        ]
+        # Generate error/resilience scenarios
+        if len(scenarios['error']) < 4:
+            scenarios['error'].extend([
+                "System handles network timeout gracefully with retry mechanism and user notification, ensuring data consistency and preventing partial state updates",
+                "Database connection failure is handled with appropriate fallback mechanism, displaying user-friendly error messages while logging technical details for troubleshooting",
+                "API errors return user-friendly messages and log technical details for debugging, maintaining system stability and providing clear communication to end users",
+                "Partial data loads are handled without breaking functionality, showing available content immediately while gracefully handling missing data with appropriate placeholders or loading states"
+            ])
         
-        nfr_negatives = [
-            "System prevents SQL injection and XSS attacks on all inputs",
-            "CSRF tokens are validated for all state-changing operations"
-        ]
+        # Add non-functional test scenarios
+        if 'filter' in all_context or 'ui' in all_context or 'interface' in all_context:
+            scenarios['positive'].append("Keyboard navigation works seamlessly for all interactive filter elements (Tab, Enter, Escape, Arrow keys), ensuring full accessibility compliance")
+            scenarios['positive'].append("Screen reader announces all filter state changes and product grid updates with proper ARIA labels, maintaining WCAG 2.1 AA compliance")
         
-        nfr_errors = [
-            "Memory leaks are prevented during long sessions or repeated actions",
-            "Browser crashes or tab closes preserve critical user data"
-        ]
+        # Add additional positive scenarios for comprehensive coverage
+        scenarios['positive'].append("All interactive elements respond within expected performance thresholds (≤500ms response time), providing smooth and responsive user experience across all supported browsers and devices")
+        scenarios['positive'].append("Feature maintains consistent behavior and visual appearance across different browsers (Chrome, Firefox, Safari, Edge) and operating systems, ensuring universal compatibility")
+        scenarios['positive'].append("User actions are properly tracked and logged for analytics purposes, enabling accurate measurement of feature usage and user engagement metrics")
         
-        # Add NFRs if space available
-        if len(scenarios['positive']) < 8:
-            scenarios['positive'].extend(nfr_positives[:8 - len(scenarios['positive'])])
-        if len(scenarios['negative']) < 8:
-            scenarios['negative'].extend(nfr_negatives[:8 - len(scenarios['negative'])])
-        if len(scenarios['error']) < 8:
-            scenarios['error'].extend(nfr_errors[:8 - len(scenarios['error'])])
+        scenarios['negative'].extend([
+            "System prevents SQL injection and XSS attacks on all filter inputs and search parameters, maintaining security best practices and data protection",
+            "CSRF tokens are validated for all state-changing operations including filter applications, ensuring protection against cross-site request forgery attacks"
+        ])
         
-        # Limit to reasonable number
+        scenarios['error'].extend([
+            "Session expiration redirects user appropriately with state preservation, allowing users to return to their filtered product view after re-authentication",
+            "Concurrent operations maintain data integrity without conflicts when multiple filters are applied rapidly, ensuring consistent product grid updates",
+            "Memory leaks are prevented during long browsing sessions with multiple filter interactions, maintaining optimal browser performance and user experience",
+            "Browser crashes or tab closes preserve critical user data including applied filters, allowing users to restore their previous session state upon return"
+        ])
+        
+        # Limit to reasonable number (keep similar count)
         scenarios['positive'] = scenarios['positive'][:12]
-        scenarios['negative'] = scenarios['negative'][:12]
-        scenarios['error'] = scenarios['error'][:12]
+        scenarios['negative'] = scenarios['negative'][:8]
+        scenarios['error'] = scenarios['error'][:8]
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        for key in scenarios:
+            unique_scenarios = []
+            for scenario in scenarios[key]:
+                scenario_lower = scenario.lower()
+                if scenario_lower not in seen:
+                    seen.add(scenario_lower)
+                    unique_scenarios.append(scenario)
+            scenarios[key] = unique_scenarios
         
         # Hyperlink Figma references in test scenarios
         design_links = parsed_data.get('design_links', [])
@@ -1668,8 +2327,9 @@ class GroomRoomNoScoring:
 
     def generate_technical_details(self, parsed_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate detailed technical, ADA, and architecture information based on ticket context"""
-        title = parsed_data['title'].lower()
-        description = self._extract_text_from_field(parsed_data.get('description', '')).lower()
+        title = (parsed_data.get('title', '') or '').lower()
+        description_raw = self._extract_text_from_field(parsed_data.get('description', ''))
+        description = (description_raw or '').lower()
         domain_terms = self.extract_domain_terms(parsed_data)
         design_links = parsed_data.get('design_links', [])
         
@@ -1761,90 +2421,226 @@ class GroomRoomNoScoring:
         }
 
     def generate_professional_ac_suggestions(self, original_acs: List[str], parsed_data: Dict[str, Any]) -> List[Dict[str, str]]:
-        """Generate detailed, professional rewrite suggestions for each acceptance criterion"""
+        """Generate detailed, professional rewrite suggestions based on ACTUAL AC content and description"""
         suggestions = []
-        title = parsed_data.get('title', '').lower()
+        title = (parsed_data.get('title', '') or '').lower()
         description = self._extract_text_from_field(parsed_data.get('description', ''))
+        description_lower = (description or '').lower()
+        testing_steps = parsed_data.get('fields', {}).get('testing_steps', '') or ''
+        
+        # Extract key points from description for context (preserve full sentences, no truncation)
+        description_points = []
+        if description:
+            # Split by newlines but also preserve paragraph structure
+            desc_lines = description.split('\n')
+            current_paragraph = []
+            for line in desc_lines:
+                line = line.strip()
+                if not line:
+                    # Empty line - save current paragraph if any
+                    if current_paragraph:
+                        full_para = ' '.join(current_paragraph).strip()
+                        if full_para and len(full_para) > 20 and not full_para.lower().startswith(('user story', 'acceptance', 'description')):
+                            description_points.append(full_para)
+                        current_paragraph = []
+                    continue
+                
+                # Clean up bullet points and numbering
+                cleaned = line.strip('-•*1234567890. ').strip()
+                if cleaned and len(cleaned) > 10:
+                    current_paragraph.append(cleaned)
+            
+            # Add last paragraph if any
+            if current_paragraph:
+                full_para = ' '.join(current_paragraph).strip()
+                if full_para and len(full_para) > 20 and not full_para.lower().startswith(('user story', 'acceptance', 'description')):
+                    description_points.append(full_para)
         
         for i, original_ac in enumerate(original_acs):
             if not original_ac or len(original_ac.strip()) < 5:
                 continue
             
+            original_ac = original_ac or ''
             ac_lower = original_ac.lower()
             
-            # Determine context and create professional rewrite
-            rewrite = ""
-            why_better = ""
+            # Start with the ACTUAL AC as base, then enhance it
+            rewrite = original_ac.strip()
+            why_better_parts = []
             
-            # Context-aware rewrites based on common patterns
-            if 'filter' in ac_lower or 'filter' in title:
-                if 'display' in ac_lower or 'show' in ac_lower:
-                    rewrite = f"On the Product Listing Page, selecting filter options (Brand, Size, Color, Price) must update the product grid to display only matching items within 1 second. Applied filters should appear as removable tokens above the grid with '×' close buttons for easy removal. The product count must update dynamically with messaging like 'Showing 24 of 156 results' to provide context. Filter state needs to be preserved in the URL for shareability and browser back/forward navigation support. If no products match the selected filters, display a helpful message: 'No products match your filters. Try adjusting your selections.' Loading indicators should be shown during grid updates to indicate processing. On mobile devices (<768px), filters must be accessible via a slide-out panel or modal for better screen space utilization. All filter interactions need to support keyboard navigation with visible focus indicators. Screen readers should announce filter changes and updated product counts for accessibility compliance."
-                    why_better = "Covers core filter functionality with performance, UX, persistence, accessibility, and responsive design"
-                elif 'sticky' in ac_lower or 'fixed' in ac_lower:
-                    rewrite = f"When viewing the PLP and scrolling down beyond 200px, the filter bar must remain fixed at the top of the viewport while maintaining full filter functionality. On mobile devices (<768px width), the sticky filter bar should collapse to a compact view to optimize screen space. The sticky behavior needs to support keyboard navigation for accessibility, ensuring users can navigate filters using Tab/Shift+Tab keys."
-                    why_better = "Defines scroll trigger point (200px), specifies sticky behavior, addresses responsive design, includes accessibility"
-                elif 'select' in ac_lower or 'click' in ac_lower or 'apply' in ac_lower:
-                    rewrite = f"On the PLP with available filter options, selecting one or more filter values (e.g., Brand: Nike, Size: Large) must apply filters immediately without requiring a separate 'Apply' button. The product grid should update within 1 second to show matching products for responsive user experience. Filter selections need to be highlighted with active state styling to provide clear visual feedback. The URL must update to reflect current filter state, enabling shareability and proper browser back/forward navigation."
-                    why_better = "Defines immediate application (no Apply button needed), specifies performance, includes visual feedback and URL state management"
+            # Analyze what's missing or could be improved
+            improvements = []
+            
+            # Check for missing specifics
+            if not any(word in ac_lower for word in ['verify', 'validate', 'ensure', 'confirm', 'check']):
+                improvements.append("Add action verb (verify, validate, ensure) for testability")
+            
+            if not any(word in ac_lower for word in ['within', 'second', 'ms', 'millisecond', 'immediately']):
+                improvements.append("Add performance/timing requirement")
+            
+            if not any(word in ac_lower for word in ['desktop', 'mobile', 'tablet', 'device', 'responsive']):
+                improvements.append("Specify device/platform requirements if applicable")
+            
+            if not any(word in ac_lower for word in ['error', 'invalid', 'empty', 'failure']):
+                improvements.append("Add error handling or edge case coverage")
+            
+            # Extract context from description that relates to this AC
+            relevant_desc_points = []
+            ac_keywords_list = [word for word in ac_lower.split() if len(word) > 4]
+            ac_keywords = set(word for word in ac_lower.split() if len(word) > 4)  # Set for later use
+            for point in description_points[:3]:
+                point_lower = point.lower()
+                if any(keyword in point_lower for keyword in ac_keywords_list[:3]):
+                    relevant_desc_points.append(point)
+            
+            # Build enhanced AC based on ACTUAL content - only add what's missing
+            enhancement_parts = []
+            
+            # Analyze the ACTUAL AC to see what's already there
+            has_timing = any(word in ac_lower for word in ['second', 'ms', 'millisecond', 'immediately', 'real-time', 'within'])
+            has_device_spec = any(word in ac_lower for word in ['desktop', 'mobile', 'tablet', 'device', 'responsive'])
+            has_error_handling = any(word in ac_lower for word in ['error', 'invalid', 'empty', 'failure', 'validation'])
+            has_accessibility = any(word in ac_lower for word in ['accessibility', 'wcag', 'aria', 'screen reader', 'keyboard'])
+            has_testability = any(word in ac_lower for word in ['verify', 'validate', 'ensure', 'confirm', 'check', 'test'])
+            
+            # Only add enhancements that are ACTUALLY missing and relevant to the AC
+            # Don't add generic suggestions that don't match the actual AC content
+            
+            # For filter-related ACs, only add if the AC actually mentions filters
+            if 'filter' in ac_lower:
+                # Check if AC mentions specific implementation details
+                if 'desktop' in ac_lower or 'tablet' in ac_lower or 'mobile' in ac_lower:
+                    # AC already has device specs - only add missing technical details
+                    if not has_timing and 'update' in ac_lower:
+                        enhancement_parts.append("Product grid updates must occur within 1 second of filter selection.")
+                    if not has_accessibility and ('display' in ac_lower or 'select' in ac_lower):
+                        enhancement_parts.append("Filter interactions must support keyboard navigation and screen reader announcements.")
+                elif 'slide' in ac_lower or 'panel' in ac_lower:
+                    # AC mentions slide-out - only add timing if missing
+                    if not has_timing:
+                        enhancement_parts.append("Slide-out panel must open/close within 300ms for smooth user experience.")
+            
+            # For form-related ACs
+            elif 'form' in ac_lower or 'submit' in ac_lower:
+                if not has_error_handling and 'validation' not in ac_lower:
+                    enhancement_parts.append("Form validation must occur with specific, actionable error messages.")
+                if not has_timing and 'validation' in ac_lower:
+                    enhancement_parts.append("Validation feedback must appear within 200ms of user input.")
+            
+            # For chat/button ACs
+            elif 'chat' in ac_lower or ('button' in ac_lower and 'click' in ac_lower):
+                if not has_timing and 'open' in ac_lower:
+                    enhancement_parts.append("Chat window must open within 500ms of button click.")
+                if not has_device_spec and 'visible' in ac_lower:
+                    enhancement_parts.append("Button must be visible and accessible across all device types.")
+            
+            # Add description context ONLY if it directly relates to the AC
+            if relevant_desc_points:
+                context_note = relevant_desc_points[0]
+                # Only add if it provides additional context not already in AC
+                if context_note and len(context_note) > 30:
+                    # Check if context adds value beyond what's in AC
+                    context_keywords = set(word for word in context_note.lower().split() if len(word) > 4)
+                    if context_keywords - ac_keywords:  # Context has new information
+                        enhancement_parts.append(f"Additional context: {context_note[:200]}")
+                        why_better_parts.append("Added relevant context from description")
+            
+            # Add testing steps context if available and relevant
+            if testing_steps:
+                test_lines = [line.strip() for line in testing_steps.split('\n') if line.strip()][:2]
+                if test_lines:
+                    test_context = test_lines[0]
+                    # Only add if it's not already covered in AC
+                    if test_context and len(test_context) > 20:
+                        test_keywords = set(word for word in test_context.lower().split() if len(word) > 4)
+                        if test_keywords - ac_keywords:  # Test has new information
+                            enhancement_parts.append(f"Testing consideration: {test_context[:200]}")
+                            why_better_parts.append("Included relevant testing context")
+            
+            # Check if AC is already detailed and specific - if so, don't add generic enhancements
+            is_detailed_ac = (
+                len(original_ac.strip()) > 100 and  # Long enough
+                (has_device_spec or has_timing or has_testability) and  # Has some specifics
+                not any(word in original_ac.lower() for word in ['tbd', 'to be determined', 'n/a', 'placeholder'])
+            )
+            
+            # Build the enhanced rewrite - keep original AC, add enhancements below
+            if enhancement_parts and not is_detailed_ac:
+                # Only add enhancements if AC is not already detailed
+                rewrite = f"{rewrite}\n\n✨ Suggested enhancements:\n• " + "\n• ".join(enhancement_parts)
+            elif is_detailed_ac:
+                # AC is already detailed - keep it as-is, maybe add minor technical details
+                if not has_timing and ('update' in ac_lower or 'open' in ac_lower or 'display' in ac_lower):
+                    rewrite = f"{rewrite}\n\n✨ Suggested technical enhancement:\n• Response time should be ≤500ms for optimal user experience."
                 else:
-                    rewrite = f"On the Product Listing Page with the new horizontal filter layout, the top 5 most relevant filters (Brand, Size, Color, Price, Category) must be displayed prominently for easy access. Additional filters should be accessible via a 'More Filters' expandable section to reduce visual clutter. All filter interactions need to trigger product grid updates within 1 second to maintain responsiveness. Filter selections must persist across page refreshes and browser back/forward navigation to preserve user context."
-                    why_better = "Specifies filter hierarchy (top 5 + More Filters), defines performance requirements, addresses navigation persistence"
-            
-            elif 'checkout' in ac_lower or 'payment' in ac_lower or 'checkout' in title:
-                if 'validate' in ac_lower or 'error' in ac_lower:
-                    rewrite = f"On the checkout payment step, all required fields must be validated in real-time (<200ms per field) as users enter payment information. Specific, actionable error messages should be displayed directly next to invalid fields for immediate feedback. The submit button needs to remain disabled until all validations pass to prevent invalid submissions. Error messages must support screen readers with appropriate ARIA labels to ensure accessibility compliance."
-                    why_better = "Defines real-time validation timing, specifies error message placement and clarity, includes accessibility requirements"
-                elif 'submit' in ac_lower or 'complete' in ac_lower:
-                    rewrite = f"After completing all required checkout fields, clicking the 'Complete Purchase' button must display a loading indicator immediately to acknowledge the action. The payment should be processed within 3 seconds under normal network conditions to meet user expectations. Upon successful payment, a confirmation page needs to be displayed with order details. An order confirmation email must be sent within 5 minutes of successful payment. If payment fails, appropriate error handling should display specific failure reasons (declined card, timeout, insufficient funds) with a clear retry option for user recovery."
-                    why_better = "Defines loading feedback, specifies performance expectations (3s processing), addresses success and failure paths with clear actions"
-                else:
-                    rewrite = f"On the checkout page payment selection step, all supported payment methods (Credit Card, PayPal, Apple Pay) must be displayed with clear, recognizable icons. For logged-in users, the checkout form should be pre-populated with saved billing/shipping information to streamline the process. Guest checkout needs to be available with only minimal required fields to reduce friction. The total order amount must be displayed prominently with a complete itemized breakdown showing subtotal, taxes, shipping, and discounts for transparency. All payment data transmission requires secure HTTPS with full PCI compliance standards. The interface must be fully responsive across desktop, tablet, and mobile devices with WCAG 2.1 Level AA accessibility compliance. Form validation should provide real-time feedback with specific, actionable error messages rather than generic warnings. Loading states need to be shown during payment processing (typically 2-5 seconds) to indicate progress. Error handling must display clear, actionable messages for all payment failure scenarios including declined cards, timeouts, and insufficient funds. Successful payments should redirect immediately to a confirmation page displaying the order number and estimated delivery date."
-                    why_better = "Covers payment methods, security, UX, accessibility, validation, error handling, and confirmation flow"
-            
-            elif 'form' in ac_lower or 'input' in ac_lower:
-                if 'validate' in ac_lower or 'validation' in ac_lower:
-                    rewrite = f"When filling out forms with required fields, inline validation must occur within 200ms on each field blur to provide immediate feedback. Error messages need to be specific and actionable, such as 'Email must include @' rather than generic 'Invalid email' messages. Valid fields should display a checkmark icon to provide positive confirmation and build user confidence. Field validation errors must be announced to screen readers using appropriate ARIA live regions for accessibility compliance."
-                    why_better = "Specifies validation timing and trigger (on blur), defines error message quality, includes positive feedback, addresses accessibility"
-                elif 'submit' in ac_lower:
-                    rewrite = f"After completing all form fields and clicking submit, client-side validation must run on all fields before form submission to catch errors early. The submit button should show a loading state and become disabled during processing to prevent duplicate submissions. The form needs to submit within 2 seconds under normal network conditions to meet performance expectations. A clear success or error message must be displayed after submission with specific next steps. The form should not lose user data if validation fails, preserving entered information for correction."
-                    why_better = "Defines validation sequence, includes loading state UX, specifies performance, addresses data persistence on errors"
-                else:
-                    rewrite = f"When users interact with form fields, real-time character count must be displayed for fields with length limits to guide input. Contextual help text should appear for complex fields, such as password strength requirements or format examples. Autocomplete suggestions need to be provided where applicable, particularly for standard fields like addresses and names. All form fields must support standard keyboard navigation including Tab, Shift+Tab for field traversal and Enter for submission."
-                    why_better = "Adds helpful UX features (character count, help text, autocomplete), ensures keyboard accessibility"
-            
-            elif 'performance' in ac_lower or 'load' in ac_lower or 'speed' in ac_lower:
-                rewrite = f"Under normal network conditions (3G or better), the page must display initial content within 2 seconds (First Contentful Paint) to meet user expectations. The page needs to become fully interactive within 3.5 seconds (Time to Interactive) for responsive user experience. Images should be optimized and lazy-loaded for content below the fold to reduce initial load time. Smooth scrolling must be maintained at 60fps for fluid interactions. Core Web Vitals performance targets need to be met: Largest Contentful Paint under 2.5 seconds, First Input Delay under 100 milliseconds, and Cumulative Layout Shift under 0.1 to ensure optimal user experience."
-                why_better = "Defines specific performance metrics (FCP, TTI, Core Web Vitals) with optimization strategies"
-            
-            elif 'accessibility' in ac_lower or 'ada' in ac_lower or 'screen reader' in ac_lower:
-                rewrite = f"When users navigate the interface using assistive technology, all interactive elements must have appropriate ARIA labels and semantic roles for proper identification. Keyboard navigation needs to follow a logical tab order that matches visual flow. Focus indicators must be clearly visible with a minimum 3:1 contrast ratio against the background. All functionality should be operable via keyboard alone without requiring a mouse. Color cannot be the sole means of conveying information to support users with color vision deficiencies. The interface must meet WCAG 2.1 Level AA compliance standards for accessibility."
-                why_better = "Specifies WCAG compliance level, defines contrast requirements, ensures keyboard-only operation, addresses multiple accessibility concerns"
-            
-            elif 'responsive' in ac_lower or 'mobile' in ac_lower or 'device' in ac_lower:
-                rewrite = f"When users access the interface on various devices (desktop, tablet, mobile), the layout must adapt using responsive breakpoints at 320px, 768px, and 1024px widths. Touch targets need to be at least 44x44px on mobile devices for easy finger interaction. Text must remain readable without requiring horizontal scrolling on any screen size. Functionality should be consistent across all devices with no feature degradation on smaller screens. The interface needs to be tested and validated on iOS Safari, Android Chrome, and all major desktop browsers for compatibility."
-                why_better = "Defines breakpoints, touch target standards, and ensures cross-device consistency"
-            
-            elif 'display' in ac_lower or 'show' in ac_lower or 'visible' in ac_lower:
-                rewrite = f"The information must be presented with clear visual hierarchy to guide user attention. Loading states should be displayed for asynchronous data to indicate progress. Empty states must provide helpful guidance when no data exists, explaining why the state is empty. Error states need to be clearly distinguished with appropriate icons and colors to draw attention. All text must maintain sufficient contrast ratios: 4.5:1 for normal text, 3:1 for large text to ensure readability. The interface should respond within 500ms to user interactions to maintain perceived performance."
-                why_better = "Addresses UI states (loading, empty, error), visual hierarchy, and accessibility contrast"
-            
-            elif 'error' in ac_lower:
-                rewrite = f"When errors occur during user interaction or system processing, a user-friendly error message must be displayed immediately to acknowledge the issue. The message needs to explain what went wrong in plain language without technical jargon that users won't understand. Actionable next steps should be provided, such as a 'Try again' button or 'Contact support' link with contact information. Errors must be logged with sufficient detail for debugging including error codes, timestamps, and the user action that triggered the error. Critical errors need to be reported automatically to monitoring systems for immediate team awareness and response."
-                why_better = "Defines error message clarity and timing, provides user recovery path, includes logging and monitoring for developers"
-            
+                    rewrite = original_ac.strip()
             else:
-                # Generic professional rewrite - concise but comprehensive
-                rewrite = f"For the action '{original_ac.strip()}', the system must respond within 2 seconds with clear visual feedback such as loading indicators or confirmation messages. Upon successful completion, a specific confirmation needs to be displayed like 'Item added to cart' rather than generic 'Success' messages. If errors occur, user-friendly messages should be shown with actionable next steps including 'Try again' or 'Contact support' options. The functionality must work consistently across major browsers including Chrome, Firefox, Safari, and Edge (latest 2 versions). The interface needs to be fully responsive on desktop, tablet, and mobile devices with no degradation. All interactive elements should be keyboard accessible with clearly visible focus indicators for navigation. Screen readers must announce dynamic content updates appropriately to meet WCAG 2.1 Level AA accessibility standards. User data transmission requires secure HTTPS encryption throughout. The feature should handle edge cases gracefully including network timeouts, invalid input validation, and concurrent user actions."
-                why_better = "Converts vague requirement into testable format with performance, UX, error handling, cross-browser support, accessibility, and security"
+                # If AC is short but not generic, keep original
+                rewrite = original_ac.strip()
             
-            # Additional improvements based on common weak patterns
-            if 'should' in ac_lower or 'must' in ac_lower:
-                why_better += " | Removes vague modal verbs ('should', 'must') and replaces with specific, testable behaviors"
-            if any(word in ac_lower for word in ['appropriate', 'reasonable', 'good', 'properly']):
-                why_better += " | Eliminates subjective terms by defining specific, measurable criteria"
-            if len(original_ac.split()) < 8:
-                why_better += " | Expands brief requirement into detailed, comprehensive acceptance criterion with context and edge cases"
+            # Build why_better explanation
+            if improvements and not is_detailed_ac:
+                why_better_parts.extend(improvements[:3])
+            
+            why_better = " | ".join(why_better_parts) if why_better_parts else ("AC is already comprehensive" if is_detailed_ac else "Enhanced original AC with specific, testable criteria")
+            
+            # Fallback to template-based rewrite ONLY for very short/generic ACs (< 30 chars or TBD)
+            if len(original_ac.strip()) < 30 or original_ac.lower().strip() in ['tbd', 'to be determined', 'n/a', 'na']:
+                # Use template-based approach for very generic ACs
+                if 'filter' in title or 'filter' in description_lower:
+                    if 'display' in ac_lower or 'show' in ac_lower:
+                        rewrite = f"On the Product Listing Page, selecting filter options (Brand, Size, Color, Price) must update the product grid to display only matching items within 1 second. Applied filters should appear as removable tokens above the grid with '×' close buttons for easy removal. The product count must update dynamically with messaging like 'Showing 24 of 156 results' to provide context. Filter state needs to be preserved in the URL for shareability and browser back/forward navigation support. If no products match the selected filters, display a helpful message: 'No products match your filters. Try adjusting your selections.' Loading indicators should be shown during grid updates to indicate processing. On mobile devices (<768px), filters must be accessible via a slide-out panel or modal for better screen space utilization. All filter interactions need to support keyboard navigation with visible focus indicators. Screen readers should announce filter changes and updated product counts for accessibility compliance."
+                        why_better = "Covers core filter functionality with performance, UX, persistence, accessibility, and responsive design"
+                    else:
+                        rewrite = f"On the Product Listing Page with the new horizontal filter layout, the top 5 most relevant filters (Brand, Size, Color, Price, Category) must be displayed prominently for easy access. Additional filters should be accessible via a 'More Filters' expandable section to reduce visual clutter. All filter interactions need to trigger product grid updates within 1 second to maintain responsiveness. Filter selections must persist across page refreshes and browser back/forward navigation to preserve user context."
+                        why_better = "Specifies filter hierarchy (top 5 + More Filters), defines performance requirements, addresses navigation persistence"
+                elif 'checkout' in ac_lower or 'payment' in ac_lower or 'checkout' in title:
+                    if 'validate' in ac_lower or 'error' in ac_lower:
+                        rewrite = f"On the checkout payment step, all required fields must be validated in real-time (<200ms per field) as users enter payment information. Specific, actionable error messages should be displayed directly next to invalid fields for immediate feedback. The submit button needs to remain disabled until all validations pass to prevent invalid submissions. Error messages must support screen readers with appropriate ARIA labels to ensure accessibility compliance."
+                        why_better = "Defines real-time validation timing, specifies error message placement and clarity, includes accessibility requirements"
+                    elif 'submit' in ac_lower or 'complete' in ac_lower:
+                        rewrite = f"After completing all required checkout fields, clicking the 'Complete Purchase' button must display a loading indicator immediately to acknowledge the action. The payment should be processed within 3 seconds under normal network conditions to meet user expectations. Upon successful payment, a confirmation page needs to be displayed with order details. An order confirmation email must be sent within 5 minutes of successful payment. If payment fails, appropriate error handling should display specific failure reasons (declined card, timeout, insufficient funds) with a clear retry option for user recovery."
+                        why_better = "Defines loading feedback, specifies performance expectations (3s processing), addresses success and failure paths with clear actions"
+                    else:
+                        rewrite = f"On the checkout page payment selection step, all supported payment methods (Credit Card, PayPal, Apple Pay) must be displayed with clear, recognizable icons. For logged-in users, the checkout form should be pre-populated with saved billing/shipping information to streamline the process. Guest checkout needs to be available with only minimal required fields to reduce friction. The total order amount must be displayed prominently with a complete itemized breakdown showing subtotal, taxes, shipping, and discounts for transparency. All payment data transmission requires secure HTTPS with full PCI compliance standards. The interface must be fully responsive across desktop, tablet, and mobile devices with WCAG 2.1 Level AA accessibility compliance. Form validation should provide real-time feedback with specific, actionable error messages rather than generic warnings. Loading states need to be shown during payment processing (typically 2-5 seconds) to indicate progress. Error handling must display clear, actionable messages for all payment failure scenarios including declined cards, timeouts, and insufficient funds. Successful payments should redirect immediately to a confirmation page displaying the order number and estimated delivery date."
+                        why_better = "Covers payment methods, security, UX, accessibility, validation, error handling, and confirmation flow"
+                elif 'form' in ac_lower or 'input' in ac_lower:
+                    if 'validate' in ac_lower or 'validation' in ac_lower:
+                        rewrite = f"When filling out forms with required fields, inline validation must occur within 200ms on each field blur to provide immediate feedback. Error messages need to be specific and actionable, such as 'Email must include @' rather than generic 'Invalid email' messages. Valid fields should display a checkmark icon to provide positive confirmation and build user confidence. Field validation errors must be announced to screen readers using appropriate ARIA live regions for accessibility compliance."
+                        why_better = "Specifies validation timing and trigger (on blur), defines error message quality, includes positive feedback, addresses accessibility"
+                    elif 'submit' in ac_lower:
+                        rewrite = f"After completing all form fields and clicking submit, client-side validation must run on all fields before form submission to catch errors early. The submit button should show a loading state and become disabled during processing to prevent duplicate submissions. The form needs to submit within 2 seconds under normal network conditions to meet performance expectations. A clear success or error message must be displayed after submission with specific next steps. The form should not lose user data if validation fails, preserving entered information for correction."
+                        why_better = "Defines validation sequence, includes loading state UX, specifies performance, addresses data persistence on errors"
+                    else:
+                        rewrite = f"When users interact with form fields, real-time character count must be displayed for fields with length limits to guide input. Contextual help text should appear for complex fields, such as password strength requirements or format examples. Autocomplete suggestions need to be provided where applicable, particularly for standard fields like addresses and names. All form fields must support standard keyboard navigation including Tab, Shift+Tab for field traversal and Enter for submission."
+                        why_better = "Adds helpful UX features (character count, help text, autocomplete), ensures keyboard accessibility"
+                elif 'performance' in ac_lower or 'load' in ac_lower or 'speed' in ac_lower:
+                    rewrite = f"Under normal network conditions (3G or better), the page must display initial content within 2 seconds (First Contentful Paint) to meet user expectations. The page needs to become fully interactive within 3.5 seconds (Time to Interactive) for responsive user experience. Images should be optimized and lazy-loaded for content below the fold to reduce initial load time. Smooth scrolling must be maintained at 60fps for fluid interactions. Core Web Vitals performance targets need to be met: Largest Contentful Paint under 2.5 seconds, First Input Delay under 100 milliseconds, and Cumulative Layout Shift under 0.1 to ensure optimal user experience."
+                    why_better = "Defines specific performance metrics (FCP, TTI, Core Web Vitals) with optimization strategies"
+                elif 'accessibility' in ac_lower or 'ada' in ac_lower or 'screen reader' in ac_lower:
+                    rewrite = f"When users navigate the interface using assistive technology, all interactive elements must have appropriate ARIA labels and semantic roles for proper identification. Keyboard navigation needs to follow a logical tab order that matches visual flow. Focus indicators must be clearly visible with a minimum 3:1 contrast ratio against the background. All functionality should be operable via keyboard alone without requiring a mouse. Color cannot be the sole means of conveying information to support users with color vision deficiencies. The interface must meet WCAG 2.1 Level AA compliance standards for accessibility."
+                    why_better = "Specifies WCAG compliance level, defines contrast requirements, ensures keyboard-only operation, addresses multiple accessibility concerns"
+                elif 'responsive' in ac_lower or 'mobile' in ac_lower or 'device' in ac_lower:
+                    rewrite = f"When users access the interface on various devices (desktop, tablet, mobile), the layout must adapt using responsive breakpoints at 320px, 768px, and 1024px widths. Touch targets need to be at least 44x44px on mobile devices for easy finger interaction. Text must remain readable without requiring horizontal scrolling on any screen size. Functionality should be consistent across all devices with no feature degradation on smaller screens. The interface needs to be tested and validated on iOS Safari, Android Chrome, and all major desktop browsers for compatibility."
+                    why_better = "Defines breakpoints, touch target standards, and ensures cross-device consistency"
+                elif 'display' in ac_lower or 'show' in ac_lower or 'visible' in ac_lower:
+                    rewrite = f"The information must be presented with clear visual hierarchy to guide user attention. Loading states should be displayed for asynchronous data to indicate progress. Empty states must provide helpful guidance when no data exists, explaining why the state is empty. Error states need to be clearly distinguished with appropriate icons and colors to draw attention. All text must maintain sufficient contrast ratios: 4.5:1 for normal text, 3:1 for large text to ensure readability. The interface should respond within 500ms to user interactions to maintain perceived performance."
+                    why_better = "Addresses UI states (loading, empty, error), visual hierarchy, and accessibility contrast"
+                elif 'error' in ac_lower:
+                    rewrite = f"When errors occur during user interaction or system processing, a user-friendly error message must be displayed immediately to acknowledge the issue. The message needs to explain what went wrong in plain language without technical jargon that users won't understand. Actionable next steps should be provided, such as a 'Try again' button or 'Contact support' link with contact information. Errors must be logged with sufficient detail for debugging including error codes, timestamps, and the user action that triggered the error. Critical errors need to be reported automatically to monitoring systems for immediate team awareness and response."
+                    why_better = "Defines error message clarity and timing, provides user recovery path, includes logging and monitoring for developers"
+                else:
+                    # Generic professional rewrite - concise but comprehensive
+                    rewrite = f"For the action '{original_ac.strip()}', the system must respond within 2 seconds with clear visual feedback such as loading indicators or confirmation messages. Upon successful completion, a specific confirmation needs to be displayed like 'Item added to cart' rather than generic 'Success' messages. If errors occur, user-friendly messages should be shown with actionable next steps including 'Try again' or 'Contact support' options. The functionality must work consistently across major browsers including Chrome, Firefox, Safari, and Edge (latest 2 versions). The interface needs to be fully responsive on desktop, tablet, and mobile devices with no degradation. All interactive elements should be keyboard accessible with clearly visible focus indicators for navigation. Screen readers must announce dynamic content updates appropriately to meet WCAG 2.1 Level AA accessibility standards. User data transmission requires secure HTTPS encryption throughout. The feature should handle edge cases gracefully including network timeouts, invalid input validation, and concurrent user actions."
+                    why_better = "Converts vague requirement into testable format with performance, UX, error handling, cross-browser support, accessibility, and security"
+            
+            # Additional improvements based on common weak patterns (only for template-based rewrites)
+            if len(original_ac.strip()) < 30 or original_ac.lower() in ['tbd', 'to be determined', 'n/a']:
+                if 'should' in ac_lower or 'must' in ac_lower:
+                    why_better += " | Removes vague modal verbs ('should', 'must') and replaces with specific, testable behaviors"
+                if any(word in ac_lower for word in ['appropriate', 'reasonable', 'good', 'properly']):
+                    why_better += " | Eliminates subjective terms by defining specific, measurable criteria"
+                if len(original_ac.split()) < 8:
+                    why_better += " | Expands brief requirement into detailed, comprehensive acceptance criterion with context and edge cases"
             
             suggestions.append({
                 'original': original_ac.strip(),
@@ -1988,12 +2784,91 @@ class GroomRoomNoScoring:
         
         return missing_nfrs
 
+    def _convert_rewrite_to_bullets(self, rewrite_text: str) -> str:
+        """Convert long rewrite text into concise bullet points"""
+        if not rewrite_text or len(rewrite_text.strip()) < 20:
+            return rewrite_text
+        
+        # Split by sentences and key phrases to create bullet points
+        sentences = re.split(r'[.!?]\s+', rewrite_text)
+        bullets = []
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence or len(sentence) < 15:
+                continue
+            
+            # Remove leading "On the", "When", "After", etc. for cleaner bullets
+            sentence = re.sub(r'^(On the|When|After|If|The|All|For|Upon|In|At|By|With|As)\s+', '', sentence, flags=re.IGNORECASE)
+            
+            # Capitalize first letter
+            if sentence:
+                sentence = sentence[0].upper() + sentence[1:] if len(sentence) > 1 else sentence.upper()
+            
+            # For long sentences, try to break at natural points (but preserve full text)
+            if len(sentence) > 200:
+                # Try to break at natural points
+                if ';' in sentence:
+                    parts = sentence.split(';')
+                    for part in parts:
+                        part = part.strip()
+                        if part and len(part) > 15:
+                            bullets.append(f"- {part}")
+                    continue
+                elif ',' in sentence:
+                    # Split at commas but preserve full text
+                    parts = [p.strip() for p in sentence.split(',') if p.strip() and len(p.strip()) > 15]
+                    if len(parts) > 1:
+                        for part in parts:
+                            bullets.append(f"- {part}")
+                        continue
+            
+            # Preserve full sentence, don't truncate
+            bullets.append(f"- {sentence}")
+        
+        # If we couldn't create good bullets, return original with some formatting
+        if len(bullets) == 0 or len(bullets) > 15:
+            # Too many or too few bullets - create key points instead
+            key_phrases = []
+            # Extract key requirements
+            if 'must' in rewrite_text.lower() or 'should' in rewrite_text.lower():
+                # Extract requirements
+                requirements = re.findall(r'(?:must|should|needs to|requires?)\s+([^.,;]+)', rewrite_text, re.IGNORECASE)
+                for req in requirements[:8]:  # Limit to 8 key points
+                    req = req.strip()
+                    if req and len(req) > 10 and len(req) < 100:
+                        key_phrases.append(f"- {req}")
+            
+            if key_phrases:
+                return '\n'.join(key_phrases)
+            else:
+                # Fallback: split by periods and take first 5-6 meaningful sentences (preserve full text)
+                sentences = [s.strip() for s in rewrite_text.split('.') if s.strip() and len(s.strip()) > 20]
+                # Preserve full sentences, don't truncate
+                return '\n'.join([f"- {s}" for s in sentences[:6]])
+        
+        return '\n'.join(bullets[:10])  # Limit to 10 bullets max
+
+    def _format_ac_improvements(self, ac_suggestions: List[Dict[str, str]], newline: str) -> str:
+        """Format AC improvements as bullet points"""
+        if not ac_suggestions:
+            return "_No suggestions available_"
+        
+        formatted = []
+        for i, sugg in enumerate(ac_suggestions):
+            rewrite = sugg.get('rewrite', 'No suggestion available')
+            bullets = self._convert_rewrite_to_bullets(rewrite)
+            formatted.append(f"**AC #{i+1}:**{newline}{bullets}")
+        
+        return newline.join(formatted)
+
     def hyperlink_figma_references(self, text: str, design_links: List[DesignLink]) -> str:
         """Replace Figma text references with clickable markdown links (avoid double-linking)"""
         if not design_links or not text:
             return text
         
         # Don't hyperlink if text already contains markdown links
+        text = text or ''
         if '[' in text and '](' in text and 'figma.com' in text.lower():
             return text  # Already has Figma links
         
@@ -2064,6 +2939,118 @@ class GroomRoomNoScoring:
                                      weak_areas: List[str], figma_mentioned: bool) -> str:
         """Generate detailed Actionable report with all sections"""
         mode = "Actionable"
+        newline = '\n'  # Can't use chr(10) or \n in f-string expressions
+        
+        # Debug: Check status in parsed_data
+        # PRIORITY 1: Check parsed_data['status'] FIRST (most reliable)
+        jira_status = parsed_data.get('status', 'Unknown')
+        print(f"\n🔍🔍🔍 DEBUG _generate_actionable_report - STATUS EXTRACTION:")
+        print(f"   parsed_data.get('status'): '{jira_status}'")
+        print(f"   parsed_data type: {type(parsed_data)}")
+        print(f"   parsed_data keys: {list(parsed_data.keys())}")
+        print(f"   'status' in parsed_data: {'status' in parsed_data}")
+        print(f"   'fields' in parsed_data: {'fields' in parsed_data}")
+        
+        if 'fields' in parsed_data:
+            print(f"   parsed_data['fields'] type: {type(parsed_data['fields'])}")
+            print(f"   parsed_data['fields'] keys: {list(parsed_data['fields'].keys())[:20]}")
+            print(f"   'status' in parsed_data['fields']: {'status' in parsed_data['fields']}")
+            if 'status' in parsed_data['fields']:
+                print(f"   parsed_data['fields']['status']: {parsed_data['fields']['status']}")
+                print(f"   parsed_data['fields']['status'] type: {type(parsed_data['fields']['status'])}")
+        
+        # PRIORITY 2: If status is Unknown, try parsed_data['fields']['status']
+        if not jira_status or jira_status == 'Unknown' or jira_status is None:
+            print(f"   ⚠️ Status is '{jira_status}', trying parsed_data['fields']['status']...")
+            if 'fields' in parsed_data and 'status' in parsed_data['fields']:
+                fields_status = parsed_data['fields']['status']
+                print(f"   fields_status: {fields_status}")
+                print(f"   fields_status type: {type(fields_status)}")
+                if isinstance(fields_status, dict):
+                    print(f"   fields_status keys: {list(fields_status.keys()) if isinstance(fields_status, dict) else 'N/A'}")
+                    if 'name' in fields_status:
+                        jira_status = fields_status['name']
+                        print(f"   ✅✅✅ Got status from parsed_data['fields']['status']['name']: '{jira_status}'")
+                    else:
+                        print(f"   ❌ 'name' not in fields_status dict")
+                elif isinstance(fields_status, str):
+                    jira_status = fields_status
+                    print(f"   ✅✅✅ Got status from parsed_data['fields']['status'] (string): '{jira_status}'")
+                else:
+                    print(f"   ❌ fields_status is not dict or string: {type(fields_status)}")
+            else:
+                print(f"   ❌ 'fields' not in parsed_data OR 'status' not in parsed_data['fields']")
+        
+        # PRIORITY 3: Try status_category as last resort (if still Unknown)
+        if (not jira_status or jira_status == 'Unknown') and parsed_data.get('status_category') and parsed_data.get('status_category') != 'Unknown':
+            jira_status = parsed_data.get('status_category')
+            print(f"   ✅ Got status from status_category: {jira_status}")
+        
+        # FINAL CHECK: If still Unknown, try ONE MORE TIME from parsed_data['fields']['status']
+        if not jira_status or jira_status == 'Unknown':
+            print(f"   ❌ CRITICAL: Status is still Unknown after all checks!")
+            print(f"   Trying ONE MORE TIME from parsed_data['fields']['status']...")
+            if 'fields' in parsed_data and 'status' in parsed_data['fields']:
+                fields_status = parsed_data['fields']['status']
+                if isinstance(fields_status, dict) and 'name' in fields_status:
+                    jira_status = fields_status['name']
+                    print(f"   ✅ FINAL FIX: Got status from parsed_data['fields']['status']['name']: {jira_status}")
+                elif isinstance(fields_status, str):
+                    jira_status = fields_status
+                    print(f"   ✅ FINAL FIX: Got status from parsed_data['fields']['status'] (string): {jira_status}")
+        
+        # If STILL Unknown, set to Unknown (don't use "Not Available")
+        if not jira_status or jira_status == 'Unknown':
+            jira_status = 'Unknown'
+            print(f"   ⚠️ Status will show as 'Unknown' (could not be extracted)")
+        
+        # Get brands and components for display
+        print(f"\n🔍🔍🔍 DEBUG _generate_actionable_report - BRANDS EXTRACTION:")
+        brands_display = 'Not specified'
+        if 'fields' in parsed_data:
+            print(f"   'fields' in parsed_data: True")
+            print(f"   'brands' in parsed_data['fields']: {'brands' in parsed_data['fields']}")
+            if 'brands' in parsed_data['fields']:
+                brands_value = parsed_data['fields']['brands']
+                print(f"   brands_value: {brands_value}")
+                print(f"   brands_value type: {type(brands_value)}")
+                if isinstance(brands_value, list) and brands_value:
+                    print(f"   brands_value is list with {len(brands_value)} items")
+                    if isinstance(brands_value[0], dict):
+                        print(f"   First item is dict: {brands_value[0]}")
+                        brands_display = ', '.join([item.get('value', item.get('name', '')) for item in brands_value if item.get('value') or item.get('name')])
+                        print(f"   ✅✅✅ Extracted brands from list[dict]: '{brands_display}'")
+                    else:
+                        brands_display = ', '.join(str(b) for b in brands_value if b)
+                        print(f"   ✅✅✅ Extracted brands from list: '{brands_display}'")
+                elif isinstance(brands_value, str) and brands_value.strip():
+                    brands_display = brands_value.strip()
+                    print(f"   ✅✅✅ Extracted brands from string: '{brands_display}'")
+                elif brands_value:
+                    brands_display = str(brands_value)
+                    print(f"   ✅✅✅ Extracted brands (other): '{brands_display}'")
+                else:
+                    print(f"   ❌ brands_value is empty or invalid")
+            else:
+                print(f"   ❌ 'brands' not in parsed_data['fields']")
+        else:
+            print(f"   ❌ 'fields' not in parsed_data")
+        
+        components_display = 'Not specified'
+        if 'fields' in parsed_data and parsed_data['fields'].get('components'):
+            components_value = parsed_data['fields']['components']
+            if isinstance(components_value, list) and components_value:
+                components_display = ', '.join([item.get('name', str(item)) for item in components_value if item])
+            elif isinstance(components_value, str) and components_value.strip():
+                components_display = components_value.strip()
+            elif components_value:
+                components_display = str(components_value)
+        
+        story_points_display = 'Not estimated'
+        if 'fields' in parsed_data and parsed_data['fields'].get('story_points'):
+            sp_value = parsed_data['fields']['story_points']
+            if sp_value:
+                story_points_display = str(sp_value) if not isinstance(sp_value, (list, dict)) else str(sp_value)
         
         report = f"""# {mode} Groom Report — {parsed_data['ticket_key']} | {parsed_data['title']}
 **Sprint Readiness:** {status}
@@ -2074,64 +3061,48 @@ class GroomRoomNoScoring:
 - **Missing:** {self._format_field_names(dor.get('missing', []))}
 - **Conflicts:** {self._format_field_names(dor.get('conflicts', []))}
 - **Weak Areas:** {', '.join(weak_areas) if weak_areas else 'None'}
+- **Jira Status:** {jira_status}
+- **Story Points:** {story_points_display} | **Brand:** {brands_display} | **Component:** {components_display}
+
+**Next Steps:**
+{("- Story is well-formed and meets DoR ✅" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else ("- Refine user story with Scrum team" + newline + "- Add missing acceptance criteria" + newline + "- Define technical implementation details" if 'user_story' in dor.get('present', []) else "- Create user story using format: As a [persona], I want [goal], so that [benefit]" + newline + "- Discuss with PO to understand user needs" + newline + "- Identify acceptance criteria"))}
 
 ## User Story (for Stories/Features)
 
 ### ✨ Suggested Improvement:
-**Rewrite:** "{analysis_results.get('suggested_rewrite', 'Story rewrite pending')}"
-
-**Quality Check:**
-- Persona ✅ ({"✓" if "as a" in analysis_results.get('suggested_rewrite', '').lower() else "✗ Missing"})
-- Goal ✅ ({"✓" if "i want" in analysis_results.get('suggested_rewrite', '').lower() else "✗ Missing"})
-- Benefit ✅ ({"✓" if "so that" in analysis_results.get('suggested_rewrite', '').lower() else "✗ Missing"})
-
-### 📍 Grooming Guidance:
-**Jira Status:** {parsed_data.get('status', 'Unknown')}
-
-**Next Steps:**
-{"- Story is well-formed and meets DoR ✅" if 'user_story' in dor.get('present', []) and readiness_percentage >= 80 else "- Refine user story with Scrum team" + chr(10) + "- Add missing acceptance criteria" + chr(10) + "- Define technical implementation details" if 'user_story' in dor.get('present', []) else "- Create user story using format: As a [persona], I want [goal], so that [benefit]" + chr(10) + "- Discuss with PO to understand user needs" + chr(10) + "- Identify acceptance criteria"}
-
-**Story Points:** {parsed_data['fields'].get('story_points', '❌ Not estimated')}
-**Team:** {parsed_data['fields'].get('agile_team', '❌ Not assigned')}
-**Brand/Component:** {parsed_data['fields'].get('brands', 'N/A')} / {parsed_data['fields'].get('components', 'N/A')}
+{analysis_results.get('suggested_rewrite', 'Story rewrite pending')}
 
 ## ✅ Acceptance Criteria
 
-**Detected {len(analysis_results.get('ac_professional_suggestions', []))} | Weak {analysis_results.get('ac_analysis', {}).get('weak_count', 0)}**
-
-### ✨ Professional Improvement Suggestions:
-
-{chr(10).join([f'''**AC #{i+1} Improvement:**
-{sugg.get('rewrite', 'No suggestion available')}
-
-''' for i, sugg in enumerate(analysis_results.get('ac_professional_suggestions', []))]) if analysis_results.get('ac_professional_suggestions') else "_No suggestions available_"}
+### ✨ Improvement Suggestions:
+{self._format_ac_improvements(analysis_results.get('ac_professional_suggestions', []), newline)}
 
 ## 🧪 Test Scenarios (Functional + Non-Functional)
 
 ### ✅ Positive Scenarios:
-{chr(10).join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('positive', []))]) if analysis_results.get('test_scenarios', {}).get('positive') else "_No positive scenarios defined_"}
+{(newline.join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('positive', []))]) if analysis_results.get('test_scenarios', {}).get('positive') else "_No positive scenarios defined_")}
 
 ### ⚠️ Negative Scenarios:
-{chr(10).join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('negative', []))]) if analysis_results.get('test_scenarios', {}).get('negative') else "_No negative scenarios defined_"}
+{(newline.join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('negative', []))]) if analysis_results.get('test_scenarios', {}).get('negative') else "_No negative scenarios defined_")}
 
 ### 🔥 Error/Resilience Scenarios:
-{chr(10).join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('error', []))]) if analysis_results.get('test_scenarios', {}).get('error') else "_No error/resilience scenarios defined_"}
+{(newline.join([f"{i+1}. {scenario}" for i, scenario in enumerate(analysis_results.get('test_scenarios', {}).get('error', []))]) if analysis_results.get('test_scenarios', {}).get('error') else "_No error/resilience scenarios defined_")}
 
 _Note: Test scenarios are testable, non-overlapping, and map directly to acceptance criteria. Ready for QA to convert into detailed test cases._
 
 ## 🧱 Technical / ADA / Architecture
 
 ### 💻 Implementation Details:
-{chr(10).join([f"• {detail}" for detail in analysis_results.get('technical_ada', {}).get('implementation_details_list', [])]) if analysis_results.get('technical_ada', {}).get('implementation_details_list') else "• Implementation approach to be defined during sprint planning" + chr(10) + "• Update existing components per design specifications" + chr(10) + "• Integrate with current API endpoints (no new backend required)" + chr(10) + "• Apply design system tokens for consistent UI/UX" + chr(10) + "• Ensure backward compatibility with existing functionality"}
+{(newline.join([f"• {detail}" for detail in analysis_results.get('technical_ada', {}).get('implementation_details_list', [])]) if analysis_results.get('technical_ada', {}).get('implementation_details_list') else "• Implementation approach to be defined during sprint planning" + newline + "• Update existing components per design specifications" + newline + "• Integrate with current API endpoints (no new backend required)" + newline + "• Apply design system tokens for consistent UI/UX" + newline + "• Ensure backward compatibility with existing functionality")}
 
 ### 🏗️ Architectural Solution:
-{chr(10).join([f"• {solution}" for solution in analysis_results.get('technical_ada', {}).get('architectural_solution_list', [])]) if analysis_results.get('technical_ada', {}).get('architectural_solution_list') else "• No backend schema changes required" + chr(10) + "• Reuses existing APIs and data models" + chr(10) + "• Client-side logic with existing state management (Redux/Context)" + chr(10) + "• Components designed to be reusable across variants" + chr(10) + "• Integrates with existing analytics and monitoring modules"}
+{(newline.join([f"• {solution}" for solution in analysis_results.get('technical_ada', {}).get('architectural_solution_list', [])]) if analysis_results.get('technical_ada', {}).get('architectural_solution_list') else "• No backend schema changes required" + newline + "• Reuses existing APIs and data models" + newline + "• Client-side logic with existing state management (Redux/Context)" + newline + "• Components designed to be reusable across variants" + newline + "• Integrates with existing analytics and monitoring modules")}
 
 ### ♿ ADA (Accessibility):
-{chr(10).join([f"• {ada}" for ada in analysis_results.get('technical_ada', {}).get('ada_list', [])]) if analysis_results.get('technical_ada', {}).get('ada_list') else "• Keyboard navigation: Tab, Enter, Escape keys fully control all interactions" + chr(10) + "• Screen reader labels for all interactive elements and state changes" + chr(10) + "• Color contrast ratios meet WCAG 2.1 Level AA standards" + chr(10) + "• Focus state visible for all interactive elements" + chr(10) + "• ARIA live regions announce dynamic content changes to assistive technologies"}
+{(newline.join([f"• {ada}" for ada in analysis_results.get('technical_ada', {}).get('ada_list', [])]) if analysis_results.get('technical_ada', {}).get('ada_list') else "• Keyboard navigation: Tab, Enter, Escape keys fully control all interactions" + newline + "• Screen reader labels for all interactive elements and state changes" + newline + "• Color contrast ratios meet WCAG 2.1 Level AA standards" + newline + "• Focus state visible for all interactive elements" + newline + "• ARIA live regions announce dynamic content changes to assistive technologies")}
 
 ### 📊 NFRs (Non-Functional Requirements):
-{chr(10).join([f"• {nfr}" for nfr in analysis_results.get('technical_ada', {}).get('nfr_list', [])]) if analysis_results.get('technical_ada', {}).get('nfr_list') else "• **Performance:** Page interactions respond within ≤500ms; initial load ≤2s" + chr(10) + "• **Security:** All API calls use HTTPS; no PII exposure in logs/analytics" + chr(10) + "• **Reliability:** State persists on page reload or back-navigation" + chr(10) + "• **Analytics:** All user interactions fire correct tracking events" + chr(10) + "• **Accessibility:** Full WCAG 2.1 Level AA compliance"}
+{(newline.join([f"• {nfr}" for nfr in analysis_results.get('technical_ada', {}).get('nfr_list', [])]) if analysis_results.get('technical_ada', {}).get('nfr_list') else "• **Performance:** Page interactions respond within ≤500ms; initial load ≤2s" + newline + "• **Security:** All API calls use HTTPS; no PII exposure in logs/analytics" + newline + "• **Reliability:** State persists on page reload or back-navigation" + newline + "• **Analytics:** All user interactions fire correct tracking events" + newline + "• **Accessibility:** Full WCAG 2.1 Level AA compliance")}
 
 ## 🎨 Design
 Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in parsed_data['design_links']]) if parsed_data['design_links'] else ('_Figma referenced in ticket but no direct link found. Please add Figma URL to Jira._' if figma_mentioned else 'None')}
@@ -2139,13 +3110,21 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
 ## 💡 Recommendations
 
 ### 📊 Product Owner (PO):
-{chr(10).join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('po', [])]) if analysis_results.get('recommendations', {}).get('po') else "_No specific PO recommendations for this ticket_"}
+{(newline.join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('po', [])]) if analysis_results.get('recommendations', {}).get('po') else "_No specific PO recommendations for this ticket_")}
 
 ### 🧪 QA Team:
-{chr(10).join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('qa', [])]) if analysis_results.get('recommendations', {}).get('qa') else "_No specific QA recommendations for this ticket_"}
+{(newline.join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('qa', [])]) if analysis_results.get('recommendations', {}).get('qa') else "_No specific QA recommendations for this ticket_")}
 
 ### 💻 Dev / Tech Lead:
-{chr(10).join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('dev', [])]) if analysis_results.get('recommendations', {}).get('dev') else "_No specific Dev recommendations for this ticket_"}
+{(newline.join([f"{rec}" for rec in analysis_results.get('recommendations', {}).get('dev', [])]) if analysis_results.get('recommendations', {}).get('dev') else "_No specific Dev recommendations for this ticket_")}
+
+---
+
+## ✅ Quality Check
+
+**Persona:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("as a") > 0 else "✗ Missing"}  
+**Goal:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("i want") > 0 else "✗ Missing"}  
+**Benefit:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("so that") > 0 else "✗ Missing"}
 """
         
         return report
@@ -2155,6 +3134,7 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
                                   weak_areas: List[str], figma_mentioned: bool) -> str:
         """Generate balanced Insight report (medium detail)"""
         mode = "Insight (Balanced Groom)"
+        newline = '\n'  # Can't use chr(10) or \n in f-string expressions
         
         report = f"""# 🔍 {mode} — {parsed_data['ticket_key']} | {parsed_data['title']}
 **Sprint Readiness:** {status} | **Coverage:** {readiness_percentage}%
@@ -2173,7 +3153,7 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
 **Detected:** {len(analysis_results.get('ac_rewrites', []))} | **Quality:** {analysis_results.get('ac_analysis', {}).get('testable_count', 0)}/{len(analysis_results.get('ac_rewrites', []))} testable
 
 ### Key Criteria:
-{chr(10).join([f"{i+1}. {ac}" for i, ac in enumerate(analysis_results.get('ac_rewrites', [])[:5])]) if analysis_results.get('ac_rewrites') else "1. Feature displays correctly per design specifications" + chr(10) + "2. User interactions trigger expected responses" + chr(10) + "3. Error states display clear messages"}
+{(newline.join([f"{i+1}. {ac}" for i, ac in enumerate(analysis_results.get('ac_rewrites', [])[:5])]) if analysis_results.get('ac_rewrites') else "1. Feature displays correctly per design specifications" + newline + "2. User interactions trigger expected responses" + newline + "3. Error states display clear messages")}
 
 _Missing NFRs:_ {', '.join([nfr.get('type', '') for nfr in analysis_results.get('missing_nfrs', [])[:3]]) if analysis_results.get('missing_nfrs') else 'None'}
 
@@ -2182,10 +3162,10 @@ _Missing NFRs:_ {', '.join([nfr.get('type', '') for nfr in analysis_results.get(
 
 ## 🧱 Technical / ADA / Architecture
 ### Implementation:
-{chr(10).join([f"• {detail}" for detail in analysis_results.get('technical_ada', {}).get('implementation_details_list', [])[:3]]) if analysis_results.get('technical_ada', {}).get('implementation_details_list') else "• Update components per design specifications" + chr(10) + "• Integrate with current API endpoints"}
+{(newline.join([f"• {detail}" for detail in analysis_results.get('technical_ada', {}).get('implementation_details_list', [])[:3]]) if analysis_results.get('technical_ada', {}).get('implementation_details_list') else "• Update components per design specifications" + newline + "• Integrate with current API endpoints")}
 
 ### ADA:
-{chr(10).join([f"• {ada}" for ada in analysis_results.get('technical_ada', {}).get('ada_list', [])[:3]]) if analysis_results.get('technical_ada', {}).get('ada_list') else "• Keyboard navigation support" + chr(10) + "• Screen reader compatibility"}
+{(newline.join([f"• {ada}" for ada in analysis_results.get('technical_ada', {}).get('ada_list', [])[:3]]) if analysis_results.get('technical_ada', {}).get('ada_list') else "• Keyboard navigation support" + newline + "• Screen reader compatibility")}
 
 ## 🎨 Design
 Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in parsed_data['design_links']]) if parsed_data['design_links'] else ('_Figma mentioned but no link_' if figma_mentioned else 'None')}
@@ -2196,6 +3176,14 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
 **QA:** {analysis_results.get('recommendations', {}).get('qa', ['Expand test coverage'])[0] if analysis_results.get('recommendations', {}).get('qa') else 'Include accessibility and cross-browser testing'}
 
 **Dev:** {analysis_results.get('recommendations', {}).get('dev', ['Document implementation'])[0] if analysis_results.get('recommendations', {}).get('dev') else 'Add telemetry and document error handling'}
+
+---
+
+## ✅ Quality Check
+
+**Persona:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("as a") > 0 else "✗ Missing"}  
+**Goal:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("i want") > 0 else "✗ Missing"}  
+**Benefit:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("so that") > 0 else "✗ Missing"}
 """
         
         return report
@@ -2206,8 +3194,8 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
         """Generate concise Summary report (snapshot)"""
         mode = "Summary (Snapshot)"
         
-        report = f"""# 📸 {mode} — {parsed_data['ticket_key']}
-## {parsed_data['title']}
+        report = f"""# 📸 {mode} — {parsed_data.get('ticket_key', '') or ''}
+## {parsed_data.get('title', '') or ''}
 
 **Status:** {status} | **Coverage:** {readiness_percentage}%
 
@@ -2234,15 +3222,82 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
 - **PO:** {analysis_results.get('recommendations', {}).get('po', ['Define KPIs'])[0][:80] + '...' if len(analysis_results.get('recommendations', {}).get('po', ['Define KPIs'])[0]) > 80 else analysis_results.get('recommendations', {}).get('po', ['Define KPIs'])[0] if analysis_results.get('recommendations', {}).get('po') else 'Define success metrics'}
 - **QA:** {analysis_results.get('recommendations', {}).get('qa', ['Expand tests'])[0][:80] + '...' if len(analysis_results.get('recommendations', {}).get('qa', ['Expand tests'])[0]) > 80 else analysis_results.get('recommendations', {}).get('qa', ['Expand tests'])[0] if analysis_results.get('recommendations', {}).get('qa') else 'Include accessibility testing'}
 - **Dev:** {analysis_results.get('recommendations', {}).get('dev', ['Add telemetry'])[0][:80] + '...' if len(analysis_results.get('recommendations', {}).get('dev', ['Add telemetry'])[0]) > 80 else analysis_results.get('recommendations', {}).get('dev', ['Add telemetry'])[0] if analysis_results.get('recommendations', {}).get('dev') else 'Document error handling'}
+
+---
+
+## ✅ Quality Check
+
+**Persona:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("as a") > 0 else "✗ Missing"}  
+**Goal:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("i want") > 0 else "✗ Missing"}  
+**Benefit:** {"✓" if (str(analysis_results.get('suggested_rewrite') or '')).lower().count("so that") > 0 else "✗ Missing"}
 """
         
         return report
 
-    def analyze_ticket(self, ticket_data: Dict[str, Any], mode: str = "Actionable") -> GroomroomResponse:
+    def analyze_ticket(self, ticket_data: Dict[str, Any], mode: str = "Actionable", status_fallback: str = None) -> GroomroomResponse:
         """Main analysis method - comprehensive ticket analysis without scoring"""
         try:
-            # Parse Jira content
-            parsed_data = self.parse_jira_content(ticket_data)
+            # Extract status_fallback from ticket_data if available
+            if not status_fallback and isinstance(ticket_data, dict):
+                # Try to get status from ticket_info if it's nested
+                if 'status' in ticket_data and isinstance(ticket_data['status'], str):
+                    status_fallback = ticket_data['status']
+                # Or from fields.status.name
+                elif 'fields' in ticket_data and 'status' in ticket_data['fields']:
+                    status_obj = ticket_data['fields']['status']
+                    if isinstance(status_obj, dict) and 'name' in status_obj:
+                        status_fallback = status_obj['name']
+            
+            # Parse Jira content with status_fallback
+            parsed_data = self.parse_jira_content(ticket_data, status_fallback=status_fallback)
+            
+            # AGGRESSIVE FIX: ALWAYS set status from status_fallback if available
+            # CRITICAL: Force set status from status_fallback FIRST, before checking anything else
+            current_status = parsed_data.get('status', 'Unknown')
+            
+            # PRIORITY 1: Use status_fallback if it's valid
+            if status_fallback and status_fallback != 'Unknown' and status_fallback is not None:
+                print(f"🔧 FORCING: Setting status from status_fallback: {status_fallback}")
+                parsed_data['status'] = status_fallback
+                # ALSO store in fields for redundancy
+                if 'fields' not in parsed_data:
+                    parsed_data['fields'] = {}
+                parsed_data['fields']['status'] = {'name': status_fallback}
+                print(f"🔧 Status set in both locations: {status_fallback}")
+            # PRIORITY 2: Use current_status if it's valid and status_fallback is not
+            elif current_status and current_status != 'Unknown':
+                print(f"✅ Keeping existing status from parsed_data: {current_status}")
+                if 'fields' not in parsed_data:
+                    parsed_data['fields'] = {}
+                parsed_data['fields']['status'] = {'name': current_status}
+            # PRIORITY 3: Try to get from fields.status
+            elif 'fields' in parsed_data and 'status' in parsed_data['fields']:
+                fields_status = parsed_data['fields']['status']
+                if isinstance(fields_status, dict) and 'name' in fields_status:
+                    final_status = fields_status['name']
+                    if final_status and final_status != 'Unknown':
+                        parsed_data['status'] = final_status
+                        print(f"✅ Got status from fields.status: {final_status}")
+            # PRIORITY 4: Last resort - try to get from ticket_data directly
+            elif isinstance(ticket_data, dict):
+                # Try renderedFields
+                if 'renderedFields' in ticket_data:
+                    rendered = ticket_data.get('renderedFields', {})
+                    if rendered and rendered.get('status'):
+                        status_obj = rendered.get('status')
+                        if isinstance(status_obj, dict) and 'name' in status_obj:
+                            final_status = status_obj['name']
+                            if final_status and final_status != 'Unknown':
+                                parsed_data['status'] = final_status
+                                print(f"✅ Got status from ticket_data['renderedFields']['status']: {final_status}")
+            else:
+                print(f"⚠️ WARNING: Status is Unknown and no status_fallback available")
+                print(f"   current_status: {current_status}")
+                print(f"   status_fallback: {status_fallback}")
+            
+            # Debug: Print final status
+            print(f"\n🔍 DEBUG analyze_ticket - Final parsed_data status: {parsed_data.get('status')}")
+            print(f"   parsed_data['fields'].get('status'): {parsed_data.get('fields', {}).get('status')}")
             
             # Calculate DoR coverage
             present_fields, missing_fields, conflicts = self.calculate_dor_coverage(parsed_data)
@@ -2338,7 +3393,11 @@ Links: {', '.join([f"[{link.anchor_text or 'Figma'}]({link.url})" for link in pa
                 'TestScenarios': test_scenarios,
                 'TechnicalADA': analysis_results['technical_ada'],
                 'DesignLinks': [link.url for link in parsed_data['design_links']],
-                'Recommendations': recommendations
+                'Recommendations': recommendations,
+                'Brands': parsed_data['fields'].get('brands', ''),
+                'StoryPoints': parsed_data['fields'].get('story_points', ''),
+                'Components': parsed_data['fields'].get('components', ''),
+                'AgileTeam': parsed_data['fields'].get('agile_team', '')
             }
             
             return GroomroomResponse(
