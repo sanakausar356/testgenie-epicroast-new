@@ -18,6 +18,9 @@ if ROOT not in sys.path:
     sys.path.append(ROOT)
 
 from jira_integration import JiraIntegration  # ⬅️ add this
+from epicroast.core import EpicRoast  # ⬅️ STEP 1: Import EpicRoast class
+from testgenie.core import TestGenie  # ⬅️ Import TestGenie class
+
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +28,8 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 jira = JiraIntegration() 
+epicroast = EpicRoast()  # ⬅️ STEP 2: Initialize EpicRoast instance
+testgenie = TestGenie()  # ⬅️ Initialize TestGenie instance 
 
 def _format_insight_for_display(result):
     """Format insight mode output for display"""
@@ -520,22 +525,58 @@ def generate_tests():
     """Generate test cases using TestGenie"""
     try:
         data = request.get_json()
-        acceptance_criteria = data.get('acceptance_criteria', '')
+        ticket_number = data.get('ticket_number', '').strip()
+        acceptance_criteria = data.get('acceptance_criteria', '').strip()
         
-        # Placeholder for TestGenie test generation
-        test_scenarios = {
-            'positive_tests': [],
-            'negative_tests': [],
-            'edge_cases': []
-        }
+        # ⬅️ STEP 1: Get acceptance criteria from Jira if ticket_number provided
+        if ticket_number and not acceptance_criteria:
+            if not jira or not jira.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'Jira integration not available'
+                }), 503
+            
+            ticket_info = jira.get_ticket_info(ticket_number)
+            if ticket_info:
+                # Extract acceptance criteria from custom fields
+                custom_fields = ticket_info.get('custom_fields', {})
+                acceptance_criteria_field = custom_fields.get('Acceptance Criteria') or custom_fields.get('acceptance_criteria')
+                
+                if acceptance_criteria_field:
+                    # Handle ADF format or string format
+                    if isinstance(acceptance_criteria_field, dict) and acceptance_criteria_field.get('type') == 'doc':
+                        acceptance_criteria = jira._extract_adf_content(acceptance_criteria_field)
+                    else:
+                        acceptance_criteria = str(acceptance_criteria_field)
+                else:
+                    # Fallback: use full ticket content if acceptance criteria not found
+                    acceptance_criteria = jira.format_ticket_for_analysis(ticket_info)
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Could not fetch ticket {ticket_number}'
+                }), 404
         
+        # Validate acceptance criteria
+        if not acceptance_criteria or not acceptance_criteria.strip():
+            return jsonify({
+                'success': False,
+                'error': 'Acceptance criteria is required. Please provide either ticket_number or acceptance_criteria'
+            }), 400
+        
+        # Call actual TestGenie.generate_test_scenarios() method
+        scenario_types = ['positive', 'negative', 'edge']
+        test_scenarios_markdown = testgenie.generate_test_scenarios(acceptance_criteria, scenario_types)
+        
+        # Return response in format frontend expects
         return jsonify({
             'success': True,
             'data': {
-                'test_scenarios': test_scenarios,
+                'scenarios': test_scenarios_markdown,  # ⬅️ Changed from 'test_scenarios' to 'scenarios' to match frontend
                 'acceptance_criteria': acceptance_criteria
             }
-        })
+        }), 200, {'Content-Type': 'application/json; charset=utf-8'}
+        
     except Exception as e:
         return jsonify({
             'success': False,
@@ -548,21 +589,49 @@ def roast_ticket():
     """Generate EpicRoast analysis"""
     try:
         data = request.get_json()
-        ticket_content = data.get('ticket_content', '')
+        ticket_number = data.get('ticket_number', '').strip()
+        ticket_content = data.get('ticket_content', '').strip()
         theme = data.get('theme', 'default')
+        level = data.get('level', 'savage')
         
-        # Placeholder for EpicRoast
-        roast = {
-            'roast': f"EpicRoast analysis for: {ticket_content[:50]}... (Theme: {theme})",
-            'theme': theme,
-            'issues_found': [],
-            'suggestions': []
-        }
+        # ⬅️ STEP 3: Get ticket content from Jira if ticket_number provided
+        if ticket_number and not ticket_content:
+            if not jira or not jira.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'Jira integration not available'
+                }), 503
+            
+            ticket_info = jira.get_ticket_info(ticket_number)
+            if ticket_info:
+                ticket_content = jira.format_ticket_for_analysis(ticket_info)
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Could not fetch ticket {ticket_number}'
+                }), 404
         
+        # Validate that we have ticket content
+        if not ticket_content:
+            return jsonify({
+                'success': False,
+                'error': 'Either ticket_content or ticket_number must be provided'
+            }), 400
+        
+        # ⬅️ STEP 3: Call actual EpicRoast.generate_roast() method
+        roast_text = epicroast.generate_roast(ticket_content, theme=theme, level=level)
+        
+        # ⬅️ STEP 3: Return response in format frontend expects
         return jsonify({
             'success': True,
-            'data': roast
-        })
+            'data': {
+                'roast': roast_text,
+                'theme': theme,
+                'level': level,
+                'ticket_number': ticket_number if ticket_number else None
+            }
+        }), 200, {'Content-Type': 'application/json; charset=utf-8'}
+        
     except Exception as e:
         return jsonify({
             'success': False,
