@@ -46,6 +46,7 @@ class TestGenie:
                 console.print("- AZURE_OPENAI_API_KEY")
                 console.print("- AZURE_OPENAI_DEPLOYMENT_NAME")
                 self.client = None
+                return
             
             self.client = openai.AzureOpenAI(
                 azure_endpoint=endpoint,
@@ -192,8 +193,18 @@ Please provide comprehensive, well-structured test scenarios that cover all aspe
 """
         
         try:
+            # Check if client is initialized
+            if not self.client:
+                console.print("[red]Azure OpenAI client not initialized. Check your environment variables.[/red]")
+                return self.get_fallback_message()
+            
+            deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
+            if not deployment_name:
+                console.print("[red]AZURE_OPENAI_DEPLOYMENT_NAME not set[/red]")
+                return self.get_fallback_message()
+            
             response = self.client.chat.completions.create(
-                model=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                model=deployment_name,
                 messages=[
                     {"role": "system", "content": "You are a senior QA engineer with expertise in test case design and acceptance criteria analysis."},
                     {"role": "user", "content": prompt}
