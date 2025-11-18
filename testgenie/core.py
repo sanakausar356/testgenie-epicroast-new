@@ -34,12 +34,29 @@ class TestGenie:
     def setup_azure_openai(self):
         """Initialize Azure OpenAI client"""
         try:
+            # Disable proxy for Azure OpenAI (like Jira integration does)
+            os.environ.pop('HTTP_PROXY', None)
+            os.environ.pop('HTTPS_PROXY', None)
+            os.environ.pop('http_proxy', None)
+            os.environ.pop('https_proxy', None)
+            os.environ.pop('ALL_PROXY', None)
+            os.environ.pop('all_proxy', None)
+            os.environ['NO_PROXY'] = '*'
+            
             endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
             api_key = os.getenv('AZURE_OPENAI_API_KEY')
-            api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview')
+            api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-12-01-preview')
             deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
             
+            # Log environment variable status (for Railway debugging)
+            print(f"🔍 DEBUG: TestGenie Azure OpenAI Configuration Check:")
+            print(f"   Endpoint: {'✅ Set' if endpoint else '❌ Missing'} ({endpoint[:50] + '...' if endpoint and len(endpoint) > 50 else endpoint if endpoint else 'None'})")
+            print(f"   API Key: {'✅ Set' if api_key else '❌ Missing'} ({len(api_key) if api_key else 0} chars)")
+            print(f"   API Version: {api_version}")
+            print(f"   Deployment: {'✅ Set' if deployment_name else '❌ Missing'} ({deployment_name if deployment_name else 'None'})")
+            
             if not all([endpoint, api_key, deployment_name]):
+                print(f"❌ ERROR: Missing required Azure OpenAI environment variables!")
                 console.print("[red]Error: Missing Azure OpenAI configuration in .env file[/red]")
                 console.print("Please ensure you have the following variables set:")
                 console.print("- AZURE_OPENAI_ENDPOINT")
@@ -48,14 +65,42 @@ class TestGenie:
                 self.client = None
                 return
             
+            # Clean endpoint (remove trailing slash if present)
+            endpoint = endpoint.rstrip('/')
+            print(f"🔍 DEBUG: Cleaned endpoint: {endpoint}")
+            
             self.client = openai.AzureOpenAI(
                 azure_endpoint=endpoint,
                 api_key=api_key,
-                api_version=api_version
+                api_version=api_version,
+                timeout=30.0,  # 30 second timeout
+                max_retries=2  # Retry up to 2 times
             )
             
+            # Verify client was created successfully
+            if self.client:
+                print(f"✅ TestGenie Azure OpenAI client initialized successfully")
+            else:
+                print(f"❌ WARNING: TestGenie Azure OpenAI client is None after initialization")
+            
         except Exception as e:
-            console.print(f"[red]Error setting up Azure OpenAI: {e}[/red]")
+            # Log to both console (for local) and print (for Railway logs)
+            error_type = type(e).__name__
+            error_msg = str(e)
+            
+            # Print to stdout/stderr for Railway logs visibility
+            print(f"❌ ERROR: TestGenie Azure OpenAI setup failed!")
+            print(f"   Error Type: {error_type}")
+            print(f"   Error Message: {error_msg}")
+            
+            # Also use console for local development
+            console.print(f"[red]Error setting up Azure OpenAI: {error_type}: {error_msg}[/red]")
+            
+            # Print full traceback for debugging
+            import traceback
+            print("   Full Traceback:")
+            traceback.print_exc()
+            
             self.client = None
     
     def get_acceptance_criteria(self, input_file: Optional[str] = None, ticket_number: Optional[str] = None) -> str:
@@ -195,11 +240,16 @@ Please provide comprehensive, well-structured test scenarios that cover all aspe
         try:
             # Check if client is initialized
             if not self.client:
+                # Log why client is None
+                print(f"❌ ERROR: TestGenie client is None!")
+                print(f"   This means setup_azure_openai() failed during initialization")
+                print(f"   Check Railway logs for Azure OpenAI setup errors above")
                 console.print("[red]Azure OpenAI client not initialized. Check your environment variables.[/red]")
                 return self.get_fallback_message()
             
             deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
             if not deployment_name:
+                print(f"❌ ERROR: AZURE_OPENAI_DEPLOYMENT_NAME not set in environment variables")
                 console.print("[red]AZURE_OPENAI_DEPLOYMENT_NAME not set[/red]")
                 return self.get_fallback_message()
             
@@ -215,7 +265,16 @@ Please provide comprehensive, well-structured test scenarios that cover all aspe
             return response.choices[0].message.content
             
         except Exception as e:
-            console.print(f"[red]Error generating test scenarios: {e}[/red]")
+            # Log detailed error for Railway
+            error_type = type(e).__name__
+            error_msg = str(e)
+            print(f"❌ ERROR: TestGenie API call failed!")
+            print(f"   Error Type: {error_type}")
+            print(f"   Error Message: {error_msg}")
+            import traceback
+            print("   Full Traceback:")
+            traceback.print_exc()
+            console.print(f"[red]Error generating test scenarios: {error_type}: {error_msg}[/red]")
             return self.get_fallback_message()
     
     def get_fallback_message(self) -> str:
