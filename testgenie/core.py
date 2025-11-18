@@ -45,7 +45,7 @@ class TestGenie:
                 console.print("- AZURE_OPENAI_ENDPOINT")
                 console.print("- AZURE_OPENAI_API_KEY")
                 console.print("- AZURE_OPENAI_DEPLOYMENT_NAME")
-                sys.exit(1)
+                self.client = None
             
             self.client = openai.AzureOpenAI(
                 azure_endpoint=endpoint,
@@ -55,7 +55,7 @@ class TestGenie:
             
         except Exception as e:
             console.print(f"[red]Error setting up Azure OpenAI: {e}[/red]")
-            sys.exit(1)
+            self.client = None
     
     def get_acceptance_criteria(self, input_file: Optional[str] = None, ticket_number: Optional[str] = None) -> str:
         """Get acceptance criteria from user input, file, or Jira ticket"""
